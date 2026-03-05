@@ -1,0 +1,45 @@
+# Terraform
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Terraform lock file
+!**/.terraform.lock.hcl
+
+# local artifacts
+plan.txt
+*.plan
+*.txt
+tf_export/
+**/tf_export/
+
+# sensitive 
+*.tfvars
+*.tfvars.json
+
+# CLI overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+**.json
+*.json
+**.sh
+*.sh
+**.zip
+
+lambda_export_full_old/
+lambda_export_full_test/
+
+*.tgz
+
+infra/test/
+**.DS_Store
+
+check_and_generate_fix_commands.py
+
+**.pem

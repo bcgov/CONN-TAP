@@ -1,0 +1,10 @@
+resource "aws_glue_job" "load_ngta_rogers_pricebook_notebook" { name = "load-ngta-rogers-pricebook-notebook" }
+resource "aws_glue_job" "load_ngta_telus_pricebook_notebook"  { name = "load-ngta-telus-pricebook-notebook" }
+resource "aws_glue_job" "load_tsma_pricebook_notebook"        { name = "load-tsma-pricebook-notebook" }
+resource "aws_glue_job" "mapping_to_master"                   { name = "mapping-to-master" }
+resource "aws_glue_job" "move_tsma_files"                     { name = "move_tsma_files" }
+resource "aws_glue_job" "ngta_rogers_fact"                    { name = "ngta-rogers-fact" }
+resource "aws_glue_job" "ngta_telus_fact"                     { name = "ngta-telus-fact" }
+resource "aws_glue_job" "tsma_fact"                           { name = "tsma-fact" }
+resource "aws_glue_job" "tsma_fact_underscore"                { name = "tsma_fact" }
+resource "aws_glue_job" "tsma_service_dashboard_data"         { name = "tsma-service-dashboard-data" }
