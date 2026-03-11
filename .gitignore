@@ -6,6 +6,13 @@
 crash.log
 crash.*.log
 
+
+**/*.pem
+**/*.ppk
+**/*.tfplan
+
+**/_glue_assets/
+
 # Terraform lock file
 !**/.terraform.lock.hcl
 
@@ -42,4 +49,9 @@ infra/test/
 
 check_and_generate_fix_commands.py
 
-**.pem
+keys/
+*.pem
+old_environment/
+tools/
+
+*.pub
