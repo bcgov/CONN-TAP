@@ -6,10 +6,13 @@
 crash.log
 crash.*.log
 
-
+# key
 **/*.pem
 **/*.ppk
 **/*.tfplan
+keys/
+*.pem
+*.pub
 
 **/_glue_assets/
 
@@ -23,9 +26,7 @@ plan.txt
 tf_export/
 **/tf_export/
 
-# sensitive 
-*.tfvars
-*.tfvars.json
+# sensitive
 
 # CLI overrides
 override.tf
@@ -39,19 +40,9 @@ override.tf.json
 *.sh
 **.zip
 
-lambda_export_full_old/
-lambda_export_full_test/
-
 *.tgz
 
 infra/test/
 **.DS_Store
 
 check_and_generate_fix_commands.py
-
-keys/
-*.pem
-old_environment/
-tools/
-
-*.pub

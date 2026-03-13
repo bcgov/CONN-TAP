@@ -63,6 +63,5 @@ variable "assets_dir" {
 }
 
 variable "account_id" {
-  type    = string
-  default = null
+  type = string
 }

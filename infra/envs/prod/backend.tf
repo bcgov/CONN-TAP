@@ -1,7 +1,8 @@
 terraform {
   backend "s3" {
-    bucket = "terraform-remote-state-c4e70c-prod"
-    key    = "ngta/terraform.tfstate"
-    region = "ca-central-1"
+    bucket  = "terraform-remote-state-dd5a29-prod"
+    key     = "dmp/terraform.tfstate"
+    region  = "ca-central-1"
+    encrypt = true
   }
 }
