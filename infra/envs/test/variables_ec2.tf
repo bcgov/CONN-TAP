@@ -14,11 +14,6 @@ variable "ec2_root_volume_gb" {
   default     = 50
 }
 
-variable "ec2_subnet_id" {
-  type        = string
-  description = "Subnet ID in the LZA Test VPC to place the EC2 in (e.g. Test-App-A)"
-}
-
 variable "ec2_instance_profile_name" {
   type        = string
   description = "Existing IAM Instance Profile name to attach to EC2 (or manage via Terraform separately)"

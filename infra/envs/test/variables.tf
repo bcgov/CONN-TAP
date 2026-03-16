@@ -73,3 +73,9 @@ variable "enable_tsma_lambda_fact" {
   type    = bool
   default = false
 }
+
+# EC2 PowerBI instance (set false to skip if key/subnet issues)
+variable "enable_ec2" {
+  type    = bool
+  default = true
+}
