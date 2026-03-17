@@ -2,7 +2,7 @@
 
 Copies objects from a **source** S3 bucket to a **destination** S3 bucket. Only objects that do not already exist in the destination (by key) are copied. Optional folder prefixes can be excluded from the source so they are never copied (e.g. `athena_results`).
 
-Useful for replicating bucket contents across accounts or regions (e.g. from a reference environment into a new one).
+Useful for replicating bucket contents across accounts or zones (e.g. from a reference environment into a new one).
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Set these before running the script. Source and destination can be different acc
 
 ## Excluding folders
 
-- **Default:** The `athena_results` prefix is excluded so Athena query result files are not copied.
+- **Default:** The `athena_results` and `athena-results` prefixes are excluded so Athena query result files are not copied.
 - To exclude more prefixes, set `EXCLUDE_PREFIXES` to a comma-separated list, e.g.  
   `EXCLUDE_PREFIXES=athena_results,temp,logs`
 - To exclude nothing, set `EXCLUDE_PREFIXES=` or `EXCLUDE_PREFIXES=""`

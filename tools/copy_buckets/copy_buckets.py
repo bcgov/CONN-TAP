@@ -15,7 +15,7 @@ DEST_REGION = os.getenv("DEST_AWS_REGION", "us-east-1")
 DEST_BUCKET = os.environ["DEST_BUCKET"]
 
 # Comma-separated list of folder prefixes to exclude from copy (default: athena_results)
-EXCLUDE_PREFIXES_RAW = os.getenv("EXCLUDE_PREFIXES", "athena_results")
+EXCLUDE_PREFIXES_RAW = os.getenv("EXCLUDE_PREFIXES", "athena_results,athena-results")
 EXCLUDE_PREFIXES = [p.strip() for p in EXCLUDE_PREFIXES_RAW.split(",") if p.strip()]
 
 
