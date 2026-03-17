@@ -71,3 +71,9 @@ variable "powerbi_alert_email" {
   default     = null
   description = "Email address to receive alerts when the PowerBI EC2 instance has been running for more than 8 hours. Leave null to disable email alerts."
 }
+
+variable "glue_job_max_concurrent_runs" {
+  type        = number
+  default     = 20
+  description = "Maximum concurrent runs for all Glue jobs in this module. Increase if you expect many parallel triggers; decrease for stricter throttling."
+}
