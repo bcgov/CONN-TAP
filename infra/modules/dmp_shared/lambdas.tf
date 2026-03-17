@@ -4,7 +4,7 @@ resource "aws_lambda_function" "lambda_ngta_rogers" {
   runtime       = "python3.13"
   handler       = "lambda_function.lambda_handler"
 
-  s3_bucket = aws_s3_bucket.glue_assets.bucket
+  s3_bucket = var.glue_assets_bucket_name
   s3_key    = aws_s3_object.lambda_ngta_rogers_zip.key
 
   environment {
@@ -22,7 +22,7 @@ resource "aws_lambda_function" "lambda_ngta_telus" {
   runtime       = "python3.13"
   handler       = "lambda_function.lambda_handler"
 
-  s3_bucket = aws_s3_bucket.glue_assets.bucket
+  s3_bucket = var.glue_assets_bucket_name
   s3_key    = aws_s3_object.lambda_ngta_telus_zip.key
 
   environment {
@@ -40,7 +40,7 @@ resource "aws_lambda_function" "lambda_ngta_telus_quantities" {
   runtime       = "python3.13"
   handler       = "lambda_function.lambda_handler"
 
-  s3_bucket = aws_s3_bucket.glue_assets.bucket
+  s3_bucket = var.glue_assets_bucket_name
   s3_key    = aws_s3_object.lambda_ngta_telus_quantities_zip.key
 
   environment {
@@ -61,7 +61,7 @@ resource "aws_lambda_function" "lambda_tsma_fact" {
   runtime       = "python3.13"
   handler       = "lambda_function.lambda_handler"
 
-  s3_bucket = aws_s3_bucket.glue_assets.bucket
+  s3_bucket = var.glue_assets_bucket_name
   s3_key    = aws_s3_object.lambda_tsma_fact_zip.key
 
   environment {
@@ -77,7 +77,7 @@ resource "aws_lambda_function" "lambda_tsma_qsr" {
   runtime       = "python3.13"
   handler       = "lambda_function.lambda_handler"
 
-  s3_bucket = aws_s3_bucket.glue_assets.bucket
+  s3_bucket = var.glue_assets_bucket_name
   s3_key    = aws_s3_object.lambda_tsma_qsr_zip.key
 
   timeout = 30

@@ -42,6 +42,13 @@ module "tsma_ngta_price_books" {
   enable_versioning = false
 }
 
+module "glue_assets" {
+  source = "../../modules/s3_bucket"
+
+  bucket_name       = local.glue_assets_bucket_name
+  enable_versioning = false
+}
+
 data "aws_caller_identity" "current" {}
 
 module "dmp" {
@@ -74,5 +81,6 @@ module "dmp" {
     module.tsma_raw_data,
     module.tsma_ngta_mapping,
     module.tsma_ngta_price_books,
+    module.glue_assets,
   ]
 }

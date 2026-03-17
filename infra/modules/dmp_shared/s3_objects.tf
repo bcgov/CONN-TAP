@@ -1,7 +1,7 @@
 resource "aws_s3_object" "glue_scripts" {
   for_each = local.glue_scripts
 
-  bucket = aws_s3_bucket.glue_assets.bucket
+  bucket = var.glue_assets_bucket_name
   key    = each.value.key
   source = each.value.source
   etag   = filemd5(each.value.source)
@@ -23,7 +23,7 @@ data "archive_file" "lambda_ngta_rogers" {
 }
 
 resource "aws_s3_object" "lambda_ngta_rogers_zip" {
-  bucket       = aws_s3_bucket.glue_assets.bucket
+  bucket       = var.glue_assets_bucket_name
   key          = "lambda/lambda_ngta_rogers.zip"
   source       = data.archive_file.lambda_ngta_rogers.output_path
   etag         = data.archive_file.lambda_ngta_rogers.output_md5
@@ -40,7 +40,7 @@ data "archive_file" "lambda_ngta_telus" {
 }
 
 resource "aws_s3_object" "lambda_ngta_telus_zip" {
-  bucket       = aws_s3_bucket.glue_assets.bucket
+  bucket       = var.glue_assets_bucket_name
   key          = "lambda/lambda_ngta_telus.zip"
   source       = data.archive_file.lambda_ngta_telus.output_path
   etag         = data.archive_file.lambda_ngta_telus.output_md5
@@ -57,7 +57,7 @@ data "archive_file" "lambda_ngta_telus_quantities" {
 }
 
 resource "aws_s3_object" "lambda_ngta_telus_quantities_zip" {
-  bucket       = aws_s3_bucket.glue_assets.bucket
+  bucket       = var.glue_assets_bucket_name
   key          = "lambda/lambda_ngta_telus_quantities.zip"
   source       = data.archive_file.lambda_ngta_telus_quantities.output_path
   etag         = data.archive_file.lambda_ngta_telus_quantities.output_md5
@@ -74,7 +74,7 @@ data "archive_file" "lambda_tsma_fact" {
 }
 
 resource "aws_s3_object" "lambda_tsma_fact_zip" {
-  bucket       = aws_s3_bucket.glue_assets.bucket
+  bucket       = var.glue_assets_bucket_name
   key          = "lambda/lambda_tsma_fact.zip"
   source       = data.archive_file.lambda_tsma_fact.output_path
   etag         = data.archive_file.lambda_tsma_fact.output_md5
@@ -91,7 +91,7 @@ data "archive_file" "lambda_tsma_qsr" {
 }
 
 resource "aws_s3_object" "lambda_tsma_qsr_zip" {
-  bucket       = aws_s3_bucket.glue_assets.bucket
+  bucket       = var.glue_assets_bucket_name
   key          = "lambda/lambda_tsma_qsr.zip"
   source       = data.archive_file.lambda_tsma_qsr.output_path
   etag         = data.archive_file.lambda_tsma_qsr.output_md5

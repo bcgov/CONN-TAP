@@ -3,7 +3,7 @@ resource "aws_glue_job" "load_ngta_rogers_pricebook_notebook" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/load-ngta-rogers-pricebook-notebook.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/load-ngta-rogers-pricebook-notebook.py"
     python_version  = "3"
   }
 }
@@ -13,7 +13,7 @@ resource "aws_glue_job" "load_ngta_telus_pricebook_notebook" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/load-ngta-telus-pricebook-notebook.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/load-ngta-telus-pricebook-notebook.py"
     python_version  = "3"
   }
 }
@@ -23,7 +23,7 @@ resource "aws_glue_job" "load_tsma_pricebook_notebook" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/load-tsma-pricebook-notebook.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/load-tsma-pricebook-notebook.py"
     python_version  = "3"
   }
 }
@@ -33,7 +33,7 @@ resource "aws_glue_job" "mapping_to_master" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/mapping-to-master.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/mapping-to-master.py"
     python_version  = "3"
   }
 }
@@ -43,7 +43,7 @@ resource "aws_glue_job" "move_tsma_files" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/move_tsma_files.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/move_tsma_files.py"
     python_version  = "3"
   }
 }
@@ -53,7 +53,7 @@ resource "aws_glue_job" "ngta_rogers_fact" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/ngta-rogers-fact.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/ngta-rogers-fact.py"
     python_version  = "3"
   }
 }
@@ -63,7 +63,7 @@ resource "aws_glue_job" "ngta_telus_fact" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/ngta-telus-fact.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/ngta-telus-fact.py"
     python_version  = "3"
   }
 }
@@ -73,7 +73,7 @@ resource "aws_glue_job" "rogers_spend_ingestion" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/rogers_spend_ingestion.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/rogers_spend_ingestion.py"
     python_version  = "3"
   }
 
@@ -92,7 +92,7 @@ resource "aws_glue_job" "telus_quantities_ingestion" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/telus_quantities_ingestion.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/telus_quantities_ingestion.py"
     python_version  = "3"
   }
 
@@ -114,7 +114,7 @@ resource "aws_glue_job" "telus_spend_ingestion" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/telus_spend_ingestion.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/telus_spend_ingestion.py"
     python_version  = "3"
   }
 
@@ -133,7 +133,7 @@ resource "aws_glue_job" "tsma_fact" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/tsma-fact.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/tsma-fact.py"
     python_version  = "3"
   }
 }
@@ -143,7 +143,7 @@ resource "aws_glue_job" "tsma_fact_underscore" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/tsma_fact.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/tsma_fact.py"
     python_version  = "3"
   }
 }
@@ -153,7 +153,7 @@ resource "aws_glue_job" "tsma_qsr_ingestion" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/tsma_qsr_ingestion.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/tsma_qsr_ingestion.py"
     python_version  = "3"
   }
 
@@ -172,7 +172,7 @@ resource "aws_glue_job" "tsma_service_dashboard_data" {
   role_arn = aws_iam_role.glue_role.arn
 
   command {
-    script_location = "s3://${aws_s3_bucket.glue_assets.bucket}/scripts/tsma-service-dashboard-data.py"
+    script_location = "s3://${var.glue_assets_bucket_name}/scripts/tsma-service-dashboard-data.py"
     python_version  = "3"
   }
 }
