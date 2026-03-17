@@ -106,4 +106,4 @@ The following variables have sensible defaults and do not need to be set unless 
 | `ec2_security_group_names` | `["App"]` | Security groups attached to the PowerBI EC2 instance |
 | `powerbi_instance_type` | `t3.large` | EC2 instance type |
 | `powerbi_ami_id` | `ami-067abc25c5d2e14af` | Windows AMI for PowerBI Desktop |
-| `assets_dir` | `../../..` | Path to repo root, relative to the environment directory |
+| `assets_dir` | `../../..` | Path to repo root (containing `glue_scripts/` and `lambda/`), relative to the environment directory |
