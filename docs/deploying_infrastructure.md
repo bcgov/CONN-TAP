@@ -107,3 +107,4 @@ The following variables have sensible defaults and do not need to be set unless 
 | `powerbi_instance_type` | `t3.large` | EC2 instance type |
 | `powerbi_ami_id` | `ami-067abc25c5d2e14af` | Windows AMI for PowerBI Desktop |
 | `assets_dir` | `../../..` | Path to repo root (containing `glue_scripts/` and `lambda/`), relative to the environment directory |
+| `powerbi_alert_email` | *(none)* | Email address to receive an alert when the PowerBI EC2 instance has been running for more than 8 hours. Omit or leave unset to disable. Recipient must confirm the SNS subscription via the link sent to the inbox. |

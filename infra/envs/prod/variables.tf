@@ -38,3 +38,9 @@ variable "account_id" {
   type    = string
   default = null
 }
+
+variable "powerbi_alert_email" {
+  type        = string
+  default     = null
+  description = "Email to receive alerts when PowerBI EC2 has been running > 8 hours. Leave unset to disable."
+}

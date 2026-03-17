@@ -65,3 +65,9 @@ variable "assets_dir" {
 variable "account_id" {
   type = string
 }
+
+variable "powerbi_alert_email" {
+  type        = string
+  default     = null
+  description = "Email address to receive alerts when the PowerBI EC2 instance has been running for more than 8 hours. Leave null to disable email alerts."
+}

@@ -73,6 +73,7 @@ module "dmp" {
   powerbi_instance_name = local.powerbi_instance_name
   powerbi_instance_type = var.powerbi_instance_type
   powerbi_ami_id        = var.powerbi_ami_id
+  powerbi_alert_email   = var.powerbi_alert_email
 
   assets_dir = var.assets_dir
 
