@@ -1,6 +1,8 @@
 terraform {
   backend "s3" {
-    bucket  = "terraform-remote-state-dd5a29-prod"
+    # bucket is supplied at init time to avoid hardcoding the license plate:
+    # terraform init -backend-config=backend.hcl
+    # where backend.hcl contains: bucket = "terraform-remote-state-<license>-prod"
     key     = "dmp/terraform.tfstate"
     region  = "ca-central-1"
     encrypt = true

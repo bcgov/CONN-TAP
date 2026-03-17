@@ -5,16 +5,15 @@
 *.tfstate.*
 crash.log
 crash.*.log
+backend.hcl
 
-# key
+# key files — public keys (.pub) are tracked; private keys are not
 **/*.pem
 **/*.ppk
 **/*.tfplan
 keys/
 *.pem
-*.pub
-
-**/_glue_assets/
+**/private-*
 
 # Terraform lock file
 !**/.terraform.lock.hcl

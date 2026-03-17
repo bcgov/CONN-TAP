@@ -72,26 +72,4 @@ locals {
     }
   }
 
-  lambda_zip_sources = {
-    "lambda-ngta-rogers" = {
-      key  = "lambda/lambda-ngta-rogers.zip"
-      source = "${var.assets_dir}/lambda/lambda-ngta-rogers.zip"
-    }
-    "lambda-ngta-telus" = {
-      key  = "lambda/lambda-ngta-telus.zip"
-      source = "${var.assets_dir}/lambda/lambda-ngta-telus.zip"
-    }
-    "lambda-ngta-telus-quantities" = {
-      key  = "lambda/lambda-ngta-telus-quantities.zip"
-      source = "${var.assets_dir}/lambda/lambda-ngta-telus-quantities.zip"
-    }
-    "lambda-tsma-fact" = {
-      key  = "lambda/lambda-tsma-fact.zip"
-      source = "${var.assets_dir}/lambda/lambda-tsma-fact.zip"
-    }
-    "lambda-tsma-qsr" = {
-      key  = "lambda/lambda-tsma-qsr.zip"
-      source = "${var.assets_dir}/lambda/lambda-tsma-qsr.zip"
-    }
-  }
 }
