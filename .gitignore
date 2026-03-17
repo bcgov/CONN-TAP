@@ -44,4 +44,6 @@ override.tf.json
 infra/test/
 **.DS_Store
 
+**/.env
+
 check_and_generate_fix_commands.py
