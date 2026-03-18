@@ -14,18 +14,7 @@ variable "ec2_root_volume_gb" {
   default     = 50
 }
 
-variable "ec2_instance_profile_name" {
-  type        = string
-  description = "Existing IAM Instance Profile name to attach to EC2 (or manage via Terraform separately)"
-}
-
 variable "ec2_key_name" {
   type        = string
-  description = "EC2 Key Pair name to use in the new LZA account"
-}
-
-variable "ec2_public_key" {
-  type        = string
-  description = "Public key material for the EC2 key pair"
-  sensitive   = true
+  description = "Existing EC2 Key Pair name in AWS (create key pair manually in EC2 console or CLI)"
 }

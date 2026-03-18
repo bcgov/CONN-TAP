@@ -7,7 +7,6 @@ variable "ec2_subnet_id" { type = string }
 
 # EC2 (PowerBI desktop)
 variable "powerbi_ami" { type = string }
-variable "powerbi_key_name" { type = string }
 variable "ec2_security_group_ids" { type = list(string) }
 
 # Buckets created in LZA-test (must be globally unique names)
@@ -78,4 +77,11 @@ variable "enable_tsma_lambda_fact" {
 variable "enable_ec2" {
   type    = bool
   default = true
+}
+
+# RDP access: CIDR to allow (e.g. office IP). Empty = use SSM port forwarding only (no direct RDP)
+variable "ec2_rdp_allowed_cidr" {
+  type        = string
+  default     = ""
+  description = "CIDR block to allow RDP (3389). Leave empty to use SSM port forwarding only."
 }
