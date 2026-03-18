@@ -41,6 +41,6 @@ variable "account_id" {
 
 variable "powerbi_alert_email" {
   type        = string
-  default     = null
+  default     = "NWBC.DevInbox@gov.bc.ca"
   description = "Email to receive alerts when PowerBI EC2 has been running > 8 hours. Leave unset to disable."
 }
