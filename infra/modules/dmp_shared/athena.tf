@@ -5,10 +5,9 @@ resource "aws_athena_workgroup" "ngta_powerbi" {
   configuration {
     enforce_workgroup_configuration    = true
     publish_cloudwatch_metrics_enabled = true
-    requester_pays_enabled             = false
 
     result_configuration {
-      output_location = "s3://${var.ngta_raw_bucket}/${var.athena_results_prefix}"
+      output_location = "s3://${var.ngta_raw_bucket_name}/athena-results/"
     }
   }
 }

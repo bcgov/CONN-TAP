@@ -5,6 +5,15 @@
 *.tfstate.*
 crash.log
 crash.*.log
+backend.hcl
+
+# key files — public keys (.pub) are tracked; private keys are not
+**/*.pem
+**/*.ppk
+**/*.tfplan
+keys/
+*.pem
+**/private-*
 
 # Terraform lock file
 !**/.terraform.lock.hcl
@@ -16,9 +25,7 @@ plan.txt
 tf_export/
 **/tf_export/
 
-# sensitive 
-*.tfvars
-*.tfvars.json
+# sensitive
 
 # CLI overrides
 override.tf
@@ -32,14 +39,11 @@ override.tf.json
 *.sh
 **.zip
 
-lambda_export_full_old/
-lambda_export_full_test/
-
 *.tgz
 
 infra/test/
 **.DS_Store
 
-check_and_generate_fix_commands.py
+**/.env
 
-**.pem
+check_and_generate_fix_commands.py
