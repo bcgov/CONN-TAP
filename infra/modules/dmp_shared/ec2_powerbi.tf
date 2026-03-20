@@ -16,6 +16,10 @@ resource "aws_instance" "powerbi_desktop" {
   key_name                    = aws_key_pair.powerbi.key_name
   associate_public_ip_address = false
 
+  root_block_device {
+    volume_size = 60
+  }
+
   tags = {
     Name = var.powerbi_instance_name
   }
