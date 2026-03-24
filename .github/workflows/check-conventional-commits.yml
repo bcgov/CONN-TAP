@@ -23,8 +23,8 @@ jobs:
         run: git checkout "$GITHUB_BASE_REF" && git tag latest && git checkout "$GITHUB_HEAD_REF"
       - name: Conventional commits check
         uses: cocogitto/cocogitto-action@v3.11
-        with:
-          check-latest-tag-only: true
+        # with:
+        #   check-latest-tag-only: true
 
   gitleaks:
     runs-on: ubuntu-latest
