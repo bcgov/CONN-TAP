@@ -1,0 +1,38 @@
+name: check conventional commits
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+
+jobs:
+  cocogitto:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag the base ref for pull requests
+        shell: bash
+        working-directory: .
+        if: github.event_name == 'pull_request'
+        run: git checkout "$GITHUB_BASE_REF" && git tag latest && git checkout "$GITHUB_HEAD_REF"
+      - name: Conventional commits check
+        uses: cocogitto/cocogitto-action@v3.11
+        with:
+          check-latest-tag-only: true
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: ./.bin/install-gitleaks-linux-x64.sh
+      - run: ./gitleaks detect --exit-code 0 --report-format sarif --report-path "gitleaks.sarif"
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: "gitleaks.sarif"
