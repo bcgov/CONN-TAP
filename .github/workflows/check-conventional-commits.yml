@@ -12,9 +12,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Print to be removed
+        shell: bash
+        run: |
+          echo "github.event_name=${{ github.event_name }}"
+          echo "GITHUB_BASE_REF=${GITHUB_BASE_REF}"
+          echo "github.base_ref=${{ github.base_ref }}"
+          echo "github.head_ref=${{ github.head_ref }}"
 
       - name: Tag the base ref for pull requests
         shell: bash
@@ -22,9 +30,10 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git checkout "$GITHUB_BASE_REF" && git tag latest && git checkout "$GITHUB_HEAD_REF"
       - name: Conventional commits check
-        uses: cocogitto/cocogitto-action@v3.11
-        # with:
-        #   check-latest-tag-only: true
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: check
+          args: --from-latest-tag
 
   gitleaks:
     runs-on: ubuntu-latest
