@@ -1,16 +1,31 @@
 name: run-tests
 
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
 on:
   workflow_call:
 
+concurrency:
+  group: run-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
 jobs:
-  test:
+  python:
     name: Run Python tests
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -18,7 +33,39 @@ jobs:
           python-version: "3.11"
 
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest
+        run: python -m pip install --upgrade pip pytest pytest-cov
 
       - name: Run tests
-        run: pytest tests
+        run: pytest --junitxml=reports/test-results.xml --cov=. --cov-report=xml:reports/coverage.xml tests
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-reports
+          path: reports/
+          if-no-files-found: error
+
+  sonarcloud:
+    name: SonarCloud scan
+    runs-on: ubuntu-latest
+    needs: python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download test reports
+        uses: actions/download-artifact@v4
+        with:
+          name: python-test-reports
+          path: reports
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v5.1.0
+        with:
+          projectBaseDir: .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
