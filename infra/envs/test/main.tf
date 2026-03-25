@@ -17,36 +17,31 @@ locals {
 module "ngta_raw_data" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.ngta_raw_bucket_name
-  enable_versioning = false
+  bucket_name = local.ngta_raw_bucket_name
 }
 
 module "tsma_raw_data" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.tsma_raw_bucket_name
-  enable_versioning = false
+  bucket_name = local.tsma_raw_bucket_name
 }
 
 module "tsma_ngta_mapping" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.mapping_bucket_name
-  enable_versioning = false
+  bucket_name = local.mapping_bucket_name
 }
 
 module "tsma_ngta_price_books" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.price_books_bucket_name
-  enable_versioning = false
+  bucket_name = local.price_books_bucket_name
 }
 
 module "glue_assets" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.glue_assets_bucket_name
-  enable_versioning = false
+  bucket_name = local.glue_assets_bucket_name
 }
 
 data "aws_caller_identity" "current" {}
