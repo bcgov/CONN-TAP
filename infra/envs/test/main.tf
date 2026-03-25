@@ -17,36 +17,31 @@ locals {
 module "ngta_raw_data" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.ngta_raw_bucket_name
-  enable_versioning = false
+  bucket_name = local.ngta_raw_bucket_name
 }
 
 module "tsma_raw_data" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.tsma_raw_bucket_name
-  enable_versioning = false
+  bucket_name = local.tsma_raw_bucket_name
 }
 
 module "tsma_ngta_mapping" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.mapping_bucket_name
-  enable_versioning = false
+  bucket_name = local.mapping_bucket_name
 }
 
 module "tsma_ngta_price_books" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.price_books_bucket_name
-  enable_versioning = false
+  bucket_name = local.price_books_bucket_name
 }
 
 module "glue_assets" {
   source = "../../modules/s3_bucket"
 
-  bucket_name       = local.glue_assets_bucket_name
-  enable_versioning = false
+  bucket_name = local.glue_assets_bucket_name
 }
 
 data "aws_caller_identity" "current" {}
@@ -58,11 +53,13 @@ module "dmp" {
   env        = var.env
   account_id = data.aws_caller_identity.current.account_id
 
-  ngta_raw_bucket_name    = local.ngta_raw_bucket_name
-  tsma_raw_bucket_name    = local.tsma_raw_bucket_name
-  mapping_bucket_name     = local.mapping_bucket_name
-  price_books_bucket_name = local.price_books_bucket_name
-  glue_assets_bucket_name = local.glue_assets_bucket_name
+  # Bucket module outputs tie dmp S3 resources to buckets without module depends_on
+  # (which would defer VPC data sources and risk spurious EC2 replacement on bucket changes).
+  ngta_raw_bucket_name    = module.ngta_raw_data.bucket_name
+  tsma_raw_bucket_name    = module.tsma_raw_data.bucket_name
+  mapping_bucket_name     = module.tsma_ngta_mapping.bucket_name
+  price_books_bucket_name = module.tsma_ngta_price_books.bucket_name
+  glue_assets_bucket_name = module.glue_assets.bucket_name
 
   vpc_name                 = local.vpc_name
   ec2_subnet_name          = local.ec2_subnet_name
@@ -76,12 +73,4 @@ module "dmp" {
   powerbi_alert_email   = var.powerbi_alert_email
 
   assets_dir = var.assets_dir
-
-  depends_on = [
-    module.ngta_raw_data,
-    module.tsma_raw_data,
-    module.tsma_ngta_mapping,
-    module.tsma_ngta_price_books,
-    module.glue_assets,
-  ]
 }
