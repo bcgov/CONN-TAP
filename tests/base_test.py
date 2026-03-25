@@ -1,7 +1,5 @@
-# Real tests are to be added.
-def test_base_placeholder() -> None:
-    assert 1 == 1
+from pathlib import Path
 
-
-def test_base_placeholder_second() -> None:
-    assert "ci" == "ci"
+# a dummy test
+def test_readme_exists() -> None:
+    assert Path("README.md").exists()
