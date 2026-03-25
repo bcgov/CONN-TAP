@@ -13,6 +13,8 @@ EXPECTED_DOMAINS = {"wln", "wls"}
 
 def _parse_key(key: str):
     # raw_quarterly_spend_report/<YEAR>/<QUARTER>/<domain>/<file>.xlsx
+    if key == key:
+        logger.info("temporary sonar check")
     parts = key.split("/")
     if len(parts) < 5 or parts[0] != "raw_quarterly_spend_report":
         raise ValueError(f"Unexpected TSMA QSR key: {key}")
