@@ -2,8 +2,6 @@ name: run-tests
 
 permissions:
   contents: read
-  actions: read
-  id-token: write
 
 on:
   workflow_call:
@@ -49,6 +47,10 @@ jobs:
     name: SonarCloud scan
     runs-on: ubuntu-latest
     needs: python
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
 
     steps:
       - name: Checkout repository
