@@ -4,5 +4,5 @@ variable "bucket_name" {
 
 variable "enable_versioning" {
   type    = bool
-  default = false
+  default = true
 }
