@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import logging
 from datetime import datetime
@@ -50,6 +51,11 @@ s3 = boto3.client("s3")
 EXPECTED_FILES = {"Data_Voice.xlsx", "Cellular.xlsx"}
 EXPECTED_DOMAINS = {"wln", "wls"}
 
+REQUIRED_COLS_BY_FILE = {
+    "Cellular": {"LCDCategory", "BillgAcctNm", "ChargeType"},
+    "Data_Voice": {"Quantity", "BilledAmt", "Entity"},
+}
+
 
 # Helpers
 def parse_key(key: str):
@@ -59,14 +65,35 @@ def parse_key(key: str):
         raise ValueError(f"Unexpected TSMA QSR key: {key}")
     return p[1], p[2], p[3], p[-1]
 
-def read_excel(bucket: str, key: str) -> pd.DataFrame:
+def read_excel(bucket: str, key: str, filename: str) -> pd.DataFrame:
     logger.info(f"Reading: s3://{bucket}/{key}")
     obj = s3.get_object(Bucket=bucket, Key=key)
     data = obj["Body"].read()
-    df = pd.read_excel(io.BytesIO(data), sheet_name=0)
-    if df.empty:
+
+    sheets = pd.read_excel(io.BytesIO(data), sheet_name=None)
+    if not sheets:
         raise ValueError(f"Excel is empty: s3://{bucket}/{key}")
-    return df
+
+    required_columns = REQUIRED_COLS_BY_FILE[os.path.splitext(filename)[0]]
+    matching_sheet = None
+    sheet_columns = {}
+
+    for sheet_name, df in sheets.items():
+        if df is None or df.empty:
+            continue
+
+        sheet_columns[sheet_name] = list(df.columns)
+        if required_columns.issubset(df.columns):
+            matching_sheet = df
+            break
+
+    if matching_sheet is None:
+        raise ValueError(
+            f"Missing required columns for {filename}: {required_columns}. "
+            f"Detected sheet columns: {sheet_columns}"
+        )
+
+    return matching_sheet
 
 def write_single_parquet(pdf: pd.DataFrame, bucket: str, out_key: str):
     pdf = pdf.applymap(lambda x: "" if pd.isna(x) else str(x))
@@ -78,7 +105,7 @@ def write_single_parquet(pdf: pd.DataFrame, bucket: str, out_key: str):
 
 def ingest_one(year: str, quarter: str, domain: str, filename: str):
     raw_key = f"raw_quarterly_spend_report/{year}/{quarter}/{domain}/{filename}"
-    df = read_excel(RAW_BUCKET, raw_key)
+    df = read_excel(RAW_BUCKET, raw_key, filename)
 
     df["ingestion_year"] = str(year)
     df["ingestion_quarter"] = str(quarter)
