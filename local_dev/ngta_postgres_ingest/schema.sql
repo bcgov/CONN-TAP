@@ -1,4 +1,11 @@
 -- NGTA raw landing. Run: psql "$DATABASE_URL" -f local_dev/ngta_postgres_ingest/schema.sql
+--
+-- If you already have raw_rogers_spend from an older version:
+--   ALTER TABLE raw_rogers_spend RENAME TO raw_rogers_spend_cellular;
+--   ALTER INDEX idx_raw_rogers_ingestion RENAME TO idx_raw_rogers_cellular_ingestion;
+-- If you have raw_rogers_spend_voice from a prior ingest:
+--   ALTER TABLE raw_rogers_spend_voice RENAME TO raw_rogers_spend_data_voice;
+--   ALTER INDEX idx_raw_rogers_voice_ingestion RENAME TO idx_raw_rogers_data_voice_ingestion;
 
 CREATE TABLE IF NOT EXISTS ingestion_run (
   ingestion_run_id   bigserial PRIMARY KEY,
@@ -39,7 +46,7 @@ CREATE TABLE IF NOT EXISTS raw_telus_spend (
 
 CREATE INDEX IF NOT EXISTS idx_raw_telus_ingestion ON raw_telus_spend (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS raw_rogers_spend (
+CREATE TABLE IF NOT EXISTS raw_rogers_spend_cellular (
   raw_id                   bigserial PRIMARY KEY,
   ingestion_run_id         bigint NOT NULL REFERENCES ingestion_run (ingestion_run_id),
   invoice_date             date,
@@ -118,4 +125,47 @@ CREATE TABLE IF NOT EXISTS raw_rogers_spend (
   extras                   jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_raw_rogers_ingestion ON raw_rogers_spend (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_raw_rogers_cellular_ingestion ON raw_rogers_spend_cellular (ingestion_run_id);
+
+CREATE TABLE IF NOT EXISTS raw_rogers_spend_data_voice (
+  raw_id                    bigserial PRIMARY KEY,
+  ingestion_run_id          bigint NOT NULL REFERENCES ingestion_run (ingestion_run_id),
+  bge                       text,
+  sub_bge                   text,
+  accountno                 text,
+  bpso                      text,
+  billingdate               date,
+  billingperiod_startdate   date,
+  billingperiod_enddate     date,
+  circuitno                 text,
+  custrefno                 text,
+  servicestartdate          date,
+  address                   text,
+  city                      text,
+  province                  text,
+  postalcode                text,
+  productline               text,
+  producttype               text,
+  chargetype                text,
+  service_id                text,
+  charge_description        text,
+  service_component         text,
+  rate                      numeric,
+  quantity                  numeric,
+  consumption               numeric,
+  billed_amount_pre_tax     numeric(19,4),
+  gst                       numeric(19,4),
+  pst                       numeric(19,4),
+  taxamount                 numeric(19,4),
+  totalamount               numeric(19,4),
+  originating_tn            text,
+  terminating_tn            text,
+  destination               text,
+  destination_country       text,
+  extras                    jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_raw_rogers_data_voice_ingestion ON raw_rogers_spend_data_voice (ingestion_run_id);
+
+-- Rogers voice + data share one long-form table raw_rogers_spend_data_voice (voice-shaped columns). No separate raw_rogers_spend_data.
+-- If an older DB still has raw_rogers_spend_data: DROP TABLE raw_rogers_spend_data;

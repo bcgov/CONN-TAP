@@ -12,11 +12,14 @@ Usage:
   python ... /path/to/root --source-period 2025-06-01 --dry-run   # no DATABASE_URL
 
 Layout:
-  Under the folder you pass, place workbooks inside subdirectories named telus and rogers
-  (case-insensitive), e.g. <root>/telus/*.xlsx and <root>/rogers/*.xlsx. The provider is
-  taken from the first path segment under the root that is named telus or rogers.
-  Use --force-provider to treat every file as one carrier (override). Deeper subfolders
-  under telus/rogers are included by default; use --no-recursive for a shallower scan only.
+  Telus: place workbooks anywhere under telus/ (any depth), e.g. <root>/telus/*.xlsx.
+  Rogers cellular: <root>/rogers/cellular/... -> raw_rogers_spend_cellular.
+  Rogers voice + data (one report schema): <root>/rogers/voice/... or <root>/rogers/data/...
+  both load into raw_rogers_spend_data_voice (same column mapping). Use one folder or split files across
+  voice/ and data/ for convenience; ingestion is identical.
+  Files directly under rogers/ are skipped unless --force-provider rogers with --force-rogers-feed
+  (cellular|voice). The carrier is taken from path segments telus or rogers (case-insensitive).
+  Use --force-provider to override. Recursive by default; --no-recursive limits depth as documented.
 """
 
 from __future__ import annotations
@@ -61,7 +64,7 @@ TELUS_COLS = [
     "extras",
 ]
 
-ROGERS_COLS = [
+ROGERS_CELLULAR_COLS = [
     "ingestion_run_id",
     "invoice_date",
     "company_code",
@@ -139,8 +142,46 @@ ROGERS_COLS = [
     "extras",
 ]
 
+ROGERS_VOICE_COLS = [
+    "ingestion_run_id",
+    "bge",
+    "sub_bge",
+    "accountno",
+    "bpso",
+    "billingdate",
+    "billingperiod_startdate",
+    "billingperiod_enddate",
+    "circuitno",
+    "custrefno",
+    "servicestartdate",
+    "address",
+    "city",
+    "province",
+    "postalcode",
+    "productline",
+    "producttype",
+    "chargetype",
+    "service_id",
+    "charge_description",
+    "service_component",
+    "rate",
+    "quantity",
+    "consumption",
+    "billed_amount_pre_tax",
+    "gst",
+    "pst",
+    "taxamount",
+    "totalamount",
+    "originating_tn",
+    "terminating_tn",
+    "destination",
+    "destination_country",
+    "extras",
+]
+
 TELUS_DB_FIELDS = frozenset(c for c in TELUS_COLS if c not in ("ingestion_run_id", "extras", "sheet_name"))
-ROGERS_DB_FIELDS = frozenset(c for c in ROGERS_COLS if c not in ("ingestion_run_id", "extras"))
+ROGERS_CELLULAR_DB_FIELDS = frozenset(c for c in ROGERS_CELLULAR_COLS if c not in ("ingestion_run_id", "extras"))
+ROGERS_VOICE_DB_FIELDS = frozenset(c for c in ROGERS_VOICE_COLS if c not in ("ingestion_run_id", "extras"))
 
 ROGERS_USAGE = frozenset(
     [
@@ -198,11 +239,63 @@ ROGERS_TEXT = frozenset(
 
 ROGERS_MONEY = frozenset(
     c
-    for c in ROGERS_DB_FIELDS
+    for c in ROGERS_CELLULAR_DB_FIELDS
     if c not in (ROGERS_USAGE | ROGERS_DATES | ROGERS_TEXT | frozenset({"commit_orig_no_month"}))
 )
 
+ROGERS_VOICE_DATES = frozenset(
+    ["billingdate", "billingperiod_startdate", "billingperiod_enddate", "servicestartdate"]
+)
+
+ROGERS_VOICE_MONEY = frozenset(
+    ["billed_amount_pre_tax", "gst", "pst", "taxamount", "totalamount"]
+)
+
+ROGERS_VOICE_NUMERIC = frozenset(["rate", "quantity", "consumption"])
+
+ROGERS_VOICE_TEXT = frozenset(
+    c
+    for c in ROGERS_VOICE_DB_FIELDS
+    if c
+    not in (
+        ROGERS_VOICE_DATES | ROGERS_VOICE_MONEY | ROGERS_VOICE_NUMERIC
+    )
+)
+
+# When canonical_header does not match schema column names, map here (canonical -> voice column).
+VOICE_HEADER_CANONICAL_REMAP: dict[str, str] = {
+    "account_number": "accountno",
+    "account_no": "accountno",
+    "account": "accountno",
+    "bpso_number": "bpso",
+    "billing_date": "billingdate",
+    "billing_period_start_date": "billingperiod_startdate",
+    "billing_period_startdate": "billingperiod_startdate",
+    "billing_period_end_date": "billingperiod_enddate",
+    "billing_period_enddate": "billingperiod_enddate",
+    "billingperiod_start": "billingperiod_startdate",
+    "billingperiod_end": "billingperiod_enddate",
+    "service_start_date": "servicestartdate",
+    "cust_ref_no": "custrefno",
+    "customer_ref_no": "custrefno",
+    "circuit_no": "circuitno",
+    "postal_code": "postalcode",
+    "product_line": "productline",
+    "product_type": "producttype",
+    "charge_type": "chargetype",
+    "charge_desc": "charge_description",
+    "charge_description_": "charge_description",
+    "service_component_": "service_component",
+    "tax_amount": "taxamount",
+    "total_amount": "totalamount",
+    "originating_tn_": "originating_tn",
+    "terminating_tn_": "terminating_tn",
+    "destination_country_": "destination_country",
+}
+
 TELUS_DATES = frozenset(["statement_date", "due_date"])
+
+RogersFeed = Literal["cellular", "voice"]
 
 
 def canonical_header(name: Any) -> str:
@@ -244,6 +337,13 @@ def canonical_header(name: Any) -> str:
     s = re.sub(r"[^a-z0-9_]+", "_", s)
     s = re.sub(r"_+", "_", s).strip("_")
     return s
+
+
+def voice_db_field(name: Any) -> str:
+    ch = canonical_header(name)
+    if not ch:
+        return ""
+    return VOICE_HEADER_CANONICAL_REMAP.get(ch, ch)
 
 
 def clean_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -301,7 +401,7 @@ def as_usage(val: Any) -> Optional[Decimal]:
     return as_numeric(val)
 
 
-def pick_rogers_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
+def pick_rogers_cellular_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
     names = xl.sheet_names
     if override:
         if override not in names:
@@ -322,6 +422,30 @@ def pick_rogers_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
     return best
 
 
+def pick_rogers_voice_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
+    names = xl.sheet_names
+    if override:
+        if override not in names:
+            raise ValueError(f"Sheet {override!r} not in workbook (have: {names})")
+        return override
+    best, best_n = names[0], -1
+    need_voice = {"billingdate", "accountno", "circuitno", "custrefno"}
+    for n in names:
+        df = pd.read_excel(xl, sheet_name=n, nrows=8)
+        colset = {voice_db_field(c) for c in df.columns if voice_db_field(c)}
+        hit = len(need_voice & colset)
+        if hit > best_n:
+            best, best_n = n, hit
+    if best_n < 1:
+        for n in names:
+            df = pd.read_excel(xl, sheet_name=n, nrows=3)
+            colset = {voice_db_field(c) for c in df.columns if voice_db_field(c)}
+            if colset & ROGERS_VOICE_DB_FIELDS:
+                return n
+        raise ValueError(f"Could not find a Rogers voice-like sheet in {names}")
+    return best
+
+
 def provider_from_folder_path(
     file_path: Path, root: Path, force: Optional[str]
 ) -> Optional[Literal["telus", "rogers"]]:
@@ -338,6 +462,34 @@ def provider_from_folder_path(
             return "telus"
         if low == "rogers":
             return "rogers"
+    return None
+
+
+def rogers_feed_from_path(
+    root: Path,
+    path: Path,
+    force_feed: Optional[RogersFeed],
+) -> Optional[RogersFeed]:
+    """Segment after rogers: cellular -> cellular; voice or data -> voice (same raw table)."""
+    try:
+        rel = path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return force_feed
+    parts = list(rel.parts)
+    low = [p.casefold() for p in parts]
+    try:
+        i = low.index("rogers")
+    except ValueError:
+        return force_feed
+    if i + 1 >= len(parts):
+        return force_feed
+    seg = low[i + 1]
+    if seg == "cellular":
+        return "cellular"
+    if seg in ("voice", "data"):
+        return "voice"
+    if i + 1 == len(parts) - 1 and "." in parts[i + 1]:
+        return force_feed
     return None
 
 
@@ -427,7 +579,7 @@ def insert_telus_workbook(
     return row_total
 
 
-def insert_rogers_workbook(
+def insert_rogers_cellular_workbook(
     conn: Optional[psycopg.Connection],
     path: Path,
     source_period: Optional[date],
@@ -435,11 +587,11 @@ def insert_rogers_workbook(
     sheet: Optional[str],
 ) -> int:
     xl = pd.ExcelFile(path)
-    sname = pick_rogers_sheet(xl, sheet)
+    sname = pick_rogers_cellular_sheet(xl, sheet)
     df = pd.read_excel(xl, sheet_name=sname, dtype=object)
     df = clean_frame(df)
     if df.empty:
-        raise ValueError(f"No data in Rogers sheet {sname} for {path}")
+        raise ValueError(f"No data in Rogers cellular sheet {sname} for {path}")
 
     colmap = {c: canonical_header(c) for c in df.columns}
     batches: list[tuple[Any, ...]] = []
@@ -451,7 +603,7 @@ def insert_rogers_workbook(
             if not db:
                 continue
             val = row.get(excel_col)
-            if db in ROGERS_DB_FIELDS:
+            if db in ROGERS_CELLULAR_DB_FIELDS:
                 if db in ROGERS_DATES:
                     vals[db] = as_date(val)
                 elif db in ROGERS_USAGE:
@@ -468,7 +620,7 @@ def insert_rogers_workbook(
                         val if isinstance(val, (str, int, float)) else str(val)
                     )
         vals["extras"] = json.dumps(extras_payload) if extras_payload else None
-        batches.append(tuple(vals.get(c) for c in ROGERS_COLS))
+        batches.append(tuple(vals.get(c) for c in ROGERS_CELLULAR_COLS))
 
     row_total = len(batches)
     if dry_run:
@@ -477,10 +629,10 @@ def insert_rogers_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        "INSERT INTO raw_rogers_spend ("
-        + ", ".join(ROGERS_COLS)
+        "INSERT INTO raw_rogers_spend_cellular ("
+        + ", ".join(ROGERS_CELLULAR_COLS)
         + ") VALUES ("
-        + ", ".join(["%s"] * len(ROGERS_COLS))
+        + ", ".join(["%s"] * len(ROGERS_CELLULAR_COLS))
         + ")"
     )
     try:
@@ -507,7 +659,94 @@ def insert_rogers_workbook(
                     row_counts_raw = %s::jsonb
                 WHERE ingestion_run_id = %s
                 """,
-                (json.dumps({"raw_rogers_spend": row_total, "sheet": sname}), run_id),
+                (json.dumps({"raw_rogers_spend_cellular": row_total, "sheet": sname}), run_id),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return row_total
+
+
+def insert_rogers_voice_workbook(
+    conn: Optional[psycopg.Connection],
+    path: Path,
+    source_period: Optional[date],
+    dry_run: bool,
+    sheet: Optional[str],
+) -> int:
+    xl = pd.ExcelFile(path)
+    sname = pick_rogers_voice_sheet(xl, sheet)
+    df = pd.read_excel(xl, sheet_name=sname, dtype=object)
+    df = clean_frame(df)
+    if df.empty:
+        raise ValueError(f"No data in Rogers voice sheet {sname} for {path}")
+
+    colmap = {c: voice_db_field(c) for c in df.columns}
+    batches: list[tuple[Any, ...]] = []
+
+    for _, row in df.iterrows():
+        vals: dict[str, Any] = {"ingestion_run_id": None}
+        extras_payload: dict[str, Any] = {}
+        for excel_col, db in colmap.items():
+            if not db:
+                continue
+            val = row.get(excel_col)
+            if db in ROGERS_VOICE_DB_FIELDS:
+                if db in ROGERS_VOICE_DATES:
+                    vals[db] = as_date(val)
+                elif db in ROGERS_VOICE_MONEY:
+                    vals[db] = as_money(val)
+                elif db in ROGERS_VOICE_NUMERIC:
+                    vals[db] = as_numeric(val)
+                else:
+                    vals[db] = as_text(val)
+            else:
+                if val is not None and not (isinstance(val, float) and pd.isna(val)):
+                    extras_payload[str(excel_col)] = (
+                        val if isinstance(val, (str, int, float)) else str(val)
+                    )
+        vals["extras"] = json.dumps(extras_payload) if extras_payload else None
+        batches.append(tuple(vals.get(c) for c in ROGERS_VOICE_COLS))
+
+    row_total = len(batches)
+    if dry_run:
+        return row_total
+    if conn is None:
+        raise ValueError("Postgres connection required unless --dry-run")
+
+    sql = (
+        "INSERT INTO raw_rogers_spend_data_voice ("
+        + ", ".join(ROGERS_VOICE_COLS)
+        + ") VALUES ("
+        + ", ".join(["%s"] * len(ROGERS_VOICE_COLS))
+        + ")"
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO ingestion_run (provider, source_object_uri, source_period, status)
+                VALUES (%s, %s, %s, 'running')
+                RETURNING ingestion_run_id
+                """,
+                ("rogers", path.resolve().as_uri(), source_period),
+            )
+            run_id = cur.fetchone()[0]
+            final_rows = []
+            for tup in batches:
+                lst = list(tup)
+                lst[0] = run_id
+                final_rows.append(tuple(lst))
+            cur.executemany(sql, final_rows)
+            cur.execute(
+                """
+                UPDATE ingestion_run
+                SET finished_at = now(), status = 'completed',
+                    row_counts_raw = %s::jsonb
+                WHERE ingestion_run_id = %s
+                """,
+                (json.dumps({"raw_rogers_spend_data_voice": row_total, "sheet": sname}), run_id),
             )
         conn.commit()
     except Exception:
@@ -535,9 +774,13 @@ def iter_excel_files(folder: Path, recursive: bool) -> list[Path]:
     else:
         for pat in patterns:
             out.extend(folder.glob(pat))
-            for child in folder.iterdir():
-                if child.is_dir() and child.name.casefold() in ("telus", "rogers"):
-                    out.extend(child.glob(pat))
+            telus_dir = folder / "telus"
+            if telus_dir.is_dir():
+                out.extend(telus_dir.glob(pat))
+            for feed in ("cellular", "voice", "data"):
+                rdir = folder / "rogers" / feed
+                if rdir.is_dir():
+                    out.extend(rdir.glob(pat))
     return sorted(p for p in out if not p.name.startswith("~$"))
 
 
@@ -546,7 +789,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "folder",
         type=Path,
-        help="Root directory; workbooks should live under telus/ and rogers/ subfolders",
+        help="Root directory; workbooks should live under telus/ and rogers/<feed>/",
     )
     parser.add_argument(
         "--dsn",
@@ -563,7 +806,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--no-recursive",
         dest="recursive",
         action="store_false",
-        help="Only match .xlsx/.xlsm directly under each carrier folder (no deeper subfolders)",
+        help="Only match .xlsx/.xlsm at root, under telus/, and under rogers/cellular|voice|data/ (one level; voice & data dirs both feed raw_rogers_spend_data_voice)",
     )
     parser.set_defaults(recursive=True)
     parser.add_argument("--dry-run", action="store_true", help="Parse and count rows only; no DATABASE_URL required")
@@ -574,11 +817,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Override folder layout: treat every file as this carrier",
     )
     parser.add_argument(
+        "--force-rogers-feed",
+        choices=("cellular", "voice"),
+        default=None,
+        help="With --force-provider rogers: cellular vs voice+data long-form (raw_rogers_spend_data_voice)",
+    )
+    parser.add_argument(
         "--rogers-sheet",
         default=None,
-        help="Rogers sheet name (default: Usage_&_Spend or best-matching sheet)",
+        help="Rogers sheet name (cellular: default Usage_&_Spend or best match; voice+data: best match)",
     )
     args = parser.parse_args(argv)
+
+    if args.force_rogers_feed and args.force_provider != "rogers":
+        parser.error("--force-rogers-feed requires --force-provider rogers")
 
     if not args.dsn and not args.dry_run:
         print("Set DATABASE_URL or pass --dsn (optional for --dry-run)", file=sys.stderr)
@@ -594,14 +846,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"No .xlsx/.xlsm files under {folder}")
         return 0
 
-    totals = {"telus_files": 0, "rogers_files": 0, "telus_rows": 0, "rogers_rows": 0, "skipped": []}
+    totals: dict[str, Any] = {
+        "telus_files": 0,
+        "telus_rows": 0,
+        "rogers_cellular_files": 0,
+        "rogers_cellular_rows": 0,
+        "rogers_data_voice_files": 0,
+        "rogers_data_voice_rows": 0,
+        "skipped": [],
+    }
 
     def one_file(conn: Optional[psycopg.Connection], path: Path) -> None:
         prov = provider_from_folder_path(path, folder, args.force_provider)
+        force_feed: Optional[RogersFeed] = args.force_rogers_feed if args.force_provider == "rogers" else None
+        feed = rogers_feed_from_path(folder, path, force_feed)
+
         if prov is None:
             totals["skipped"].append(str(path))
             print(
                 f"[skip] expected path under .../telus/... or .../rogers/... relative to {folder}: {path}",
+                file=sys.stderr,
+            )
+            return
+        if prov == "rogers" and feed is None:
+            totals["skipped"].append(str(path))
+            print(
+                f"[skip] Rogers file must be under rogers/cellular or rogers/voice or rogers/data "
+                f"(or use --force-provider rogers with --force-rogers-feed): {path}",
                 file=sys.stderr,
             )
             return
@@ -610,11 +881,20 @@ def main(argv: Optional[list[str]] = None) -> int:
             totals["telus_rows"] += n
             totals["telus_files"] += 1
             print(f"[telus] {path.name}: {n} rows -> raw_telus_spend")
+            return
+        assert feed is not None
+        if feed == "cellular":
+            n = insert_rogers_cellular_workbook(conn, path, period, args.dry_run, args.rogers_sheet)
+            totals["rogers_cellular_rows"] += n
+            totals["rogers_cellular_files"] += 1
+            print(f"[rogers/cellular] {path.name}: {n} rows -> raw_rogers_spend_cellular")
         else:
-            n = insert_rogers_workbook(conn, path, period, args.dry_run, args.rogers_sheet)
-            totals["rogers_rows"] += n
-            totals["rogers_files"] += 1
-            print(f"[rogers] {path.name}: {n} rows -> raw_rogers_spend")
+            n = insert_rogers_voice_workbook(conn, path, period, args.dry_run, args.rogers_sheet)
+            totals["rogers_data_voice_rows"] += n
+            totals["rogers_data_voice_files"] += 1
+            pl = {p.casefold() for p in path.parts}
+            sub = "voice" if "voice" in pl else "data"
+            print(f"[rogers/{sub}->voice] {path.name}: {n} rows -> raw_rogers_spend_data_voice")
 
     if args.dry_run:
         for path in files:
