@@ -14,10 +14,128 @@ Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking.xlsx
 """
 
+import csv
 import os
+from datetime import datetime
+
 import xlsxwriter
 
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
+OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
+SOURCE_DIR   = os.path.join(os.path.dirname(__file__), "source")
+TELUS_CSV    = os.path.join(SOURCE_DIR, "telus_ngta_spend.csv")
+
+# ---------------------------------------------------------------------------
+# CSV ingestion — TELUS NGTA
+# ---------------------------------------------------------------------------
+
+# Maps CSV entity_key values (matched case-insensitively) to TELUS_ROW_MAP / BGE_A_LABELS keys.
+# Includes both short codes and common full-name variants that may appear in the source data.
+ENTITY_KEY_MAP = {
+    # Short codes
+    "BCH":  "BC Hydro",
+    "BCLC": "BCLC",
+    "ECC":  "ECC",
+    "MOE":  "ECC",   # Ministry of Education alternate short code
+    "FHA":  "FHA",
+    "FNHA": "FNHA",
+    "GBC":  "Gov BC",
+    "ICBC": "ICBC",
+    "IHA":  "IHA",
+    "NHA":  "NHA",
+    "PHSA": "PHSA",
+    "SD":   "School Districts",
+    "VIHA": "VIHA",
+    "VCHA": "VCHA",
+    "WSBC": "WSBC",
+    # Full-name variants
+    "BC HYDRO":                    "BC Hydro",
+    "FRASER HEALTH":               "FHA",
+    "FRASER HEALTH AUTHORITY":     "FHA",
+    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
+    "GOVERNMENT OF BC":            "Gov BC",
+    "MINISTRY OF EDUCATION":       "ECC",
+    "MINISTRY OF EDUCATION AND CHILD CARE": "ECC",
+    "INTERIOR HEALTH":             "IHA",
+    "INTERIOR HEALTH AUTHORITY":   "IHA",
+    "NORTHERN HEALTH":             "NHA",
+    "NORTHERN HEALTH AUTHORITY":   "NHA",
+    "PROVINCIAL HEALTH SERVICES":  "PHSA",
+    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
+    "SCHOOL DISTRICTS":            "School Districts",
+    "SCHOOL DISTRICT":             "School Districts",
+    "VANCOUVER ISLAND HEALTH":     "VIHA",
+    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
+    "VANCOUVER COASTAL HEALTH":    "VCHA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
+    "WORKERS COMPENSATION BOARD":  "WSBC",
+    "ICBC":                        "ICBC",
+    "BCLC":                        "BCLC",
+}
+
+# Maps CSV column names to NGTA_BGE_ROWS row-type keys
+SPEND_COL_MAP = {
+    "cellular_plans":    "cell_plans",
+    "cellular_hardware": "cell_hw",
+    "data_spend":        "data",
+    "voice_spend":       "voice",
+    "other_spend":       "other",
+}
+
+
+def _month_to_col(month_str: str):
+    """Parse a month_start string and return the 0-based Excel column index.
+
+    Accepts ISO dates (2024-01-01), year-month (2024-01), or any format
+    whose first two tokens contain year and month.  Returns None when the
+    date falls outside the 2024-2026 window covered by the sheet.
+    """
+    s = month_str.strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y/%m/%d", "%Y/%m", "%m/%d/%Y", "%d/%m/%Y"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            col = FIRST_MONTH + (dt.year - 2024) * 12 + (dt.month - 1)
+            return col if FIRST_MONTH <= col <= LAST_MONTH else None
+        except ValueError:
+            continue
+    return None
+
+
+def load_telus_ngta(path: str = TELUS_CSV) -> dict:
+    """Read telus_ngta_spend.csv and return a lookup dict.
+
+    Returns: {(bge_key, row_type, col_idx): numeric_value}
+
+    Missing or unparseable rows are silently skipped so the sheet
+    still builds correctly even with an incomplete CSV.
+    """
+    data: dict = {}
+    if not os.path.exists(path):
+        return data
+
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        # Normalise header names: strip whitespace, lower-case
+        reader.fieldnames = [h.strip().lower() for h in (reader.fieldnames or [])]
+        for row in reader:
+            entity_raw = row.get("entity_key", "").strip().upper()
+            bge = ENTITY_KEY_MAP.get(entity_raw)
+            if bge is None:
+                continue
+
+            col = _month_to_col(row.get("month_start", ""))
+            if col is None:
+                continue
+
+            for csv_col, rtype in SPEND_COL_MAP.items():
+                raw = row.get(csv_col, "").strip()
+                if not raw:
+                    continue
+                try:
+                    data[(bge, rtype, col)] = float(raw.replace(",", ""))
+                except ValueError:
+                    pass
+
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -713,7 +831,10 @@ def build():
     set_row_props(ws, 117, fmt=_ftelh, opts={"level": 1})
     write(ws, 117, COL_A, "BGEs", _ftelh_b)
 
-    # BGE detail rows 117-186
+    # Load TELUS NGTA spend data from CSV (empty dict if file is absent)
+    telus_data = load_telus_ngta()
+
+    # BGE detail rows 118-201
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
         bge_key = bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"
         bge_rm  = TELUS_ROW_MAP[bge_key]
@@ -731,6 +852,12 @@ def build():
             write(ws, r, COL_B, label, fmt_cell)
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _ftelb_b)
+            else:
+                # Fill monthly values from CSV where available
+                for col in MONTH_COLS:
+                    val = telus_data.get((bge_key, rtype, col))
+                    if val is not None:
+                        write(ws, r, col, val, _ftelb)
 
     # TELUS NGTA TOTAL rows 202-206
     for r, label, rows_list in [

@@ -47,3 +47,10 @@ infra/test/
 **/.env
 
 check_and_generate_fix_commands.py
+
+# spend sheet source data (contributor CSV files — not committed)
+source/
+
+# generated spend tracking workbook and Excel lock file
+scripts/spend_tracking.xlsx
+scripts/~$spend_tracking.xlsx

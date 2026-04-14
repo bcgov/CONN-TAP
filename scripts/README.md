@@ -287,6 +287,68 @@ The following rows are fully formula-driven and must not be overwritten:
 
 ---
 
+---
+
+## Filling TELUS NGTA data from a CSV
+
+The TELUS NGTA section can be populated automatically from a CSV file.  
+Place the file at:
+
+```
+source/telus_ngta_spend.csv   (project root)
+```
+
+> `source/` is in `.gitignore` — files there are never committed.
+
+### CSV format
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `provider` | string | Always `TELUS` — not used, present for consistency |
+| `entity_key` | string | BGE identifier (see mapping below) |
+| `month_start` | date | Any of `YYYY-MM-DD`, `YYYY-MM`, `YYYY/MM/DD`, `MM/DD/YYYY` |
+| `cellular_plans` | number | Fills the Cellular Plans sub-row |
+| `cellular_hardware` | number | Fills the Cellular H/W sub-row |
+| `data_spend` | number | Fills the Data sub-row |
+| `voice_spend` | number | Fills the Voice sub-row |
+| `other_spend` | number | Fills the Other sub-row |
+| `total_reported` | number | **Ignored** — Total is calculated by Excel formulas |
+
+Commas inside numeric values are stripped automatically (e.g. `1,234.56` is accepted).
+
+### entity_key mapping
+
+| CSV entity_key | BGE in spreadsheet |
+|----------------|--------------------|
+| `GBC` | Gov BC |
+| `BCLC` | BCLC |
+| `BCH` | BC Hydro |
+| `WSBC` | WSBC |
+| `ECC` | ECC |
+| `MOE` | ECC (alternate key — rows are merged into ECC) |
+| `FHA` | FHA |
+| `NHA` | NHA |
+| `ICBC` | ICBC |
+| `PHSA` | PHSA |
+| `IHA` | IHA |
+| `VIHA` | VIHA |
+| `VCHA` | VCHA (+PHC) |
+| `FNHA` | FNHA |
+| `SD` | School Districts |
+
+Unknown `entity_key` values and dates outside 2024–2026 are silently skipped.  
+If the CSV file is absent the script still runs and leaves the TELUS section blank.
+
+### Example row
+
+```csv
+provider,entity_key,month_start,cellular_hardware,cellular_plans,data_spend,voice_spend,other_spend,total_reported
+TELUS,GBC,2024-01-01,100.00,2500.00,300.00,150.00,50.00,3100.00
+TELUS,MOE,2024-02-01,50.00,950.00,125.00,82.00,12.00,1219.00
+```
+
+---
+
 ## Regenerating the file
 
 After any structural change to the script, regenerate:
