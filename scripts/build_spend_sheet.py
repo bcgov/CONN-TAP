@@ -5,10 +5,10 @@ Recreate the spend tracking spreadsheet using xlsxwriter.
 Organized into 6 fillable categories:
   1. tsma           – TSMA BGE detail (rows 11-90)
   2. mms            – MMS summary row and within-BGE MMS sub-rows
-  3. telus_ngta     – TELUS NGTA BGE detail (rows 116-190)
-  4. rogers_ngta    – Rogers NGTA BGE detail (rows 218-292)
-  5. out_of_scope   – Out-of-Scope sub-categories (rows 315-344)
-  6. tsma_lite      – TSMA Lite quarterly data (rows 346-354)
+  3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Other row added)
+  4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Other row added)
+  5. out_of_scope   – Out-of-Scope sub-categories (rows 355-384)
+  6. tsma_lite      – TSMA Lite quarterly data (rows 386-394)
 
 Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking.xlsx
@@ -200,6 +200,7 @@ NGTA_BGE_ROWS = [
     ('Cellular H/W',   'cell_hw'),
     ('Data',           'data'),
     ('Voice',          'voice'),
+    ('Other',          'other'),
     ('Total',          'total'),
 ]
 
@@ -255,25 +256,29 @@ def _build_ngta_row_map(start_row: int):
     return row_map, r   # r = first TOTAL row
 
 
-# TELUS NGTA  – BGEs start at row 117, summary at 111-115
-ROW_TELUS_BGES_START = 117
+# TELUS NGTA  – BGEs start at row 118, summary at 111-116
+# (+1 from original: added Other summary row before Total)
+ROW_TELUS_BGES_START = 118
 TELUS_ROW_MAP, _TELUS_TOTAL_START = _build_ngta_row_map(ROW_TELUS_BGES_START)
-assert _TELUS_TOTAL_START == 187
+assert _TELUS_TOTAL_START == 202   # 118 + 14 BGEs × 6 rows
 
-ROW_TELUS_TOT_PLANS = 187
-ROW_TELUS_TOT_HW    = 188
-ROW_TELUS_TOT_DAT   = 189
-ROW_TELUS_TOT_VOI   = 190
+ROW_TELUS_TOT_PLANS = 202
+ROW_TELUS_TOT_HW    = 203
+ROW_TELUS_TOT_DAT   = 204
+ROW_TELUS_TOT_VOI   = 205
+ROW_TELUS_TOT_OTH   = 206
 
-# Rogers NGTA – BGEs start at row 219, summary at 213-217
-ROW_ROGERS_BGES_START = 219
+# Rogers NGTA – BGEs start at row 240, summary at 233-238
+# (+20 from original: TELUS section grew by 20 rows; +1 more for Rogers Other summary)
+ROW_ROGERS_BGES_START = 240
 ROGERS_ROW_MAP, _ROGERS_TOTAL_START = _build_ngta_row_map(ROW_ROGERS_BGES_START)
-assert _ROGERS_TOTAL_START == 289
+assert _ROGERS_TOTAL_START == 324   # 240 + 14 BGEs × 6 rows
 
-ROW_ROGERS_TOT_PLANS = 289
-ROW_ROGERS_TOT_HW    = 290
-ROW_ROGERS_TOT_DAT   = 291
-ROW_ROGERS_TOT_VOI   = 292
+ROW_ROGERS_TOT_PLANS = 324
+ROW_ROGERS_TOT_HW    = 325
+ROW_ROGERS_TOT_DAT   = 326
+ROW_ROGERS_TOT_VOI   = 327
+ROW_ROGERS_TOT_OTH   = 328
 
 # ---------------------------------------------------------------------------
 # Collect row lists needed for aggregate formulas
@@ -300,25 +305,28 @@ TELUS_PLANS_ROWS = _ngta_rows_by_type(TELUS_ROW_MAP, 'cell_plans')
 TELUS_HW_ROWS    = _ngta_rows_by_type(TELUS_ROW_MAP, 'cell_hw')
 TELUS_DAT_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'data')
 TELUS_VOI_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'voice')
+TELUS_OTH_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'other')
 
 ROGERS_PLANS_ROWS = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_plans')
 ROGERS_HW_ROWS    = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_hw')
 ROGERS_DAT_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'data')
 ROGERS_VOI_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'voice')
+ROGERS_OTH_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'other')
 
 # Out of Scope rows (1-based, level-1 detail rows)
-OOS_MANAGED_ROUTER_ROWS = list(range(317, 324))   # 317-323
-OOS_MANAGED_WLAN_ROWS   = list(range(326, 332))   # 326-331
-OOS_MANAGED_SEC_ROWS    = list(range(334, 344))   # 334-343
+# All +40 from original (TELUS section grew by 20 rows, Rogers section by 20 rows)
+OOS_MANAGED_ROUTER_ROWS = list(range(357, 364))   # 357-363
+OOS_MANAGED_WLAN_ROWS   = list(range(366, 372))   # 366-371
+OOS_MANAGED_SEC_ROWS    = list(range(374, 384))   # 374-383
 
-# TSMA Lite (1-based)
-ROW_TSMALITE_VOICE  = 347
-ROW_TSMALITE_DATA   = 348
-ROW_TSMALITE_OTHER  = 349
-ROW_TSMALITE_CELUE  = 350
-ROW_TSMALITE_TOTAL  = 351   # SUM of 347:350 in Q-end columns
-ROW_TSMALITE_EXC    = 353   # Voice+Data+Other (excludes cellular UE)
-ROW_TSMALITE_CELUE2 = 354   # = cellular UE reference
+# TSMA Lite (1-based) — all +40
+ROW_TSMALITE_VOICE  = 387
+ROW_TSMALITE_DATA   = 388
+ROW_TSMALITE_OTHER  = 389
+ROW_TSMALITE_CELUE  = 390
+ROW_TSMALITE_TOTAL  = 391   # SUM of 387:390 in Q-end columns
+ROW_TSMALITE_EXC    = 393   # Voice+Data+Other (excludes cellular UE)
+ROW_TSMALITE_CELUE2 = 394   # = cellular UE reference
 
 
 # ---------------------------------------------------------------------------
@@ -579,8 +587,8 @@ def build():
     write_monthly_formula(
         ws, 91,
         lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
-                  f"+{col_letter(c)}115"
-                  f"+{col_letter(c)}217",
+                  f"+{col_letter(c)}116"   # TELUS NGTA Total summary row
+                  f"+{col_letter(c)}238",  # Rogers NGTA Total summary row
         _fcomb,
     )
 
@@ -682,12 +690,13 @@ def build():
     set_row_props(ws, 110, height=16, fmt=_ftelh)
     write(ws, 110, COL_B, "TELUS NGTA", _ftelh_b)
 
-    # Summary rows 111-115
+    # Summary rows 111-116
     for r, label, tot_row in [
         (111, "Cellular Plans", ROW_TELUS_TOT_PLANS),
         (112, "Cellular H/W",   ROW_TELUS_TOT_HW),
         (113, "Data",           ROW_TELUS_TOT_DAT),
         (114, "Voice",          ROW_TELUS_TOT_VOI),
+        (115, "Other",          ROW_TELUS_TOT_OTH),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelh)
         write(ws, r, COL_B, label, _ftelh)
@@ -696,13 +705,13 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 115, height=17, fmt=_ftelh)
-    write(ws, 115, COL_B, "Total", _ftelh_b)
-    write_monthly_sum_range(ws, 115, 111, 114, _ftelh_b)
+    set_row_props(ws, 116, height=17, fmt=_ftelh)
+    write(ws, 116, COL_B, "Total", _ftelh_b)
+    write_monthly_sum_range(ws, 116, 111, 115, _ftelh_b)
 
-    # Row 116 – BGEs header (level 1)
-    set_row_props(ws, 116, fmt=_ftelh, opts={"level": 1})
-    write(ws, 116, COL_A, "BGEs", _ftelh_b)
+    # Row 117 – BGEs header (level 1)
+    set_row_props(ws, 117, fmt=_ftelh, opts={"level": 1})
+    write(ws, 117, COL_A, "BGEs", _ftelh_b)
 
     # BGE detail rows 117-186
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
@@ -723,12 +732,13 @@ def build():
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _ftelb_b)
 
-    # TELUS NGTA TOTAL rows 187-190
+    # TELUS NGTA TOTAL rows 202-206
     for r, label, rows_list in [
         (ROW_TELUS_TOT_PLANS, "TOTAL Cellular Plans", TELUS_PLANS_ROWS),
         (ROW_TELUS_TOT_HW,    "TOTAL Cellular H/W",   TELUS_HW_ROWS),
         (ROW_TELUS_TOT_DAT,   "TOTAL Data",            TELUS_DAT_ROWS),
         (ROW_TELUS_TOT_VOI,   "TOTAL Voice",           TELUS_VOI_ROWS),
+        (ROW_TELUS_TOT_OTH,   "TOTAL Other",           TELUS_OTH_ROWS),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelh)
         write(ws, r, COL_B, label, _ftelh)
@@ -738,17 +748,18 @@ def build():
         write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
 
     # =========================================================
-    # ROWS 191-211: Hidden TELUS sub-aggregates
+    # ROWS 207-231: Hidden TELUS sub-aggregates
     # =========================================================
-    set_row_props(ws, 191, height=16, fmt=_ftelb, opts=_hidden)
+    set_row_props(ws, 207, height=16, fmt=_ftelb, opts=_hidden)
 
     telus_gov_r = TELUS_ROW_MAP["Gov BC"]
     telus_ecc_r = TELUS_ROW_MAP["ECC"]
     for r, label, rtype in [
-        (192, "Cellular",    "cell_plans"),
-        (193, "Cellular H/W","cell_hw"),
-        (194, "Data",         "data"),
-        (195, "Voice",        "voice"),
+        (208, "Cellular",    "cell_plans"),
+        (209, "Cellular H/W","cell_hw"),
+        (210, "Data",         "data"),
+        (211, "Voice",        "voice"),
+        (212, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -759,14 +770,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 196, height=16, fmt=_ftelb, opts=_hidden)
+    set_row_props(ws, 213, height=16, fmt=_ftelb, opts=_hidden)
 
     telus_health = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
     for r, label, rtype in [
-        (197, "Cellular",    "cell_plans"),
-        (198, "Cellular H/W","cell_hw"),
-        (199, "Data",         "data"),
-        (200, "Voice",        "voice"),
+        (214, "Cellular",    "cell_plans"),
+        (215, "Cellular H/W","cell_hw"),
+        (216, "Data",         "data"),
+        (217, "Voice",        "voice"),
+        (218, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -777,14 +789,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 201, height=16, fmt=_ftelb, opts=_hidden)
+    set_row_props(ws, 219, height=16, fmt=_ftelb, opts=_hidden)
 
     telus_crown = ["BCLC","BC Hydro","WSBC","ICBC"]
     for r, label, rtype in [
-        (202, "Cellular",    "cell_plans"),
-        (203, "Cellular H/W","cell_hw"),
-        (204, "Data",         "data"),
-        (205, "Voice",        "voice"),
+        (220, "Cellular",    "cell_plans"),
+        (221, "Cellular H/W","cell_hw"),
+        (222, "Data",         "data"),
+        (223, "Voice",        "voice"),
+        (224, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -795,14 +808,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 206, height=16, fmt=_ftelb, opts=_hidden)
+    set_row_props(ws, 225, height=16, fmt=_ftelb, opts=_hidden)
 
     telus_sd_r = TELUS_ROW_MAP["School Districts"]
     for r, label, rtype in [
-        (207, "Cellular",    "cell_plans"),
-        (208, "Cellular H/W","cell_hw"),
-        (209, "Data",         "data"),
-        (210, "Voice",        "voice"),
+        (226, "Cellular",    "cell_plans"),
+        (227, "Cellular H/W","cell_hw"),
+        (228, "Data",         "data"),
+        (229, "Voice",        "voice"),
+        (230, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -812,26 +826,27 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    # Separator row 211 – bright cyan
-    set_row_props(ws, 211, height=16, fmt=_fsep)
+    # Separator row 231 – bright cyan
+    set_row_props(ws, 231, height=16, fmt=_fsep)
 
     # =========================================================
-    # ROWS 212-292: Rogers NGTA section
+    # ROWS 232-328: Rogers NGTA section
     # =========================================================
     _frogh   = F(bg_color=BG_ROGERS_HDR)
     _frogh_b = F(bold=True, bg_color=BG_ROGERS_HDR)
     _frogb   = F(bg_color=BG_ROGERS_BGE)
     _frogb_b = F(bold=True, bg_color=BG_ROGERS_BGE)
 
-    set_row_props(ws, 212, height=16, fmt=_frogh)
-    write(ws, 212, COL_B, "Rogers NGTA", _frogh_b)
+    set_row_props(ws, 232, height=16, fmt=_frogh)
+    write(ws, 232, COL_B, "Rogers NGTA", _frogh_b)
 
-    # Summary rows 213-217
+    # Summary rows 233-238
     for r, label, tot_row in [
-        (213, "Cellular Plans", ROW_ROGERS_TOT_PLANS),
-        (214, "Cellular H/W",   ROW_ROGERS_TOT_HW),
-        (215, "Data",           ROW_ROGERS_TOT_DAT),
-        (216, "Voice",          ROW_ROGERS_TOT_VOI),
+        (233, "Cellular Plans", ROW_ROGERS_TOT_PLANS),
+        (234, "Cellular H/W",   ROW_ROGERS_TOT_HW),
+        (235, "Data",           ROW_ROGERS_TOT_DAT),
+        (236, "Voice",          ROW_ROGERS_TOT_VOI),
+        (237, "Other",          ROW_ROGERS_TOT_OTH),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogh)
         write(ws, r, COL_B, label, _frogh)
@@ -840,13 +855,13 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 217, height=17, fmt=_frogh)
-    write(ws, 217, COL_B, "Total", _frogh_b)
-    write_monthly_sum_range(ws, 217, 213, 216, _frogh_b)
+    set_row_props(ws, 238, height=17, fmt=_frogh)
+    write(ws, 238, COL_B, "Total", _frogh_b)
+    write_monthly_sum_range(ws, 238, 233, 237, _frogh_b)
 
-    # Row 218 – BGEs header
-    set_row_props(ws, 218, fmt=_frogh, opts={"level": 1})
-    write(ws, 218, COL_A, "BGEs", _frogh_b)
+    # Row 239 – BGEs header
+    set_row_props(ws, 239, fmt=_frogh, opts={"level": 1})
+    write(ws, 239, COL_A, "BGEs", _frogh_b)
 
     # BGE detail rows 219-288
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
@@ -867,12 +882,13 @@ def build():
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _frogb_b)
 
-    # Rogers NGTA TOTAL rows 289-292
+    # Rogers NGTA TOTAL rows 324-328
     for r, label, rows_list in [
         (ROW_ROGERS_TOT_PLANS, "TOTAL Cellular Plans", ROGERS_PLANS_ROWS),
         (ROW_ROGERS_TOT_HW,    "TOTAL Cellular H/W",   ROGERS_HW_ROWS),
         (ROW_ROGERS_TOT_DAT,   "TOTAL Data",            ROGERS_DAT_ROWS),
         (ROW_ROGERS_TOT_VOI,   "TOTAL Voice",           ROGERS_VOI_ROWS),
+        (ROW_ROGERS_TOT_OTH,   "TOTAL Other",           ROGERS_OTH_ROWS),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogh)
         write(ws, r, COL_B, label, _frogh)
@@ -882,17 +898,18 @@ def build():
         write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
 
     # =========================================================
-    # ROWS 293-313: Hidden Rogers sub-aggregates
+    # ROWS 329-354: Hidden Rogers sub-aggregates
     # =========================================================
-    set_row_props(ws, 293, height=16, fmt=_frogb, opts=_hidden)
+    set_row_props(ws, 329, height=16, fmt=_frogb, opts=_hidden)
 
     rogers_gov_r = ROGERS_ROW_MAP["Gov BC"]
     rogers_ecc_r = ROGERS_ROW_MAP["ECC"]
     for r, label, rtype in [
-        (294, "Cellular",    "cell_plans"),
-        (295, "Cellular H/W","cell_hw"),
-        (296, "Data",         "data"),
-        (297, "Voice",        "voice"),
+        (330, "Cellular",    "cell_plans"),
+        (331, "Cellular H/W","cell_hw"),
+        (332, "Data",         "data"),
+        (333, "Voice",        "voice"),
+        (334, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -903,14 +920,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 298, height=16, fmt=_frogb, opts=_hidden)
+    set_row_props(ws, 335, height=16, fmt=_frogb, opts=_hidden)
 
     rogers_health = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
     for r, label, rtype in [
-        (299, "Cellular",    "cell_plans"),
-        (300, "Cellular H/W","cell_hw"),
-        (301, "Data",         "data"),
-        (302, "Voice",        "voice"),
+        (336, "Cellular",    "cell_plans"),
+        (337, "Cellular H/W","cell_hw"),
+        (338, "Data",         "data"),
+        (339, "Voice",        "voice"),
+        (340, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -921,14 +939,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 303, height=16, fmt=_frogb, opts=_hidden)
+    set_row_props(ws, 341, height=16, fmt=_frogb, opts=_hidden)
 
     rogers_crown = ["BCLC","BC Hydro","WSBC","ICBC"]
     for r, label, rtype in [
-        (304, "Cellular",    "cell_plans"),
-        (305, "Cellular H/W","cell_hw"),
-        (306, "Data",         "data"),
-        (307, "Voice",        "voice"),
+        (342, "Cellular",    "cell_plans"),
+        (343, "Cellular H/W","cell_hw"),
+        (344, "Data",         "data"),
+        (345, "Voice",        "voice"),
+        (346, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -939,14 +958,15 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 308, height=16, fmt=_frogb, opts=_hidden)
+    set_row_props(ws, 347, height=16, fmt=_frogb, opts=_hidden)
 
     rogers_sd_r = ROGERS_ROW_MAP["School Districts"]
     for r, label, rtype in [
-        (309, "Cellular",    "cell_plans"),
-        (310, "Cellular H/W","cell_hw"),
-        (311, "Data",         "data"),
-        (312, "Voice",        "voice"),
+        (348, "Cellular",    "cell_plans"),
+        (349, "Cellular H/W","cell_hw"),
+        (350, "Data",         "data"),
+        (351, "Voice",        "voice"),
+        (352, "Other",        "other"),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -956,25 +976,25 @@ def build():
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
-    set_row_props(ws, 313, height=16)
-    # Separator row 314 – bright cyan
-    set_row_props(ws, 314, height=16, fmt=_fsep)
+    set_row_props(ws, 353, height=16)
+    # Separator row 354 – bright cyan
+    set_row_props(ws, 354, height=16, fmt=_fsep)
 
     # =========================================================
-    # ROWS 315-344: Out of Scope section
+    # ROWS 355-384: Out of Scope section
     # =========================================================
-    set_row_props(ws, 315, height=16)
-    write(ws, 315, COL_B, "Out of Scope", f_section)
-    write(ws, 315, COL_AO, 2024, f_bold)
-    write(ws, 315, COL_AP, 2025, f_bold)
-    write(ws, 315, COL_AQ, "Q1 2024", f_bold)
-    write(ws, 315, COL_AR, "Q1 2025", f_bold)
-    write(ws, 315, COL_AS, "Q4 2025", f_bold)
+    set_row_props(ws, 355, height=16)
+    write(ws, 355, COL_B, "Out of Scope", f_section)
+    write(ws, 355, COL_AO, 2024, f_bold)
+    write(ws, 355, COL_AP, 2025, f_bold)
+    write(ws, 355, COL_AQ, "Q1 2024", f_bold)
+    write(ws, 355, COL_AR, "Q1 2025", f_bold)
+    write(ws, 355, COL_AS, "Q4 2025", f_bold)
 
     # --- Managed Router ---
-    set_row_props(ws, 316, height=16)
-    write(ws, 316, COL_B, "Managed Router")
-    write(ws, 316, COL_AO, "Jan-Dec")
+    set_row_props(ws, 356, height=16)
+    write(ws, 356, COL_B, "Managed Router")
+    write(ws, 356, COL_AO, "Jan-Dec")
 
     oos_mr_orgs = [
         "CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY",
@@ -989,13 +1009,13 @@ def build():
         set_row_props(ws, r, height=17, opts={"level": 1})
         write(ws, r, COL_B, org)
 
-    set_row_props(ws, 324, height=17)
-    write(ws, 324, COL_B, "Total", f_total)
-    write_monthly_sum_range(ws, 324, 317, 323, f_total)
+    set_row_props(ws, 364, height=17)
+    write(ws, 364, COL_B, "Total", f_total)
+    write_monthly_sum_range(ws, 364, 357, 363, f_total)
 
     # --- Managed WLAN / Managed Wi-Fi ---
-    set_row_props(ws, 325, height=17)
-    write(ws, 325, COL_B, "Managed WLAN/Managed Wi-Fi")
+    set_row_props(ws, 365, height=17)
+    write(ws, 365, COL_B, "Managed WLAN/Managed Wi-Fi")
 
     oos_wlan_orgs = [
         "VANCOUVER COASTAL HEALTH AUTHORITY O/A OLIVE DEVAUD RESIDENCE",
@@ -1009,13 +1029,13 @@ def build():
         set_row_props(ws, r, height=17, opts={"level": 1})
         write(ws, r, COL_B, org)
 
-    set_row_props(ws, 332, height=17)
-    write(ws, 332, COL_B, "Total", f_total)
-    write_monthly_sum_range(ws, 332, 326, 331, f_total)
+    set_row_props(ws, 372, height=17)
+    write(ws, 372, COL_B, "Total", f_total)
+    write_monthly_sum_range(ws, 372, 366, 371, f_total)
 
     # --- Managed Security / Managed Firewall ---
-    set_row_props(ws, 333, height=17)
-    write(ws, 333, COL_B, "Managed Security/Managed Firewall")
+    set_row_props(ws, 373, height=17)
+    write(ws, 373, COL_B, "Managed Security/Managed Firewall")
 
     oos_sec_orgs = [
         "BRITISH COLUMBIA HYDRO & POWER AUTHORITY",
@@ -1033,18 +1053,18 @@ def build():
         set_row_props(ws, r, height=17, opts={"level": 1})
         write(ws, r, COL_B, org)
 
-    set_row_props(ws, 344, height=17)
-    write(ws, 344, COL_B, "Total", f_total)
-    # Original sums 335:343 (skips row 334 which is the first org but matches formula)
-    write_monthly_sum_range(ws, 344, 335, 343, f_total)
+    set_row_props(ws, 384, height=17)
+    write(ws, 384, COL_B, "Total", f_total)
+    # Original sums rows 375:383 (skips first org row, matches original formula pattern)
+    write_monthly_sum_range(ws, 384, 375, 383, f_total)
 
-    set_row_props(ws, 345, height=16)
+    set_row_props(ws, 385, height=16)
 
     # =========================================================
-    # ROWS 346-354: TSMA Lite  (quarterly data)
+    # ROWS 386-394: TSMA Lite  (quarterly data)
     # =========================================================
-    set_row_props(ws, 346, height=16)
-    write(ws, 346, COL_B, "TSMA Lite", f_section)
+    set_row_props(ws, 386, height=16)
+    write(ws, 386, COL_B, "TSMA Lite", f_section)
 
     for r, label in [
         (ROW_TSMALITE_VOICE,  "Voice - Total Charges"),
@@ -1062,7 +1082,7 @@ def build():
         write_f(ws, ROW_TSMALITE_TOTAL, col,
                 sum_range(ROW_TSMALITE_VOICE, ROW_TSMALITE_CELUE, col), f_total)
 
-    set_row_props(ws, 352, height=17)   # blank separator
+    set_row_props(ws, 392, height=17)   # blank separator
 
     # Row 353: Voice + Data + Other (excludes cellular UE)
     set_row_props(ws, ROW_TSMALITE_EXC, height=17)

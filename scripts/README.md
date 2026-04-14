@@ -88,12 +88,12 @@ should **not** be edited.
 
 ---
 
-### 2. TELUS NGTA  (rows 117 – 186)
+### 2. TELUS NGTA  (rows 118 – 201)
 
 **Owner:** TELUS NGTA contributor  
 **Background colour:** light lavender
 
-Each BGE has exactly **5 sub-rows**:
+Each BGE has exactly **6 sub-rows**:
 
 | Sub-row | Meaning | Notes |
 |---------|---------|-------|
@@ -101,64 +101,65 @@ Each BGE has exactly **5 sub-rows**:
 | Cellular H/W | Hardware charges | Enter monthly $ |
 | Data | Data charges | Enter monthly $ |
 | Voice | Voice charges | Enter monthly $ |
+| Other | Other charges | Enter monthly $ |
 | **Total** | Auto-calculated | **Do not edit** |
 
-**Row map by BGE** (each block is 5 rows, data columns C:AL):
+**Row map by BGE** (each block is 6 rows, data columns C:AL):
 
-| BGE | Cellular Plans | Cellular H/W | Data | Voice | Total |
-|-----|---------------|--------------|------|-------|-------|
-| Gov BC | 117 | 118 | 119 | 120 | 121 |
-| BCLC | 122 | 123 | 124 | 125 | 126 |
-| BC Hydro | 127 | 128 | 129 | 130 | 131 |
-| WSBC | 132 | 133 | 134 | 135 | 136 |
-| ECC | 137 | 138 | 139 | 140 | 141 |
-| FHA | 142 | 143 | 144 | 145 | 146 |
-| NHA | 147 | 148 | 149 | 150 | 151 |
-| ICBC | 152 | 153 | 154 | 155 | 156 |
-| PHSA | 157 | 158 | 159 | 160 | 161 |
-| IHA | 162 | 163 | 164 | 165 | 166 |
-| VIHA | 167 | 168 | 169 | 170 | 171 |
-| FNHA | 172 | 173 | 174 | 175 | 176 |
-| VCHA (+PHC) | 177 | 178 | 179 | 180 | 181 |
-| School Districts | 182 | 183 | 184 | 185 | 186 |
+| BGE | Cel Plans | Cel H/W | Data | Voice | Other | Total |
+|-----|-----------|---------|------|-------|-------|-------|
+| Gov BC | 118 | 119 | 120 | 121 | 122 | 123 |
+| BCLC | 124 | 125 | 126 | 127 | 128 | 129 |
+| BC Hydro | 130 | 131 | 132 | 133 | 134 | 135 |
+| WSBC | 136 | 137 | 138 | 139 | 140 | 141 |
+| ECC | 142 | 143 | 144 | 145 | 146 | 147 |
+| FHA | 148 | 149 | 150 | 151 | 152 | 153 |
+| NHA | 154 | 155 | 156 | 157 | 158 | 159 |
+| ICBC | 160 | 161 | 162 | 163 | 164 | 165 |
+| PHSA | 166 | 167 | 168 | 169 | 170 | 171 |
+| IHA | 172 | 173 | 174 | 175 | 176 | 177 |
+| VIHA | 178 | 179 | 180 | 181 | 182 | 183 |
+| FNHA | 184 | 185 | 186 | 187 | 188 | 189 |
+| VCHA (+PHC) | 190 | 191 | 192 | 193 | 194 | 195 |
+| School Districts | 196 | 197 | 198 | 199 | 200 | 201 |
 
-Rows 110–115 are **summary rows** — do not edit.  
-Rows 187–190 are **aggregate totals** — do not edit.
+Rows 110–116 are **summary rows** — do not edit.  
+Rows 202–206 are **aggregate totals** — do not edit.
 
 ---
 
-### 3. Rogers NGTA  (rows 219 – 288)
+### 3. Rogers NGTA  (rows 240 – 323)
 
 **Owner:** Rogers NGTA contributor  
 **Background colour:** light peach
 
-Identical structure to TELUS NGTA (5 sub-rows per BGE).
+Identical structure to TELUS NGTA (6 sub-rows per BGE).
 
-**Row map by BGE** (each block is 5 rows, data columns C:AL):
+**Row map by BGE** (each block is 6 rows, data columns C:AL):
 
-| BGE | Cellular Plans | Cellular H/W | Data | Voice | Total |
-|-----|---------------|--------------|------|-------|-------|
-| Gov BC | 219 | 220 | 221 | 222 | 223 |
-| BCLC | 224 | 225 | 226 | 227 | 228 |
-| BC Hydro | 229 | 230 | 231 | 232 | 233 |
-| WSBC | 234 | 235 | 236 | 237 | 238 |
-| ECC | 239 | 240 | 241 | 242 | 243 |
-| FHA | 244 | 245 | 246 | 247 | 248 |
-| NHA | 249 | 250 | 251 | 252 | 253 |
-| ICBC | 254 | 255 | 256 | 257 | 258 |
-| PHSA | 259 | 260 | 261 | 262 | 263 |
-| IHA | 264 | 265 | 266 | 267 | 268 |
-| VIHA | 269 | 270 | 271 | 272 | 273 |
-| FNHA | 274 | 275 | 276 | 277 | 278 |
-| VCHA (+PHC) | 279 | 280 | 281 | 282 | 283 |
-| School Districts | 284 | 285 | 286 | 287 | 288 |
+| BGE | Cel Plans | Cel H/W | Data | Voice | Other | Total |
+|-----|-----------|---------|------|-------|-------|-------|
+| Gov BC | 240 | 241 | 242 | 243 | 244 | 245 |
+| BCLC | 246 | 247 | 248 | 249 | 250 | 251 |
+| BC Hydro | 252 | 253 | 254 | 255 | 256 | 257 |
+| WSBC | 258 | 259 | 260 | 261 | 262 | 263 |
+| ECC | 264 | 265 | 266 | 267 | 268 | 269 |
+| FHA | 270 | 271 | 272 | 273 | 274 | 275 |
+| NHA | 276 | 277 | 278 | 279 | 280 | 281 |
+| ICBC | 282 | 283 | 284 | 285 | 286 | 287 |
+| PHSA | 288 | 289 | 290 | 291 | 292 | 293 |
+| IHA | 294 | 295 | 296 | 297 | 298 | 299 |
+| VIHA | 300 | 301 | 302 | 303 | 304 | 305 |
+| FNHA | 306 | 307 | 308 | 309 | 310 | 311 |
+| VCHA (+PHC) | 312 | 313 | 314 | 315 | 316 | 317 |
+| School Districts | 318 | 319 | 320 | 321 | 322 | 323 |
 
-Rows 212–217 are **summary rows** — do not edit.  
-Rows 289–292 are **aggregate totals** — do not edit.
+Rows 232–238 are **summary rows** — do not edit.  
+Rows 324–328 are **aggregate totals** — do not edit.
 
 ---
 
-### 4. Out of Scope  (rows 317 – 343)
+### 4. Out of Scope  (rows 357 – 383)
 
 **Owner:** Out of Scope contributor  
 **Background colour:** white (no fill)
@@ -166,49 +167,49 @@ Rows 289–292 are **aggregate totals** — do not edit.
 Three sub-categories, each with a set of organisation-level detail rows
 followed by a **Total** row (auto-calculated — do not edit).
 
-#### Managed Router  (rows 317 – 323, Total at 324)
+#### Managed Router  (rows 357 – 363, Total at 364)
 
 | Row | Organisation |
 |-----|-------------|
-| 317 | CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY |
-| 318 | FIRST NATIONS HEALTH AUTHORITY |
-| 319 | GBC - MINISTRY OF CITIZENS SERVICES |
-| 320 | GBC - SHARED SERVICES BC |
-| 321 | GBC - MINISTRY OF EDUCATION & CHILD CARE |
-| 322 | BRITISH COLUMBIA LIQUOR DISTRIBUTION BRANCH |
-| 323 | GBC - LIQUOR DISTRIBUTION BRANCH |
+| 357 | CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY |
+| 358 | FIRST NATIONS HEALTH AUTHORITY |
+| 359 | GBC - MINISTRY OF CITIZENS SERVICES |
+| 360 | GBC - SHARED SERVICES BC |
+| 361 | GBC - MINISTRY OF EDUCATION & CHILD CARE |
+| 362 | BRITISH COLUMBIA LIQUOR DISTRIBUTION BRANCH |
+| 363 | GBC - LIQUOR DISTRIBUTION BRANCH |
 
-#### Managed WLAN / Managed Wi-Fi  (rows 326 – 331, Total at 332)
-
-| Row | Organisation |
-|-----|-------------|
-| 326 | VANCOUVER COASTAL HEALTH AUTHORITY O/A OLIVE DEVAUD RESIDENCE |
-| 327 | VANCOUVER COASTAL HEALTH AUTHORITY O/A LIONS GATE HOSPITAL |
-| 328 | VANCOUVER COASTAL HEALTH AUTHORITY HOWE SOUND HOME SUPPORT SERVICES |
-| 329 | VANCOUVER COASTAL HEALTH AUTHORITY |
-| 330 | PROVINCIAL HEALTH SERVICES AUTHORITY |
-| 331 | GREATER VANCOUVER MENTAL HEALTH SERVICE |
-
-#### Managed Security / Managed Firewall  (rows 334 – 343, Total at 344)
+#### Managed WLAN / Managed Wi-Fi  (rows 366 – 371, Total at 372)
 
 | Row | Organisation |
 |-----|-------------|
-| 334 | BRITISH COLUMBIA HYDRO & POWER AUTHORITY |
-| 335 | WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA |
-| 336 | INSURANCE CORPORATION OF BRITISH COLUMBIA - ICBC |
-| 337 | FRASER HEALTH AUTHORITY |
-| 338 | GBC - MINISTRY OF EDUCATION & CHILD CARE |
-| 339 | PROVINCIAL HEALTH SERVICES AUTHORITY |
-| 340 | GBC - MINISTRY OF CITIZENS SERVICES |
-| 341 | FIRST NATIONS HEALTH AUTHORITY |
-| 342 | GBC - OFFICE OF THE CHIEF INFORMATION OFFICER |
-| 343 | GBC - MINISTRY OF HEALTH |
+| 366 | VANCOUVER COASTAL HEALTH AUTHORITY O/A OLIVE DEVAUD RESIDENCE |
+| 367 | VANCOUVER COASTAL HEALTH AUTHORITY O/A LIONS GATE HOSPITAL |
+| 368 | VANCOUVER COASTAL HEALTH AUTHORITY HOWE SOUND HOME SUPPORT SERVICES |
+| 369 | VANCOUVER COASTAL HEALTH AUTHORITY |
+| 370 | PROVINCIAL HEALTH SERVICES AUTHORITY |
+| 371 | GREATER VANCOUVER MENTAL HEALTH SERVICE |
+
+#### Managed Security / Managed Firewall  (rows 374 – 383, Total at 384)
+
+| Row | Organisation |
+|-----|-------------|
+| 374 | BRITISH COLUMBIA HYDRO & POWER AUTHORITY |
+| 375 | WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA |
+| 376 | INSURANCE CORPORATION OF BRITISH COLUMBIA - ICBC |
+| 377 | FRASER HEALTH AUTHORITY |
+| 378 | GBC - MINISTRY OF EDUCATION & CHILD CARE |
+| 379 | PROVINCIAL HEALTH SERVICES AUTHORITY |
+| 380 | GBC - MINISTRY OF CITIZENS SERVICES |
+| 381 | FIRST NATIONS HEALTH AUTHORITY |
+| 382 | GBC - OFFICE OF THE CHIEF INFORMATION OFFICER |
+| 383 | GBC - MINISTRY OF HEALTH |
 
 All data cells are columns **C:AL** (monthly, Jan 2024 – Dec 2026).
 
 ---
 
-### 5. TSMA Lite  (rows 347 – 354)
+### 5. TSMA Lite  (rows 387 – 394)
 
 **Owner:** TSMA Lite contributor  
 **Background colour:** white (no fill)
@@ -235,12 +236,12 @@ columns listed below — leave all other month columns empty.
 
 | Row | Label |
 |-----|-------|
-| 347 | Voice - Total Charges |
-| 348 | Data - Total Charges |
-| 349 | \*Other Charges & Credits |
-| 350 | Cellular User Equipment Cost |
+| 387 | Voice - Total Charges |
+| 388 | Data - Total Charges |
+| 389 | \*Other Charges & Credits |
+| 390 | Cellular User Equipment Cost |
 
-Rows 351 (Total), 353 (Voice + Data + Other), and 354 (Cellular UE reference)
+Rows 391 (Total), 393 (Voice + Data + Other), and 394 (Cellular UE reference)
 are **formula rows** — do not edit.
 
 ---
@@ -249,7 +250,7 @@ are **formula rows** — do not edit.
 
 **Owner:** MMS contributor (or same as TSMA)
 
-MMS rows are embedded inside the TSMA BGE blocks.  Only three BGEs have an MMS
+MMS rows are embedded inside the TSMA BGE blocks. Only three BGEs have an MMS
 sub-row:
 
 | BGE | MMS row |
@@ -275,14 +276,14 @@ The following rows are fully formula-driven and must not be overwritten:
 | 86–90 | TSMA aggregate totals (TOTAL Cellular / MMS / Data / Voice / OoS) |
 | 91 | TSMA + NGTAs combined row |
 | 92–108 | Hidden TSMA sub-aggregates (Gov & ECC, Health, Crown Corps, School Districts) |
-| 110–116 | TELUS NGTA headers and summary |
-| 187–190 | TELUS NGTA aggregate totals |
-| 191–211 | Hidden TELUS sub-aggregates |
-| 212–218 | Rogers NGTA headers and summary |
-| 289–292 | Rogers NGTA aggregate totals |
-| 293–313 | Hidden Rogers sub-aggregates |
-| 324, 332, 344 | Out of Scope category totals |
-| 351, 353, 354 | TSMA Lite totals/references |
+| 110–117 | TELUS NGTA headers and summary |
+| 202–206 | TELUS NGTA aggregate totals |
+| 207–231 | Hidden TELUS sub-aggregates |
+| 232–239 | Rogers NGTA headers and summary |
+| 324–328 | Rogers NGTA aggregate totals |
+| 329–354 | Hidden Rogers sub-aggregates |
+| 364, 372, 384 | Out of Scope category totals |
+| 391, 393, 394 | TSMA Lite totals/references |
 
 ---
 
