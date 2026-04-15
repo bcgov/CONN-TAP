@@ -14,272 +14,37 @@ Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking.xlsx
 """
 
-import csv
-import os
-from datetime import datetime
-
 import xlsxwriter
 
-OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
-SOURCE_DIR   = os.path.join(os.path.dirname(__file__), "source")
-TELUS_CSV    = os.path.join(SOURCE_DIR, "telus_ngta_spend.csv")
+from sheet_utils import (
+    # Colors
+    BG_TSMA_HDR, BG_TSMA_BGE, BG_COMBINED, BG_SEPARATOR, BG_IVR,
+    BG_ROGERS_HDR, BG_ROGERS_BGE,
+    _FmtCache,
+    # Column constants
+    COL_A, COL_B, COL_AM, COL_AN, COL_AO, COL_AP, COL_AQ, COL_AR, COL_AS,
+    FIRST_MONTH, LAST_MONTH, MONTH_COLS, Y2024, Y2025, TSMA_LITE_Q_COLS,
+    MONTH_LABELS,
+    # BGE data
+    BGES, BGE_A_LABELS, BGE_A2_LABELS, NGTA_BGE_ROWS,
+    # NGTA helpers
+    _build_ngta_row_map, _ngta_rows_by_type,
+    # Formula builders
+    col_letter, sum_rows, sum_range, ref_cell, annual_sum, q_sum,
+    # Sheet writers
+    write, write_f, merge, set_row_props,
+    write_monthly_formula, write_monthly_ref,
+    write_monthly_sum_rows, write_monthly_sum_range, write_summary_cols,
+    # Workbook setup
+    set_column_widths, write_year_quarter_headers, write_month_label_row,
+)
+from telus_ngta import load_telus_ngta, build_telus_ngta_section
 
-# ---------------------------------------------------------------------------
-# CSV ingestion — TELUS NGTA
-# ---------------------------------------------------------------------------
-
-# Maps CSV entity_key values (matched case-insensitively) to TELUS_ROW_MAP / BGE_A_LABELS keys.
-# Includes both short codes and common full-name variants that may appear in the source data.
-ENTITY_KEY_MAP = {
-    # Short codes
-    "BCH":  "BC Hydro",
-    "BCLC": "BCLC",
-    "ECC":  "ECC",
-    "MOE":  "ECC",   # Ministry of Education alternate short code
-    "FHA":  "FHA",
-    "FNHA": "FNHA",
-    "GBC":  "Gov BC",
-    "ICBC": "ICBC",
-    "IHA":  "IHA",
-    "NHA":  "NHA",
-    "PHSA": "PHSA",
-    "SD":   "School Districts",
-    "VIHA": "VIHA",
-    "VCHA": "VCHA",
-    "WSBC": "WSBC",
-    # Full-name variants
-    "BC HYDRO":                    "BC Hydro",
-    "FRASER HEALTH":               "FHA",
-    "FRASER HEALTH AUTHORITY":     "FHA",
-    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
-    "GOVERNMENT OF BC":            "Gov BC",
-    "MINISTRY OF EDUCATION":       "ECC",
-    "MINISTRY OF EDUCATION AND CHILD CARE": "ECC",
-    "INTERIOR HEALTH":             "IHA",
-    "INTERIOR HEALTH AUTHORITY":   "IHA",
-    "NORTHERN HEALTH":             "NHA",
-    "NORTHERN HEALTH AUTHORITY":   "NHA",
-    "PROVINCIAL HEALTH SERVICES":  "PHSA",
-    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
-    "SCHOOL DISTRICTS":            "School Districts",
-    "SCHOOL DISTRICT":             "School Districts",
-    "VANCOUVER ISLAND HEALTH":     "VIHA",
-    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
-    "VANCOUVER COASTAL HEALTH":    "VCHA",
-    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
-    "WORKERS COMPENSATION BOARD":  "WSBC",
-    "ICBC":                        "ICBC",
-    "BCLC":                        "BCLC",
-}
-
-# Maps CSV column names to NGTA_BGE_ROWS row-type keys
-SPEND_COL_MAP = {
-    "cellular_plans":    "cell_plans",
-    "cellular_hardware": "cell_hw",
-    "data_spend":        "data",
-    "voice_spend":       "voice",
-    "other_spend":       "other",
-}
-
-
-def _month_to_col(month_str: str):
-    """Parse a month_start string and return the 0-based Excel column index.
-
-    Accepts ISO dates (2024-01-01), year-month (2024-01), or any format
-    whose first two tokens contain year and month.  Returns None when the
-    date falls outside the 2024-2026 window covered by the sheet.
-    """
-    s = month_str.strip()
-    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y/%m/%d", "%Y/%m", "%m/%d/%Y", "%d/%m/%Y"):
-        try:
-            dt = datetime.strptime(s, fmt)
-            col = FIRST_MONTH + (dt.year - 2024) * 12 + (dt.month - 1)
-            return col if FIRST_MONTH <= col <= LAST_MONTH else None
-        except ValueError:
-            continue
-    return None
-
-
-def load_telus_ngta(path: str = TELUS_CSV) -> dict:
-    """Read telus_ngta_spend.csv and return a lookup dict.
-
-    Returns: {(bge_key, row_type, col_idx): numeric_value}
-
-    Missing or unparseable rows are silently skipped so the sheet
-    still builds correctly even with an incomplete CSV.
-    """
-    data: dict = {}
-    if not os.path.exists(path):
-        return data
-
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        # Normalise header names: strip whitespace, lower-case
-        reader.fieldnames = [h.strip().lower() for h in (reader.fieldnames or [])]
-        for row in reader:
-            entity_raw = row.get("entity_key", "").strip().upper()
-            bge = ENTITY_KEY_MAP.get(entity_raw)
-            if bge is None:
-                continue
-
-            col = _month_to_col(row.get("month_start", ""))
-            if col is None:
-                continue
-
-            for csv_col, rtype in SPEND_COL_MAP.items():
-                raw = row.get(csv_col, "").strip()
-                if not raw:
-                    continue
-                try:
-                    data[(bge, rtype, col)] = float(raw.replace(",", ""))
-                except ValueError:
-                    pass
-
-    return data
-
-
-# ---------------------------------------------------------------------------
-# Theme color resolution
-# ---------------------------------------------------------------------------
-# Base hex colors from xl/theme/theme1.xml (no leading #)
-_THEME_BASE = {
-    3: "0E2841",   # dk2  – dark navy (OOXML fill theme=3 → Text 2)
-    5: "E97132",   # accent2 – orange
-    6: "196B24",   # accent3 – dark green
-    8: "A02B93",   # accent5 – purple/magenta
-}
-
-
-def _tint(hex6: str, tint: float) -> str:
-    """Apply Excel tint to a 6-char hex color string and return #RRGGBB."""
-    r, g, b = int(hex6[0:2], 16), int(hex6[2:4], 16), int(hex6[4:6], 16)
-    if tint >= 0:
-        r2 = r + (255 - r) * tint
-        g2 = g + (255 - g) * tint
-        b2 = b + (255 - b) * tint
-    else:
-        r2, g2, b2 = r * (1 + tint), g * (1 + tint), b * (1 + tint)
-    return "#{:02X}{:02X}{:02X}".format(
-        max(0, min(255, round(r2))),
-        max(0, min(255, round(g2))),
-        max(0, min(255, round(b2))),
-    )
-
-
-# Pre-resolved fill colors
-BG_TSMA_HDR  = _tint(_THEME_BASE[3], 0.750)   # #C3C9D0  – TSMA header/summary/totals
-BG_TSMA_BGE  = _tint(_THEME_BASE[3], 0.900)   # #E7EAEC  – TSMA BGE detail rows
-BG_COMBINED  = _tint(_THEME_BASE[6], 0.600)   # #A3C4A7  – row 91 combined total
-BG_SEPARATOR = "#00B0F0"                        # bright cyan – separator rows
-BG_TELUS_HDR = _tint(_THEME_BASE[8], 0.600)   # #D9AAD4  – TELUS header/summary/totals
-BG_TELUS_BGE = _tint(_THEME_BASE[8], 0.800)   # #ECD5E9  – TELUS BGE detail rows
-BG_ROGERS_HDR = _tint(_THEME_BASE[5], 0.600)  # #F6C6AD  – Rogers header/summary/totals
-BG_ROGERS_BGE = _tint(_THEME_BASE[5], 0.800)  # #FBE3D6  – Rogers BGE detail rows
-BG_IVR        = "#FFA7A7"                       # light red – Voice-IVR rows
-
-
-class _FmtCache:
-    """On-demand xlsxwriter format factory – reuses identical format objects."""
-    def __init__(self, wb):
-        self._wb = wb
-        self._cache = {}
-
-    def __call__(self, **props):
-        key = tuple(sorted(props.items()))
-        if key not in self._cache:
-            self._cache[key] = self._wb.add_format(props)
-        return self._cache[key]
-
-# ---------------------------------------------------------------------------
-# Column index helpers (0-based)
-# ---------------------------------------------------------------------------
-
-def col_letter(col_idx: int) -> str:
-    """Convert 0-based column index to Excel letter(s)."""
-    col = col_idx + 1
-    result = ""
-    while col:
-        col, rem = divmod(col - 1, 26)
-        result = chr(65 + rem) + result
-    return result
-
-
-def cr(row_1: int, col_0: int) -> str:
-    """Cell reference from 1-based row and 0-based column."""
-    return f"{col_letter(col_0)}{row_1}"
-
-
-# ---------------------------------------------------------------------------
-# Layout constants
-# ---------------------------------------------------------------------------
-
-COL_A = 0     # entity name
-COL_B = 1     # sub-label  (width 43)
-# Months: C (col 2) = Jan 2024 … AL (col 37) = Dec 2026  →  36 months
-FIRST_MONTH = 2
-LAST_MONTH  = 37
-MONTH_COLS  = list(range(FIRST_MONTH, LAST_MONTH + 1))
-
-# 2024 = C:N (cols 2-13), 2025 = O:Z (14-25), 2026 = AA:AL (26-37)
-Y2024 = list(range(2, 14))
-Y2025 = list(range(14, 26))
-Y2026 = list(range(26, 38))
-
-# Summary / analysis columns (0-based)
-COL_AM = 38   # group label (visible)
-COL_AN = 39   # row label   (hidden)
-COL_AO = 40   # 2024 annual (hidden)
-COL_AP = 41   # 2025 annual (hidden)
-COL_AQ = 42   # Q1 2024    (visible)
-COL_AR = 43   # Q1 2025    (hidden)
-COL_AS = 44   # Q4 2025    (hidden)
-
-# Quarter-end columns used by TSMA Lite (end-of-each-quarter month)
-# E=4,H=7,K=10,N=13  Q=16,T=19,W=22,Z=25  AC=28,AF=31,AI=34,AL=37
-TSMA_LITE_Q_COLS = [4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37]
-
-# Month labels (Jan 2024 … Dec 2026)
-_MNAMES = ['Jan','Feb','Mar','Apr','May','Jun',
-           'Jul','Aug','Sep','Oct','Nov','Dec']
-MONTH_LABELS: list[str] = []
-for _yr in [2024, 2025, 2026]:
-    for _mi, _mn in enumerate(_MNAMES):
-        # Original uses 'Sept' for Sep-2024 only
-        label = f"{'Sept' if (_yr == 2024 and _mi == 8) else _mn} {_yr}"
-        MONTH_LABELS.append(label)
-
-# BGE entities shared by all three carrier sections
-BGES = [
-    "Gov BC",
-    "BCLC",
-    "BC Hydro",
-    "WSBC",
-    "ECC",
-    "FHA",
-    "NHA",
-    "ICBC",
-    "PHSA",
-    "IHA",
-    "VIHA",
-    "FNHA",
-    "VCHA\n(+PHC)",   # A-column label uses two lines
-    "School Districts",
-]
-BGE_A_LABELS = [
-    "Gov BC", "BCLC", "BC Hydro", "WSBC", "ECC",
-    "FHA", "NHA", "ICBC", "PHSA", "IHA",
-    "VIHA", "FNHA", "VCHA", "School Districts",
-]
-BGE_A2_LABELS = [
-    None, None, None, None, None,
-    None, None, None, None, None,
-    None, None, "(+PHC)", None,
-]
+import os
+OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
 
 # ---------------------------------------------------------------------------
 # TSMA BGE sub-row definitions
-# Each tuple: (B-label, row-type)
-# row-type: 'cellular'|'data'|'voice'|'voice_ivr'|'oos'|'mms'|'total'
 # ---------------------------------------------------------------------------
 TSMA_BGE_ROWS = {
     "Gov BC":          [('Cellular','cellular'),('Data','data'),('Voice','voice'),
@@ -312,45 +77,31 @@ TSMA_BGE_ROWS = {
                         ('Out of Scope','oos'),('Total','total')],
 }
 
-# TELUS / Rogers NGTAs have the same sub-row structure per BGE
-NGTA_BGE_ROWS = [
-    ('Cellular Plans', 'cell_plans'),
-    ('Cellular H/W',   'cell_hw'),
-    ('Data',           'data'),
-    ('Voice',          'voice'),
-    ('Other',          'other'),
-    ('Total',          'total'),
-]
-
 # ---------------------------------------------------------------------------
-# Pre-compute TSMA row numbers (1-based)
+# TSMA row numbers
 # ---------------------------------------------------------------------------
 
 def _build_tsma_row_map():
-    """Return {bge_name: {row_type: excel_row_number}} and aggregate row numbers."""
     row_map = {}
-    r = 12  # first BGE data row
+    r = 12
     for bge in BGE_A_LABELS:
         rows_for_bge = TSMA_BGE_ROWS[bge]
         row_map[bge] = {}
         for label, rtype in rows_for_bge:
             row_map[bge][rtype] = r
             r += 1
-    # r is now 86 (TOTAL rows)
     assert r == 86, f"Expected TSMA TOTAL at row 86, got {r}"
-    return row_map, r  # r=86 = first TOTAL row
+    return row_map, r
 
 
 TSMA_ROW_MAP, _TSMA_TOTAL_START = _build_tsma_row_map()
 
-# TSMA aggregate rows (1-based)
 ROW_TSMA_TOTAL_CEL = 86
 ROW_TSMA_TOTAL_MMS = 87
 ROW_TSMA_TOTAL_DAT = 88
 ROW_TSMA_TOTAL_VOI = 89
 ROW_TSMA_TOTAL_OOS = 90
 
-# TSMA summary rows (1-based)
 ROW_TSMA_SUM_CEL = 5
 ROW_TSMA_SUM_DAT = 6
 ROW_TSMA_SUM_VOI = 7
@@ -359,38 +110,11 @@ ROW_TSMA_SUM_TOT = 9
 ROW_TSMA_SUM_MMS = 10
 
 # ---------------------------------------------------------------------------
-# Pre-compute TELUS NGTA row numbers
+# Rogers NGTA row numbers
 # ---------------------------------------------------------------------------
-
-def _build_ngta_row_map(start_row: int):
-    """Return {bge_name: {row_type: row_number}} with 5 rows per BGE."""
-    row_map = {}
-    r = start_row
-    for bge in BGE_A_LABELS:
-        row_map[bge] = {}
-        for label, rtype in NGTA_BGE_ROWS:
-            row_map[bge][rtype] = r
-            r += 1
-    return row_map, r   # r = first TOTAL row
-
-
-# TELUS NGTA  – BGEs start at row 118, summary at 111-116
-# (+1 from original: added Other summary row before Total)
-ROW_TELUS_BGES_START = 118
-TELUS_ROW_MAP, _TELUS_TOTAL_START = _build_ngta_row_map(ROW_TELUS_BGES_START)
-assert _TELUS_TOTAL_START == 202   # 118 + 14 BGEs × 6 rows
-
-ROW_TELUS_TOT_PLANS = 202
-ROW_TELUS_TOT_HW    = 203
-ROW_TELUS_TOT_DAT   = 204
-ROW_TELUS_TOT_VOI   = 205
-ROW_TELUS_TOT_OTH   = 206
-
-# Rogers NGTA – BGEs start at row 240, summary at 233-238
-# (+20 from original: TELUS section grew by 20 rows; +1 more for Rogers Other summary)
 ROW_ROGERS_BGES_START = 240
 ROGERS_ROW_MAP, _ROGERS_TOTAL_START = _build_ngta_row_map(ROW_ROGERS_BGES_START)
-assert _ROGERS_TOTAL_START == 324   # 240 + 14 BGEs × 6 rows
+assert _ROGERS_TOTAL_START == 324
 
 ROW_ROGERS_TOT_PLANS = 324
 ROW_ROGERS_TOT_HW    = 325
@@ -399,19 +123,13 @@ ROW_ROGERS_TOT_VOI   = 327
 ROW_ROGERS_TOT_OTH   = 328
 
 # ---------------------------------------------------------------------------
-# Collect row lists needed for aggregate formulas
+# Aggregate row lists
 # ---------------------------------------------------------------------------
 
 def _tsma_rows_by_type(rtype):
     return [TSMA_ROW_MAP[b][rtype] for b in BGE_A_LABELS if rtype in TSMA_ROW_MAP[b]]
 
 
-def _ngta_rows_by_type(row_map, rtype):
-    return [row_map[b][rtype] for b in BGE_A_LABELS if rtype in row_map[b]]
-
-
-# TSMA aggregate formulas reference specific rows (matching original exactly)
-# TOTAL Cellular includes School Districts Cellular AND Data rows
 TSMA_CEL_ROWS = (_tsma_rows_by_type('cellular')
                  + [TSMA_ROW_MAP['School Districts']['data']])
 TSMA_MMS_ROWS = _tsma_rows_by_type('mms')
@@ -419,115 +137,26 @@ TSMA_DAT_ROWS = _tsma_rows_by_type('data')
 TSMA_VOI_ROWS = _tsma_rows_by_type('voice') + _tsma_rows_by_type('voice_ivr')
 TSMA_OOS_ROWS = _tsma_rows_by_type('oos')
 
-TELUS_PLANS_ROWS = _ngta_rows_by_type(TELUS_ROW_MAP, 'cell_plans')
-TELUS_HW_ROWS    = _ngta_rows_by_type(TELUS_ROW_MAP, 'cell_hw')
-TELUS_DAT_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'data')
-TELUS_VOI_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'voice')
-TELUS_OTH_ROWS   = _ngta_rows_by_type(TELUS_ROW_MAP, 'other')
-
 ROGERS_PLANS_ROWS = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_plans')
 ROGERS_HW_ROWS    = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_hw')
 ROGERS_DAT_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'data')
 ROGERS_VOI_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'voice')
 ROGERS_OTH_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'other')
 
-# Out of Scope rows (1-based, level-1 detail rows)
-# All +40 from original (TELUS section grew by 20 rows, Rogers section by 20 rows)
-OOS_MANAGED_ROUTER_ROWS = list(range(357, 364))   # 357-363
-OOS_MANAGED_WLAN_ROWS   = list(range(366, 372))   # 366-371
-OOS_MANAGED_SEC_ROWS    = list(range(374, 384))   # 374-383
+# ---------------------------------------------------------------------------
+# Out of Scope and TSMA Lite row constants
+# ---------------------------------------------------------------------------
+OOS_MANAGED_ROUTER_ROWS = list(range(357, 364))
+OOS_MANAGED_WLAN_ROWS   = list(range(366, 372))
+OOS_MANAGED_SEC_ROWS    = list(range(374, 384))
 
-# TSMA Lite (1-based) — all +40
 ROW_TSMALITE_VOICE  = 387
 ROW_TSMALITE_DATA   = 388
 ROW_TSMALITE_OTHER  = 389
 ROW_TSMALITE_CELUE  = 390
-ROW_TSMALITE_TOTAL  = 391   # SUM of 387:390 in Q-end columns
-ROW_TSMALITE_EXC    = 393   # Voice+Data+Other (excludes cellular UE)
-ROW_TSMALITE_CELUE2 = 394   # = cellular UE reference
-
-
-# ---------------------------------------------------------------------------
-# Formula builders
-# ---------------------------------------------------------------------------
-
-def sum_rows(rows: list[int], col: int) -> str:
-    """=rowA + rowB + … for a given column."""
-    cl = col_letter(col)
-    return "=" + "+".join(f"{cl}{r}" for r in rows)
-
-
-def sum_range(r1: int, r2: int, col: int) -> str:
-    cl = col_letter(col)
-    return f"=SUM({cl}{r1}:{cl}{r2})"
-
-
-def ref_cell(target_row: int, col: int) -> str:
-    return f"={col_letter(col)}{target_row}"
-
-
-def annual_sum(row: int, year_cols: list[int]) -> str:
-    cl_start = col_letter(year_cols[0])
-    cl_end   = col_letter(year_cols[-1])
-    return f"=SUM({cl_start}{row}:{cl_end}{row})"
-
-
-def q_sum(row: int, q_start_col: int, q_end_col: int) -> str:
-    return f"=SUM({col_letter(q_start_col)}{row}:{col_letter(q_end_col)}{row})"
-
-
-# ---------------------------------------------------------------------------
-# Sheet-writing helpers
-# ---------------------------------------------------------------------------
-
-def write(ws, row_1: int, col_0: int, val, fmt=None):
-    args = (row_1 - 1, col_0, val)
-    ws.write(*args, fmt) if fmt else ws.write(*args)
-
-
-def write_f(ws, row_1: int, col_0: int, formula: str, fmt=None):
-    args = (row_1 - 1, col_0, formula)
-    ws.write_formula(*args, fmt) if fmt else ws.write_formula(*args)
-
-
-def merge(ws, r1: int, c1: int, r2: int, c2: int, val, fmt=None):
-    args = (r1 - 1, c1, r2 - 1, c2, val)
-    ws.merge_range(*args, fmt) if fmt else ws.merge_range(*args)
-
-
-def set_row_props(ws, row_1: int, height=None, fmt=None, opts=None):
-    ws.set_row(row_1 - 1, height, fmt, opts or {})
-
-
-def write_monthly_formula(ws, row_1: int, formula_fn, fmt=None):
-    """Write formula_fn(col) for every month column."""
-    for col in MONTH_COLS:
-        write_f(ws, row_1, col, formula_fn(col), fmt)
-
-
-def write_monthly_ref(ws, row_1: int, target_row: int, fmt=None):
-    write_monthly_formula(ws, row_1, lambda c: ref_cell(target_row, c), fmt)
-
-
-def write_monthly_sum_rows(ws, row_1: int, rows: list[int], fmt=None):
-    write_monthly_formula(ws, row_1, lambda c: sum_rows(rows, c), fmt)
-
-
-def write_monthly_sum_range(ws, row_1: int, r_start: int, r_end: int, fmt=None):
-    write_monthly_formula(ws, row_1, lambda c: sum_range(r_start, r_end, c), fmt)
-
-
-def write_summary_cols(ws, row_1: int, label: str,
-                       include_annual=True, include_q=True):
-    """Write the hidden summary/analysis columns AN-AS for a row."""
-    write(ws, row_1, COL_AN, label)
-    if include_annual:
-        write_f(ws, row_1, COL_AO, annual_sum(row_1, Y2024))
-        write_f(ws, row_1, COL_AP, annual_sum(row_1, Y2025))
-    if include_q:
-        write_f(ws, row_1, COL_AQ, q_sum(row_1, Y2024[0], Y2024[2]))   # Q1 2024
-        write_f(ws, row_1, COL_AR, q_sum(row_1, Y2025[0], Y2025[2]))   # Q1 2025
-        write_f(ws, row_1, COL_AS, q_sum(row_1, Y2025[9], Y2025[11]))  # Q4 2025
+ROW_TSMALITE_TOTAL  = 391
+ROW_TSMALITE_EXC    = 393
+ROW_TSMALITE_CELUE2 = 394
 
 
 # ---------------------------------------------------------------------------
@@ -537,89 +166,35 @@ def write_summary_cols(ws, row_1: int, label: str,
 def build():
     wb = xlsxwriter.Workbook(OUTPUT_PATH)
     ws = wb.add_worksheet("Sheet1")
-
-    # Outline: summary rows BELOW detail, collapse buttons on right
     ws.outline_settings(True, False, True, True)
 
-    # --- Format factory ---
     F = _FmtCache(wb)
 
-    # Convenience aliases (no background – for header rows that have no fill)
     f_bold    = F(bold=True)
-    f_normal  = F()
     f_total   = F(bold=True)
     f_section = F(bold=True)
 
-    # --- Column widths ---
-    ws.set_column(COL_A, COL_A, 10.5)
-    ws.set_column(COL_B, COL_B, 43.0)
-    ws.set_column(FIRST_MONTH, LAST_MONTH, 10.5)
-    # Individual overrides matching original
-    ws.set_column(11, 11, 11.5)   # L
-    ws.set_column(18, 18, 11.17)  # S
-    ws.set_column(26, 26, 10.83)  # AA
-    ws.set_column(28, 28, 8.83)   # AC
-    ws.set_column(29, 29, 8.5)    # AD
-    ws.set_column(30, 30, 9.0)    # AE
-    ws.set_column(31, 31, 8.5)    # AF
-    ws.set_column(32, 32, 7.83)   # AG
-    ws.set_column(33, 33, 8.66)   # AH
-    ws.set_column(34, 34, 8.5)    # AI
-    ws.set_column(COL_AM, COL_AM, 13.5)
-    ws.set_column(COL_AN, COL_AN, 13.5, None, {"hidden": True})
-    ws.set_column(COL_AO, COL_AO, 13.33, None, {"hidden": True})
-    ws.set_column(COL_AP, COL_AP, 12.0,  None, {"hidden": True})
-    ws.set_column(COL_AQ, COL_AQ, 11.5)
-    ws.set_column(COL_AR, COL_AR, 11.5,  None, {"hidden": True})
-    ws.set_column(COL_AS, COL_AS, 9.83,  None, {"hidden": True})
+    set_column_widths(ws)
 
     # =========================================================
     # ROWS 1-3: Year / Quarter headers
     # =========================================================
-    set_row_props(ws, 3, height=16)
-
-    # Row 1 – Year spans
-    merge(ws, 1, 2,  1, 13, 2024, f_bold)
-    merge(ws, 1, 14, 1, 25, 2025, f_bold)
-    merge(ws, 1, 26, 1, 37, 2026, f_bold)
-
-    # Row 2 – Calendar quarters (CQ) + summary col headers
-    cq = ["CQ1", "CQ2", "CQ3", "CQ4"]
-    for yr_start in [2, 14, 26]:
-        for qi, label in enumerate(cq):
-            c = yr_start + qi * 3
-            merge(ws, 2, c, 2, c + 2, label, f_bold)
-    write(ws, 2, COL_AO, 2024,       f_bold)
-    write(ws, 2, COL_AP, 2025,       f_bold)
-    write(ws, 2, COL_AQ, "Q1 2024",  f_bold)
-    write(ws, 2, COL_AR, "Q1 2025",  f_bold)
-    write(ws, 2, COL_AS, "Q4 2025",  f_bold)
-
-    # Row 3 – Fiscal quarters (FQ) + Jan-Dec label
-    fq = ["FQ4", "FQ1", "FQ2", "FQ3"]
-    for yr_start in [2, 14, 26]:
-        for qi, label in enumerate(fq):
-            c = yr_start + qi * 3
-            merge(ws, 3, c, 3, c + 2, label, f_bold)
-    write(ws, 3, COL_AO, "Jan-Dec")
+    write_year_quarter_headers(ws, F)
 
     # =========================================================
     # ROW 4: Month labels  +  TSMA section header
     # =========================================================
-    _fth = F(bg_color=BG_TSMA_HDR)           # TSMA header bg, no bold
-    _fth_b = F(bold=True, bg_color=BG_TSMA_HDR)  # TSMA header bg, bold
+    _fth   = F(bg_color=BG_TSMA_HDR)
+    _fth_b = F(bold=True, bg_color=BG_TSMA_HDR)
     set_row_props(ws, 4, height=17, fmt=_fth)
     write(ws, 4, COL_B, "TSMA", _fth_b)
-    for i, lbl in enumerate(MONTH_LABELS):
-        write(ws, 4, FIRST_MONTH + i, lbl, _fth)
+    write_month_label_row(ws, 4, _fth)
 
     # =========================================================
     # ROWS 5-10: TSMA summary rows
     # =========================================================
-    _fth_tot = F(bold=True, bg_color=BG_TSMA_HDR)
-
-    for r, h in [(5, 17), (6, 17), (7, 17), (8, 17), (9, 17), (10, 17)]:
-        set_row_props(ws, r, height=h, fmt=_fth)
+    for r in range(5, 11):
+        set_row_props(ws, r, height=17, fmt=_fth)
 
     write(ws, 5, COL_B, "Cellular", _fth)
     write_monthly_ref(ws, 5, ROW_TSMA_TOTAL_CEL, _fth)
@@ -636,6 +211,7 @@ def build():
     write(ws, 8, COL_B, "Out of Scope", _fth)
     write_monthly_ref(ws, 8, ROW_TSMA_TOTAL_OOS, _fth)
 
+    _fth_tot = F(bold=True, bg_color=BG_TSMA_HDR)
     write(ws, 9, COL_B, "Total", _fth_tot)
     write_monthly_sum_range(ws, 9, 5, 8, _fth_tot)
 
@@ -644,18 +220,17 @@ def build():
     write_summary_cols(ws, 10, "MMS")
 
     # =========================================================
-    # ROWS 11-90: TSMA BGE detail  (outline level 1)
+    # ROW 11-90: TSMA BGE detail  (outline level 1)
     # =========================================================
-    _ftb    = F(bg_color=BG_TSMA_BGE)             # TSMA BGE bg, plain
-    _ftb_b  = F(bold=True, bg_color=BG_TSMA_BGE)  # TSMA BGE bg, bold
-    _ftb_ivr = F(bg_color=BG_IVR)                 # Voice-IVR override
+    _ftb     = F(bg_color=BG_TSMA_BGE)
+    _ftb_b   = F(bold=True, bg_color=BG_TSMA_BGE)
+    _ftb_ivr = F(bg_color=BG_IVR)
 
-    # Row 11 – "BGEs" header
     set_row_props(ws, 11, fmt=_fth, opts={"level": 1})
     write(ws, 11, COL_A, "BGEs", _fth_b)
 
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
-        rows_def = TSMA_BGE_ROWS[bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"]
+        rows_def    = TSMA_BGE_ROWS[bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"]
         bge_row_map = TSMA_ROW_MAP[bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"]
         first_r = min(bge_row_map.values())
         last_r  = max(bge_row_map.values())
@@ -677,7 +252,7 @@ def build():
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _ftb_b)
 
-    # TSMA TOTAL aggregate rows (86-90)
+    # TSMA TOTAL aggregate rows 86-90
     for r in range(86, 91):
         set_row_props(ws, r, height=17, fmt=_fth, opts={"level": 1})
 
@@ -701,27 +276,26 @@ def build():
     # =========================================================
     _fcomb = F(bg_color=BG_COMBINED)
     set_row_props(ws, 91, height=16, fmt=_fcomb)
-    write(ws, 91, 13, "TSMA+NGTAs", _fcomb)   # col N
+    write(ws, 91, 13, "TSMA+NGTAs", _fcomb)
     write_monthly_formula(
         ws, 91,
         lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
-                  f"+{col_letter(c)}116"   # TELUS NGTA Total summary row
-                  f"+{col_letter(c)}238",  # Rogers NGTA Total summary row
+                  f"+{col_letter(c)}116"   # TELUS NGTA summary Total (first_row=110 → row 116)
+                  f"+{col_letter(c)}238",  # Rogers NGTA summary Total
         _fcomb,
     )
 
     # =========================================================
-    # ROWS 92-108: Hidden sub-aggregate rows
+    # ROWS 92-108: Hidden TSMA sub-aggregate rows
     # =========================================================
     _hidden = {"hidden": True}
 
-    # Gov + ECC  (rows 92-94)
-    gov_r   = TSMA_ROW_MAP["Gov BC"]
-    ecc_r   = TSMA_ROW_MAP["ECC"]
+    gov_r = TSMA_ROW_MAP["Gov BC"]
+    ecc_r = TSMA_ROW_MAP["ECC"]
     for r, label, r1, r2 in [
         (92, "Cellular", gov_r["cellular"], ecc_r["cellular"]),
         (93, "Data",     gov_r["data"],     ecc_r["data"]),
-        (94, "Voice",    gov_r["voice"],     ecc_r["voice"]),
+        (94, "Voice",    gov_r["voice"],    ecc_r["voice"]),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftb, opts=_hidden)
         write(ws, r, COL_B, label, _ftb)
@@ -734,10 +308,9 @@ def build():
 
     set_row_props(ws, 95, height=16, fmt=_ftb, opts=_hidden)
 
-    # Health authorities  (rows 96-99)
     health_bges = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
     _hcel = [TSMA_ROW_MAP[b]["cellular"] for b in health_bges]
-    _hmms = [TSMA_ROW_MAP[b]["mms"] for b in ["FHA","PHSA","VCHA"]]
+    _hmms = [TSMA_ROW_MAP[b]["mms"]      for b in ["FHA","PHSA","VCHA"]]
     _hdat = [TSMA_ROW_MAP[b]["data"]     for b in health_bges]
     _hvoi = [TSMA_ROW_MAP[b]["voice"]    for b in health_bges]
     for r, label, rows_list in [
@@ -756,7 +329,6 @@ def build():
 
     set_row_props(ws, 100, height=16, fmt=_ftb, opts=_hidden)
 
-    # Crown corps  (rows 101-103)
     crown_bges = ["BCLC","BC Hydro","WSBC","ICBC"]
     _ccel = [TSMA_ROW_MAP[b]["cellular"] for b in crown_bges]
     _cdat = [TSMA_ROW_MAP[b]["data"]     for b in crown_bges]
@@ -776,7 +348,6 @@ def build():
 
     set_row_props(ws, 104, height=16, fmt=_ftb, opts=_hidden)
 
-    # School Districts  (rows 105-107)
     sd_r = TSMA_ROW_MAP["School Districts"]
     for r, label, target in [
         (105, "Cellular", sd_r["cellular"]),
@@ -793,171 +364,18 @@ def build():
 
     set_row_props(ws, 108, fmt=_ftb, opts=_hidden)
 
-    # Separator row 109 – bright cyan
+    # Separator row 109
     _fsep = F(bg_color=BG_SEPARATOR)
     set_row_props(ws, 109, height=16, fmt=_fsep)
 
     # =========================================================
-    # ROWS 110-190: TELUS NGTA section
+    # ROWS 110-231: TELUS NGTA section  (delegated to telus_ngta.py)
     # =========================================================
-    _ftelh   = F(bg_color=BG_TELUS_HDR)
-    _ftelh_b = F(bold=True, bg_color=BG_TELUS_HDR)
-    _ftelb   = F(bg_color=BG_TELUS_BGE)
-    _ftelb_b = F(bold=True, bg_color=BG_TELUS_BGE)
-
-    set_row_props(ws, 110, height=16, fmt=_ftelh)
-    write(ws, 110, COL_B, "TELUS NGTA", _ftelh_b)
-
-    # Summary rows 111-116
-    for r, label, tot_row in [
-        (111, "Cellular Plans", ROW_TELUS_TOT_PLANS),
-        (112, "Cellular H/W",   ROW_TELUS_TOT_HW),
-        (113, "Data",           ROW_TELUS_TOT_DAT),
-        (114, "Voice",          ROW_TELUS_TOT_VOI),
-        (115, "Other",          ROW_TELUS_TOT_OTH),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelh)
-        write(ws, r, COL_B, label, _ftelh)
-        write_monthly_ref(ws, r, tot_row, _ftelh)
-        write(ws, r, COL_AN, label)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 116, height=17, fmt=_ftelh)
-    write(ws, 116, COL_B, "Total", _ftelh_b)
-    write_monthly_sum_range(ws, 116, 111, 115, _ftelh_b)
-
-    # Row 117 – BGEs header (level 1)
-    set_row_props(ws, 117, fmt=_ftelh, opts={"level": 1})
-    write(ws, 117, COL_A, "BGEs", _ftelh_b)
-
-    # Load TELUS NGTA spend data from CSV (empty dict if file is absent)
     telus_data = load_telus_ngta()
-
-    # BGE detail rows 118-201
-    for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
-        bge_key = bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"
-        bge_rm  = TELUS_ROW_MAP[bge_key]
-        first_r = bge_rm["cell_plans"]
-        last_r  = bge_rm["total"]
-
-        for label, rtype in NGTA_BGE_ROWS:
-            r = bge_rm[rtype]
-            set_row_props(ws, r, height=17, fmt=_ftelb, opts={"level": 1})
-            if r == first_r:
-                write(ws, r, COL_A, a_label, _ftelb)
-                if a2_label:
-                    write(ws, r + 1, COL_A, a2_label, _ftelb)
-            fmt_cell = _ftelb_b if rtype == "total" else _ftelb
-            write(ws, r, COL_B, label, fmt_cell)
-            if rtype == "total":
-                write_monthly_sum_range(ws, r, first_r, last_r - 1, _ftelb_b)
-            else:
-                # Fill monthly values from CSV where available
-                for col in MONTH_COLS:
-                    val = telus_data.get((bge_key, rtype, col))
-                    if val is not None:
-                        write(ws, r, col, val, _ftelb)
-
-    # TELUS NGTA TOTAL rows 202-206
-    for r, label, rows_list in [
-        (ROW_TELUS_TOT_PLANS, "TOTAL Cellular Plans", TELUS_PLANS_ROWS),
-        (ROW_TELUS_TOT_HW,    "TOTAL Cellular H/W",   TELUS_HW_ROWS),
-        (ROW_TELUS_TOT_DAT,   "TOTAL Data",            TELUS_DAT_ROWS),
-        (ROW_TELUS_TOT_VOI,   "TOTAL Voice",           TELUS_VOI_ROWS),
-        (ROW_TELUS_TOT_OTH,   "TOTAL Other",           TELUS_OTH_ROWS),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelh)
-        write(ws, r, COL_B, label, _ftelh)
-        write_monthly_sum_rows(ws, r, rows_list, _ftelh)
-        write(ws, r, COL_AN, label.replace("TOTAL ", ""))
-        write_f(ws, r, COL_AR, q_sum(r, Y2025[0], Y2025[2]))
-        write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
+    build_telus_ngta_section(ws, F, telus_data, first_row=110, include_separator=True)
 
     # =========================================================
-    # ROWS 207-231: Hidden TELUS sub-aggregates
-    # =========================================================
-    set_row_props(ws, 207, height=16, fmt=_ftelb, opts=_hidden)
-
-    telus_gov_r = TELUS_ROW_MAP["Gov BC"]
-    telus_ecc_r = TELUS_ROW_MAP["ECC"]
-    for r, label, rtype in [
-        (208, "Cellular",    "cell_plans"),
-        (209, "Cellular H/W","cell_hw"),
-        (210, "Data",         "data"),
-        (211, "Voice",        "voice"),
-        (212, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
-        write(ws, r, COL_B, label, _ftelb)
-        write_monthly_formula(ws, r, lambda c, rt=rtype:
-            f"={col_letter(c)}{telus_gov_r[rt]}+{col_letter(c)}{telus_ecc_r[rt]}", _ftelb)
-        write(ws, r, COL_AM, "Gov & ECC", _ftelb)
-        write(ws, r, COL_AN, label, _ftelb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 213, height=16, fmt=_ftelb, opts=_hidden)
-
-    telus_health = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
-    for r, label, rtype in [
-        (214, "Cellular",    "cell_plans"),
-        (215, "Cellular H/W","cell_hw"),
-        (216, "Data",         "data"),
-        (217, "Voice",        "voice"),
-        (218, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
-        write(ws, r, COL_B, label, _ftelb)
-        rows_list = [TELUS_ROW_MAP[b][rtype] for b in telus_health]
-        write_monthly_sum_rows(ws, r, rows_list, _ftelb)
-        write(ws, r, COL_AM, "Health", _ftelb)
-        write(ws, r, COL_AN, label, _ftelb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 219, height=16, fmt=_ftelb, opts=_hidden)
-
-    telus_crown = ["BCLC","BC Hydro","WSBC","ICBC"]
-    for r, label, rtype in [
-        (220, "Cellular",    "cell_plans"),
-        (221, "Cellular H/W","cell_hw"),
-        (222, "Data",         "data"),
-        (223, "Voice",        "voice"),
-        (224, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
-        write(ws, r, COL_B, label, _ftelb)
-        rows_list = [TELUS_ROW_MAP[b][rtype] for b in telus_crown]
-        write_monthly_sum_rows(ws, r, rows_list, _ftelb)
-        write(ws, r, COL_AM, "Crown Corps", _ftelb)
-        write(ws, r, COL_AN, label, _ftelb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 225, height=16, fmt=_ftelb, opts=_hidden)
-
-    telus_sd_r = TELUS_ROW_MAP["School Districts"]
-    for r, label, rtype in [
-        (226, "Cellular",    "cell_plans"),
-        (227, "Cellular H/W","cell_hw"),
-        (228, "Data",         "data"),
-        (229, "Voice",        "voice"),
-        (230, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
-        write(ws, r, COL_B, label, _ftelb)
-        write_monthly_ref(ws, r, telus_sd_r[rtype], _ftelb)
-        write(ws, r, COL_AM, "School Districts", _ftelb)
-        write(ws, r, COL_AN, label, _ftelb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    # Separator row 231 – bright cyan
-    set_row_props(ws, 231, height=16, fmt=_fsep)
-
-    # =========================================================
-    # ROWS 232-328: Rogers NGTA section
+    # ROWS 232-354: Rogers NGTA section
     # =========================================================
     _frogh   = F(bg_color=BG_ROGERS_HDR)
     _frogh_b = F(bold=True, bg_color=BG_ROGERS_HDR)
@@ -967,7 +385,6 @@ def build():
     set_row_props(ws, 232, height=16, fmt=_frogh)
     write(ws, 232, COL_B, "Rogers NGTA", _frogh_b)
 
-    # Summary rows 233-238
     for r, label, tot_row in [
         (233, "Cellular Plans", ROW_ROGERS_TOT_PLANS),
         (234, "Cellular H/W",   ROW_ROGERS_TOT_HW),
@@ -986,11 +403,9 @@ def build():
     write(ws, 238, COL_B, "Total", _frogh_b)
     write_monthly_sum_range(ws, 238, 233, 237, _frogh_b)
 
-    # Row 239 – BGEs header
     set_row_props(ws, 239, fmt=_frogh, opts={"level": 1})
     write(ws, 239, COL_A, "BGEs", _frogh_b)
 
-    # BGE detail rows 219-288
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
         bge_key = bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"
         bge_rm  = ROGERS_ROW_MAP[bge_key]
@@ -1009,7 +424,6 @@ def build():
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _frogb_b)
 
-    # Rogers NGTA TOTAL rows 324-328
     for r, label, rows_list in [
         (ROW_ROGERS_TOT_PLANS, "TOTAL Cellular Plans", ROGERS_PLANS_ROWS),
         (ROW_ROGERS_TOT_HW,    "TOTAL Cellular H/W",   ROGERS_HW_ROWS),
@@ -1024,16 +438,14 @@ def build():
         write_f(ws, r, COL_AR, q_sum(r, 13, 15))
         write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
 
-    # =========================================================
-    # ROWS 329-354: Hidden Rogers sub-aggregates
-    # =========================================================
+    # ---- Hidden Rogers sub-aggregates ----
     set_row_props(ws, 329, height=16, fmt=_frogb, opts=_hidden)
 
     rogers_gov_r = ROGERS_ROW_MAP["Gov BC"]
     rogers_ecc_r = ROGERS_ROW_MAP["ECC"]
     for r, label, rtype in [
-        (330, "Cellular",    "cell_plans"),
-        (331, "Cellular H/W","cell_hw"),
+        (330, "Cellular",     "cell_plans"),
+        (331, "Cellular H/W", "cell_hw"),
         (332, "Data",         "data"),
         (333, "Voice",        "voice"),
         (334, "Other",        "other"),
@@ -1051,8 +463,8 @@ def build():
 
     rogers_health = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
     for r, label, rtype in [
-        (336, "Cellular",    "cell_plans"),
-        (337, "Cellular H/W","cell_hw"),
+        (336, "Cellular",     "cell_plans"),
+        (337, "Cellular H/W", "cell_hw"),
         (338, "Data",         "data"),
         (339, "Voice",        "voice"),
         (340, "Other",        "other"),
@@ -1070,8 +482,8 @@ def build():
 
     rogers_crown = ["BCLC","BC Hydro","WSBC","ICBC"]
     for r, label, rtype in [
-        (342, "Cellular",    "cell_plans"),
-        (343, "Cellular H/W","cell_hw"),
+        (342, "Cellular",     "cell_plans"),
+        (343, "Cellular H/W", "cell_hw"),
         (344, "Data",         "data"),
         (345, "Voice",        "voice"),
         (346, "Other",        "other"),
@@ -1089,8 +501,8 @@ def build():
 
     rogers_sd_r = ROGERS_ROW_MAP["School Districts"]
     for r, label, rtype in [
-        (348, "Cellular",    "cell_plans"),
-        (349, "Cellular H/W","cell_hw"),
+        (348, "Cellular",     "cell_plans"),
+        (349, "Cellular H/W", "cell_hw"),
         (350, "Data",         "data"),
         (351, "Voice",        "voice"),
         (352, "Other",        "other"),
@@ -1104,7 +516,6 @@ def build():
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
     set_row_props(ws, 353, height=16)
-    # Separator row 354 – bright cyan
     set_row_props(ws, 354, height=16, fmt=_fsep)
 
     # =========================================================
@@ -1118,7 +529,6 @@ def build():
     write(ws, 355, COL_AR, "Q1 2025", f_bold)
     write(ws, 355, COL_AS, "Q4 2025", f_bold)
 
-    # --- Managed Router ---
     set_row_props(ws, 356, height=16)
     write(ws, 356, COL_B, "Managed Router")
     write(ws, 356, COL_AO, "Jan-Dec")
@@ -1140,7 +550,6 @@ def build():
     write(ws, 364, COL_B, "Total", f_total)
     write_monthly_sum_range(ws, 364, 357, 363, f_total)
 
-    # --- Managed WLAN / Managed Wi-Fi ---
     set_row_props(ws, 365, height=17)
     write(ws, 365, COL_B, "Managed WLAN/Managed Wi-Fi")
 
@@ -1160,7 +569,6 @@ def build():
     write(ws, 372, COL_B, "Total", f_total)
     write_monthly_sum_range(ws, 372, 366, 371, f_total)
 
-    # --- Managed Security / Managed Firewall ---
     set_row_props(ws, 373, height=17)
     write(ws, 373, COL_B, "Managed Security/Managed Firewall")
 
@@ -1182,7 +590,6 @@ def build():
 
     set_row_props(ws, 384, height=17)
     write(ws, 384, COL_B, "Total", f_total)
-    # Original sums rows 375:383 (skips first org row, matches original formula pattern)
     write_monthly_sum_range(ws, 384, 375, 383, f_total)
 
     set_row_props(ws, 385, height=16)
@@ -1194,38 +601,33 @@ def build():
     write(ws, 386, COL_B, "TSMA Lite", f_section)
 
     for r, label in [
-        (ROW_TSMALITE_VOICE,  "Voice - Total Charges"),
-        (ROW_TSMALITE_DATA,   "Data - Total Charges"),
-        (ROW_TSMALITE_OTHER,  "*Other Charges & Credits"),
-        (ROW_TSMALITE_CELUE,  "Cellular User Equipment Cost"),
+        (ROW_TSMALITE_VOICE, "Voice - Total Charges"),
+        (ROW_TSMALITE_DATA,  "Data - Total Charges"),
+        (ROW_TSMALITE_OTHER, "*Other Charges & Credits"),
+        (ROW_TSMALITE_CELUE, "Cellular User Equipment Cost"),
     ]:
         set_row_props(ws, r, height=17)
         write(ws, r, COL_B, label)
-        # Data input: leave quarterly cells empty for now
 
-    # Row 351: SUM totals per quarter-end column
     set_row_props(ws, ROW_TSMALITE_TOTAL, height=17)
     for col in TSMA_LITE_Q_COLS:
         write_f(ws, ROW_TSMALITE_TOTAL, col,
                 sum_range(ROW_TSMALITE_VOICE, ROW_TSMALITE_CELUE, col), f_total)
 
-    set_row_props(ws, 392, height=17)   # blank separator
+    set_row_props(ws, 392, height=17)
 
-    # Row 353: Voice + Data + Other (excludes cellular UE)
     set_row_props(ws, ROW_TSMALITE_EXC, height=17)
     for col in TSMA_LITE_Q_COLS:
         cl = col_letter(col)
         write_f(ws, ROW_TSMALITE_EXC, col,
                 f"={cl}{ROW_TSMALITE_VOICE}+{cl}{ROW_TSMALITE_DATA}+{cl}{ROW_TSMALITE_OTHER}")
 
-    # Row 354: Cellular UE reference
     set_row_props(ws, ROW_TSMALITE_CELUE2, height=17)
     for col in TSMA_LITE_Q_COLS:
-        write_f(ws, ROW_TSMALITE_CELUE2, col,
-                ref_cell(ROW_TSMALITE_CELUE, col))
+        write_f(ws, ROW_TSMALITE_CELUE2, col, ref_cell(ROW_TSMALITE_CELUE, col))
 
     # =========================================================
-    # Freeze the first two columns (A and B) and top 4 rows
+    # Freeze first 4 rows and first 2 columns
     # =========================================================
     ws.freeze_panes(4, 2)
 
