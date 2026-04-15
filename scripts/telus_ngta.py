@@ -197,10 +197,10 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
     voi_rows   = _ngta_rows_by_type(telus_row_map, 'voice')
     oth_rows   = _ngta_rows_by_type(telus_row_map, 'other')
 
-    _ftelh   = F(bg_color=BG_TELUS_HDR)
-    _ftelh_b = F(bold=True, bg_color=BG_TELUS_HDR)
-    _ftelb   = F(bg_color=BG_TELUS_BGE)
-    _ftelb_b = F(bold=True, bg_color=BG_TELUS_BGE)
+    _ftelh   = F.n(bg_color=BG_TELUS_HDR)
+    _ftelh_b = F.n(bold=True, bg_color=BG_TELUS_HDR)
+    _ftelb   = F.n(bg_color=BG_TELUS_BGE)
+    _ftelb_b = F.n(bold=True, bg_color=BG_TELUS_BGE)
     _hidden  = {"hidden": True}
 
     # ---- section header ----

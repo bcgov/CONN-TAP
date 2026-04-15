@@ -43,6 +43,10 @@ BG_ROGERS_BGE = _tint(_THEME_BASE[5], 0.800)   # #FBE3D6
 BG_IVR        = "#FFA7A7"
 
 
+# Standard dollar format: positive → $1,234.56 ; negative → ($1,234.56) in red
+NUM_FMT = '$#,##0.00;[Red]($#,##0.00)'
+
+
 class _FmtCache:
     """On-demand xlsxwriter format factory – reuses identical format objects."""
     def __init__(self, wb):
@@ -54,6 +58,10 @@ class _FmtCache:
         if key not in self._cache:
             self._cache[key] = self._wb.add_format(props)
         return self._cache[key]
+
+    def n(self, **props):
+        """Like __call__ but always includes the dollar/red-negative number format."""
+        return self(**props, num_format=NUM_FMT)
 
 
 # ---------------------------------------------------------------------------

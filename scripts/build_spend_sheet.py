@@ -170,9 +170,9 @@ def build():
 
     F = _FmtCache(wb)
 
-    f_bold    = F(bold=True)
-    f_total   = F(bold=True)
-    f_section = F(bold=True)
+    f_bold    = F(bold=True)          # used for year/quarter header labels – no currency
+    f_total   = F.n(bold=True)        # used for total rows that contain numbers
+    f_section = F(bold=True)          # used for section name labels only
 
     set_column_widths(ws)
 
@@ -184,8 +184,8 @@ def build():
     # =========================================================
     # ROW 4: Month labels  +  TSMA section header
     # =========================================================
-    _fth   = F(bg_color=BG_TSMA_HDR)
-    _fth_b = F(bold=True, bg_color=BG_TSMA_HDR)
+    _fth   = F.n(bg_color=BG_TSMA_HDR)
+    _fth_b = F.n(bold=True, bg_color=BG_TSMA_HDR)
     set_row_props(ws, 4, height=17, fmt=_fth)
     write(ws, 4, COL_B, "TSMA", _fth_b)
     write_month_label_row(ws, 4, _fth)
@@ -211,7 +211,7 @@ def build():
     write(ws, 8, COL_B, "Out of Scope", _fth)
     write_monthly_ref(ws, 8, ROW_TSMA_TOTAL_OOS, _fth)
 
-    _fth_tot = F(bold=True, bg_color=BG_TSMA_HDR)
+    _fth_tot = F.n(bold=True, bg_color=BG_TSMA_HDR)
     write(ws, 9, COL_B, "Total", _fth_tot)
     write_monthly_sum_range(ws, 9, 5, 8, _fth_tot)
 
@@ -222,9 +222,9 @@ def build():
     # =========================================================
     # ROW 11-90: TSMA BGE detail  (outline level 1)
     # =========================================================
-    _ftb     = F(bg_color=BG_TSMA_BGE)
-    _ftb_b   = F(bold=True, bg_color=BG_TSMA_BGE)
-    _ftb_ivr = F(bg_color=BG_IVR)
+    _ftb     = F.n(bg_color=BG_TSMA_BGE)
+    _ftb_b   = F.n(bold=True, bg_color=BG_TSMA_BGE)
+    _ftb_ivr = F.n(bg_color=BG_IVR)
 
     set_row_props(ws, 11, fmt=_fth, opts={"level": 1})
     write(ws, 11, COL_A, "BGEs", _fth_b)
@@ -274,7 +274,7 @@ def build():
     # =========================================================
     # ROW 91: TSMA + NGTAs combined totals
     # =========================================================
-    _fcomb = F(bg_color=BG_COMBINED)
+    _fcomb = F.n(bg_color=BG_COMBINED)
     set_row_props(ws, 91, height=16, fmt=_fcomb)
     write(ws, 91, 13, "TSMA+NGTAs", _fcomb)
     write_monthly_formula(
@@ -377,10 +377,10 @@ def build():
     # =========================================================
     # ROWS 232-354: Rogers NGTA section
     # =========================================================
-    _frogh   = F(bg_color=BG_ROGERS_HDR)
-    _frogh_b = F(bold=True, bg_color=BG_ROGERS_HDR)
-    _frogb   = F(bg_color=BG_ROGERS_BGE)
-    _frogb_b = F(bold=True, bg_color=BG_ROGERS_BGE)
+    _frogh   = F.n(bg_color=BG_ROGERS_HDR)
+    _frogh_b = F.n(bold=True, bg_color=BG_ROGERS_HDR)
+    _frogb   = F.n(bg_color=BG_ROGERS_BGE)
+    _frogb_b = F.n(bold=True, bg_color=BG_ROGERS_BGE)
 
     set_row_props(ws, 232, height=16, fmt=_frogh)
     write(ws, 232, COL_B, "Rogers NGTA", _frogh_b)
@@ -529,6 +529,8 @@ def build():
     write(ws, 355, COL_AR, "Q1 2025", f_bold)
     write(ws, 355, COL_AS, "Q4 2025", f_bold)
 
+    _fnum = F.n()   # plain currency format for OOS/TSMA Lite input rows (no background)
+
     set_row_props(ws, 356, height=16)
     write(ws, 356, COL_B, "Managed Router")
     write(ws, 356, COL_AO, "Jan-Dec")
@@ -543,7 +545,7 @@ def build():
         "GBC - LIQUOR DISTRIBUTION BRANCH",
     ]
     for r, org in zip(OOS_MANAGED_ROUTER_ROWS, oos_mr_orgs):
-        set_row_props(ws, r, height=17, opts={"level": 1})
+        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
         write(ws, r, COL_B, org)
 
     set_row_props(ws, 364, height=17)
@@ -562,7 +564,7 @@ def build():
         "GREATER VANCOUVER MENTAL HEALTH SERVICE",
     ]
     for r, org in zip(OOS_MANAGED_WLAN_ROWS, oos_wlan_orgs):
-        set_row_props(ws, r, height=17, opts={"level": 1})
+        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
         write(ws, r, COL_B, org)
 
     set_row_props(ws, 372, height=17)
@@ -585,7 +587,7 @@ def build():
         "GBC - MINISTRY OF HEALTH",
     ]
     for r, org in zip(OOS_MANAGED_SEC_ROWS, oos_sec_orgs):
-        set_row_props(ws, r, height=17, opts={"level": 1})
+        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
         write(ws, r, COL_B, org)
 
     set_row_props(ws, 384, height=17)
@@ -606,7 +608,7 @@ def build():
         (ROW_TSMALITE_OTHER, "*Other Charges & Credits"),
         (ROW_TSMALITE_CELUE, "Cellular User Equipment Cost"),
     ]:
-        set_row_props(ws, r, height=17)
+        set_row_props(ws, r, height=17, fmt=_fnum)
         write(ws, r, COL_B, label)
 
     set_row_props(ws, ROW_TSMALITE_TOTAL, height=17)
@@ -616,15 +618,16 @@ def build():
 
     set_row_props(ws, 392, height=17)
 
-    set_row_props(ws, ROW_TSMALITE_EXC, height=17)
+    set_row_props(ws, ROW_TSMALITE_EXC, height=17, fmt=_fnum)
     for col in TSMA_LITE_Q_COLS:
         cl = col_letter(col)
         write_f(ws, ROW_TSMALITE_EXC, col,
-                f"={cl}{ROW_TSMALITE_VOICE}+{cl}{ROW_TSMALITE_DATA}+{cl}{ROW_TSMALITE_OTHER}")
+                f"={cl}{ROW_TSMALITE_VOICE}+{cl}{ROW_TSMALITE_DATA}+{cl}{ROW_TSMALITE_OTHER}",
+                f_total)
 
-    set_row_props(ws, ROW_TSMALITE_CELUE2, height=17)
+    set_row_props(ws, ROW_TSMALITE_CELUE2, height=17, fmt=_fnum)
     for col in TSMA_LITE_Q_COLS:
-        write_f(ws, ROW_TSMALITE_CELUE2, col, ref_cell(ROW_TSMALITE_CELUE, col))
+        write_f(ws, ROW_TSMALITE_CELUE2, col, ref_cell(ROW_TSMALITE_CELUE, col), f_total)
 
     # =========================================================
     # Freeze first 4 rows and first 2 columns
