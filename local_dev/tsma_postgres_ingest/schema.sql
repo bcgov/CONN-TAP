@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS tsma_ingestion_run (
   tsma_ingestion_run_id   bigserial PRIMARY KEY,
   feed_code               text NOT NULL CHECK (feed_code IN (
-    'tsma_wireless', 'tsma_wireline', 'tsma_lite_wireless', 'tsma_lite_wireline'
+    'tsma_wireless', 'tsma_wireline', 'tsma_lite_wireless', 'tsma_lite_wireline', 'tsma_ivr'
   )),
   source_object_uri       text,
   source_period           date,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS tsma_wireless (
   lcd_category              text,
   lob                       text,
   create_dt                 date,
-  total_amt                 numeric(19,4),
+  total                     text,
   charge_type               text,
   charge_sub_type           text,
   lcd_flg                   text,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS tsma_lite_wireless (
   lcd_category              text,
   lob                       text,
   create_dt                 date,
-  total_amt                 numeric(19,4),
+  total                     text,
   charge_type               text,
   charge_sub_type           text,
   lcd_flg                   text,
@@ -100,10 +100,10 @@ CREATE TABLE IF NOT EXISTS tsma_wireline (
   bpi_prod_desc             text,
   prod_family_cd            text,
   prod_family_desc          text,
-  rn_1                      numeric,
-  rn_2                      numeric,
-  rn_3                      numeric,
-  rn_4                      numeric,
+  rn_1                      text,
+  rn_2                      text,
+  rn_3                      text,
+  rn_4                      text,
   epp3_desc                 text,
   epp3_cd                   text,
   quantity                  numeric,
@@ -133,3 +133,16 @@ CREATE TABLE IF NOT EXISTS tsma_lite_wireline (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tsma_lite_wireline_ingestion ON tsma_lite_wireline (ingestion_run_id);
+
+CREATE TABLE IF NOT EXISTS tsma_ivr (
+  raw_id                    bigserial PRIMARY KEY,
+  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ccyymm                    text,
+  year_num                  integer,
+  rcid                      text,
+  rcid_cust_nm              text,
+  billed_amt                numeric(19,4),
+  extras                    jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_tsma_ivr_ingestion ON tsma_ivr (ingestion_run_id);

@@ -14,6 +14,7 @@ Usage:
 Layout (relative to root):
   tsma/wireless/...       -> tsma_wireless
   tsma/wireline/...       -> tsma_wireline
+  tsma/master/...         -> tsma_ivr
   tsma_lite/wireless/...  -> tsma_lite_wireless
   tsma_lite/wireline/...  -> tsma_lite_wireline
 
@@ -54,7 +55,7 @@ TSMA_WIRELESS_COLS = [
     "lcd_category",
     "lob",
     "create_dt",
-    "total_amt",
+    "total",
     "charge_type",
     "charge_sub_type",
     "lcd_flg",
@@ -115,6 +116,16 @@ TSMA_LITE_WIRELINE_COLS = [
     "extras",
 ]
 
+TSMA_IVR_COLS = [
+    "ingestion_run_id",
+    "ccyymm",
+    "year_num",
+    "rcid",
+    "rcid_cust_nm",
+    "billed_amt",
+    "extras",
+]
+
 TSMA_WIRELESS_DB_FIELDS = frozenset(
     c for c in TSMA_WIRELESS_COLS if c not in ("ingestion_run_id", "extras")
 )
@@ -124,6 +135,7 @@ TSMA_WIRELINE_DB_FIELDS = frozenset(
 TSMA_LITE_WIRELINE_DB_FIELDS = frozenset(
     c for c in TSMA_LITE_WIRELINE_COLS if c not in ("ingestion_run_id", "extras")
 )
+TSMA_IVR_DB_FIELDS = frozenset(c for c in TSMA_IVR_COLS if c not in ("ingestion_run_id", "extras"))
 
 TSMA_WIRELESS_DATES = frozenset(["month_start_dt", "create_dt"])
 TSMA_WIRELINE_DATES = frozenset(["month_start_dt"])
@@ -131,11 +143,11 @@ TSMA_WIRELESS_INTS = frozenset(["month_id", "year_num"])
 TSMA_WIRELINE_INTS = frozenset(["month_id", "year_num"])
 TSMA_LITE_WIRELINE_INTS = frozenset(["year_num"])
 
-TSMA_WIRELESS_MONEY = frozenset(["total_amt", "billed_amt"])
+TSMA_WIRELESS_MONEY = frozenset(["billed_amt"])
 TSMA_WIRELINE_MONEY = frozenset(["billed_amt"])
 TSMA_LITE_WIRELINE_MONEY = frozenset(["billed_amt"])
 
-TSMA_WIRELINE_NUMERIC = frozenset(["rn_1", "rn_2", "rn_3", "rn_4", "quantity"])
+TSMA_WIRELINE_NUMERIC = frozenset(["quantity"])
 TSMA_LITE_WIRELINE_NUMERIC = frozenset(["quantity"])
 
 FeedCode = Literal[
@@ -143,11 +155,11 @@ FeedCode = Literal[
     "tsma_wireline",
     "tsma_lite_wireless",
     "tsma_lite_wireline",
+    "tsma_ivr",
 ]
 
 # Canonical snake (after tsma_header_key) -> schema column when Excel label normalizes oddly.
 TSMA_HEADER_REMAP: dict[str, str] = {
-    "total": "total_amt",
     "comment": "line_comment",
     "dataexclusion_flg": "data_exclusion_flg",
     "data_exclusionflg": "data_exclusion_flg",
@@ -294,6 +306,8 @@ def feed_from_path(file_path: Path, root: Path, force: Optional[FeedCode]) -> Op
             return "tsma_wireless"
         if a == "tsma" and b == "wireline":
             return "tsma_wireline"
+        if a == "tsma" and b == "master":
+            return "tsma_ivr"
         if a == "tsma_lite" and b == "wireless":
             return "tsma_lite_wireless"
         if a == "tsma_lite" and b == "wireline":
@@ -317,6 +331,86 @@ def pick_first_data_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
     return names[0]
 
 
+def normalize_ccyymm_header(value: Any) -> Optional[str]:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    try:
+        s = str(int(Decimal(str(value).strip()))).strip()
+    except (InvalidOperation, ValueError):
+        s = str(value).strip()
+    return s if re.fullmatch(r"\d{6}", s) else None
+
+
+def insert_tsma_ivr_workbook(
+    conn: Optional[psycopg.Connection],
+    path: Path,
+    source_period: Optional[date],
+    dry_run: bool,
+    sheet: Optional[str],
+) -> int:
+    sheet_name = sheet or "Pivot - Hosted IVR"
+    df = pd.read_excel(path, sheet_name=sheet_name, header=3, dtype=object)
+    df = df.dropna(how="all").dropna(axis=1, how="all")
+    month_columns = [(col, ccyymm) for col in df.columns if (ccyymm := normalize_ccyymm_header(col))]
+
+    batches = []
+    for _, row in df.iterrows():
+        rcid_cust_nm = as_text(row.get("RCID_CUST_NM"))
+        if not rcid_cust_nm or rcid_cust_nm.casefold() == "grand total":
+            continue
+        rcid = as_text(row.get("RCID"))
+        for month_col, ccyymm in month_columns:
+            billed_amt = as_money(row.get(month_col))
+            if billed_amt is None:
+                continue
+            batches.append((None, ccyymm, as_int(ccyymm[:4]), rcid, rcid_cust_nm, billed_amt, None))
+
+    row_total = len(batches)
+    if dry_run:
+        return row_total
+    if conn is None:
+        raise ValueError("Postgres connection required unless --dry-run")
+
+    sql = (
+        "INSERT INTO tsma_ivr ("
+        + ", ".join(TSMA_IVR_COLS)
+        + ") VALUES ("
+        + ", ".join(["%s"] * len(TSMA_IVR_COLS))
+        + ")"
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tsma_ingestion_run (feed_code, source_object_uri, source_period, status)
+                VALUES (%s, %s, %s, 'running')
+                RETURNING tsma_ingestion_run_id
+                """,
+                ("tsma_ivr", path.resolve().as_uri(), source_period),
+            )
+            run_id = cur.fetchone()[0]
+            final_rows = []
+            for tup in batches:
+                lst = list(tup)
+                lst[0] = run_id
+                final_rows.append(tuple(lst))
+            cur.executemany(sql, final_rows)
+            cur.execute(
+                """
+                UPDATE tsma_ingestion_run
+                SET finished_at = now(), status = 'completed',
+                    row_counts_raw = %s::jsonb
+                WHERE tsma_ingestion_run_id = %s
+                """,
+                (json.dumps({"tsma_ivr": row_total, "sheet": sheet_name}), run_id),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return row_total
+
+
 def insert_tsma_workbook(
     conn: Optional[psycopg.Connection],
     path: Path,
@@ -325,6 +419,9 @@ def insert_tsma_workbook(
     dry_run: bool,
     sheet: Optional[str],
 ) -> int:
+    if feed == "tsma_ivr":
+        return insert_tsma_ivr_workbook(conn, path, source_period, dry_run, sheet)
+
     xl = pd.ExcelFile(path)
     sname = pick_first_data_sheet(xl, sheet)
     df = pd.read_excel(xl, sheet_name=sname, dtype=object)
@@ -453,6 +550,7 @@ def iter_excel_files(folder: Path, recursive: bool) -> list[Path]:
                 folder,
                 folder / "tsma" / "wireless",
                 folder / "tsma" / "wireline",
+                folder / "tsma" / "master",
                 folder / "tsma_lite" / "wireless",
                 folder / "tsma_lite" / "wireline",
             ):
@@ -466,7 +564,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "folder",
         type=Path,
-        help="Root directory; workbooks under tsma/{wireless|wireline}/ or tsma_lite/...",
+        help="Root directory; workbooks under tsma/{wireless|wireline|master}/ or tsma_lite/...",
     )
     parser.add_argument(
         "--dsn",
@@ -496,6 +594,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         choices=(
             "tsma_wireless",
             "tsma_wireline",
+            "tsma_ivr",
             "tsma_lite_wireless",
             "tsma_lite_wireline",
         ),
@@ -505,7 +604,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--sheet",
         default=None,
-        help="Excel sheet name (default: first sheet with data)",
+        help="Excel sheet name (default: first sheet with data, or 'Pivot - Hosted IVR' for tsma/master)",
     )
     args = parser.parse_args(argv)
 
@@ -534,6 +633,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "tsma_lite_wireless_rows": 0,
         "tsma_lite_wireline_files": 0,
         "tsma_lite_wireline_rows": 0,
+        "tsma_ivr_files": 0,
+        "tsma_ivr_rows": 0,
         "skipped": [],
     }
 
@@ -543,7 +644,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             totals["skipped"].append(str(path))
             print(
                 f"[skip] expected path under .../tsma/{{wireless|wireline}}/... or "
-                f".../tsma_lite/{{wireless|wireline}}/... relative to {folder}: {path}",
+                f".../tsma/master/... or .../tsma_lite/{{wireless|wireline}}/... relative to {folder}: {path}",
                 file=sys.stderr,
             )
             return
