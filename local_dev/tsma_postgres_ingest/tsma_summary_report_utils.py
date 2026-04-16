@@ -165,6 +165,27 @@ def load_ivr_totals(conn: psycopg.Connection) -> list[Decimal]:
     return totals
 
 
+def load_mms(conn: psycopg.Connection) -> dict[str, list[Decimal]]:
+    results: dict[str, list[Decimal]] = defaultdict(blank_amounts)
+    sql = """
+        SELECT entity_name, ccyymm, COALESCE(SUM(total), 0)
+        FROM public.tsma_mms
+        WHERE ccyymm BETWEEN %s AND %s
+          AND NULLIF(TRIM(COALESCE(entity_name, '')), '') IS NOT NULL
+        GROUP BY entity_name, ccyymm
+        ORDER BY entity_name, ccyymm
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (MONTH_CODES[0], MONTH_CODES[-1]))
+        for entity, ccyymm, amount in cur.fetchall():
+            idx = MONTH_CODES.index(str(ccyymm))
+            canonical_name = canonical_entity_name(entity)
+            if not canonical_name:
+                continue
+            results[canonical_name][idx] += amount or Decimal("0")
+    return dict(results)
+
+
 def sum_maps(data: dict[str, list[Decimal]]) -> list[Decimal]:
     totals = blank_amounts()
     for amounts in data.values():

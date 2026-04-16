@@ -14,7 +14,7 @@ Usage:
 Layout (relative to root):
   tsma/wireless/...       -> tsma_wireless
   tsma/wireline/...       -> tsma_wireline
-  tsma/master/...         -> tsma_ivr
+  tsma/master/...         -> tsma_master (loads tsma_ivr, tsma_mms)
   tsma_lite/wireless/...  -> tsma_lite_wireless
   tsma_lite/wireline/...  -> tsma_lite_wireline
 
@@ -134,6 +134,17 @@ TSMA_MMS_COLS = [
     "total",
 ]
 
+TSMA_MASTER_IVR_SHEET = "Pivot - Hosted IVR"
+TSMA_MASTER_MMS_SHEET = "MMS"
+TSMA_MASTER_MMS_TOTAL_LABEL = "totalmmswithtcas"
+TSMA_MASTER_MMS_ENTITY_LABELS = {
+    "FHA": "FHA",
+    "VCH + PHS": "VCHA",
+    "PHSA": "PHSA",
+}
+TSMA_MIN_YEAR = 2010
+TSMA_MAX_YEAR = 2035
+
 TSMA_WIRELESS_DB_FIELDS = frozenset(
     c for c in TSMA_WIRELESS_COLS if c not in ("ingestion_run_id", "extras")
 )
@@ -163,7 +174,7 @@ FeedCode = Literal[
     "tsma_wireline",
     "tsma_lite_wireless",
     "tsma_lite_wireline",
-    "tsma_ivr",
+    "tsma_master",
 ]
 
 # Canonical snake (after tsma_header_key) -> schema column when Excel label normalizes oddly.
@@ -315,7 +326,7 @@ def feed_from_path(file_path: Path, root: Path, force: Optional[FeedCode]) -> Op
         if a == "tsma" and b == "wireline":
             return "tsma_wireline"
         if a == "tsma" and b == "master":
-            return "tsma_ivr"
+            return "tsma_master"
         if a == "tsma_lite" and b == "wireless":
             return "tsma_lite_wireless"
         if a == "tsma_lite" and b == "wireline":
@@ -343,18 +354,27 @@ def normalize_ccyymm_header(value: Any) -> Optional[str]:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     if isinstance(value, (datetime, pd.Timestamp, date)):
-        return f"{value.year}{value.month:02d}"
+        if TSMA_MIN_YEAR <= value.year <= TSMA_MAX_YEAR:
+            return f"{value.year}{value.month:02d}"
+        return None
+    if isinstance(value, (int, float)):
+        parsed = pd.to_datetime(value, unit="D", origin="1899-12-30", errors="coerce")
+        if pd.notna(parsed) and TSMA_MIN_YEAR <= parsed.year <= TSMA_MAX_YEAR:
+            return f"{parsed.year}{parsed.month:02d}"
     s = str(value).strip()
     if re.fullmatch(r"\d{6}", s):
-        return s
+        year = int(s[:4])
+        return s if TSMA_MIN_YEAR <= year <= TSMA_MAX_YEAR else None
     try:
         parsed = datetime.strptime(s, "%b-%y")
     except ValueError:
         return None
-    return f"{parsed.year}{parsed.month:02d}"
+    if TSMA_MIN_YEAR <= parsed.year <= TSMA_MAX_YEAR:
+        return f"{parsed.year}{parsed.month:02d}"
+    return None
 
 def extract_tsma_mms_batches(path: Path) -> list[tuple[Any, ...]]:
-    df = pd.read_excel(path, sheet_name="MMS", header=None, dtype=object)
+    df = pd.read_excel(path, sheet_name=TSMA_MASTER_MMS_SHEET, header=None, dtype=object)
     df = df.dropna(how="all").dropna(axis=1, how="all")
     if df.empty:
         return []
@@ -366,18 +386,18 @@ def extract_tsma_mms_batches(path: Path) -> list[tuple[Any, ...]]:
     for _, row in df.iterrows():
         first_cell = row.iloc[0] if len(row) else None
         label = as_text(first_cell)
-        label_key = re.sub(r"[^a-z0-9]+", "", label.casefold()) if label else ""
         detected_month_map = {
             col_idx: normalize_ccyymm_header(row.iloc[col_idx])
             for col_idx in range(1, len(row))
             if normalize_ccyymm_header(row.iloc[col_idx])
         }
-        if label and detected_month_map:
-            entity_name = "VCHA" if label_key in {"vchphs", "vchaphs"} else label
+        if label in TSMA_MASTER_MMS_ENTITY_LABELS:
+            entity_name = TSMA_MASTER_MMS_ENTITY_LABELS[label]
             month_map = detected_month_map
             continue
 
-        if label_key != "totalmmswithtcas":
+        label_key = re.sub(r"[^a-z0-9]+", "", label.casefold()) if label else ""
+        if label_key != TSMA_MASTER_MMS_TOTAL_LABEL:
             continue
         if not entity_name or not month_map:
             continue
@@ -399,8 +419,8 @@ def extract_tsma_mms_batches(path: Path) -> list[tuple[Any, ...]]:
     return batches
 
 
-def extract_tsma_ivr_batches(path: Path, sheet: Optional[str]) -> tuple[list[tuple[Any, ...]], str]:
-    sheet_name = sheet or "Pivot - Hosted IVR"
+def extract_tsma_master_ivr_batches(path: Path, sheet: Optional[str]) -> tuple[list[tuple[Any, ...]], str]:
+    sheet_name = sheet or TSMA_MASTER_IVR_SHEET
     df = pd.read_excel(path, sheet_name=sheet_name, header=3, dtype=object)
     df = df.dropna(how="all").dropna(axis=1, how="all")
     month_columns = [(col, ccyymm) for col in df.columns if (ccyymm := normalize_ccyymm_header(col))]
@@ -427,7 +447,7 @@ def insert_tsma_master_workbook(
     dry_run: bool,
     sheet: Optional[str],
 ) -> dict[str, int]:
-    ivr_batches, sheet_name = extract_tsma_ivr_batches(path, sheet)
+    ivr_batches, sheet_name = extract_tsma_master_ivr_batches(path, sheet)
     mms_batches = extract_tsma_mms_batches(path)
     batch_sets = [
         ("tsma_ivr", TSMA_IVR_COLS, ivr_batches),
@@ -457,7 +477,7 @@ def insert_tsma_master_workbook(
                 VALUES (%s, %s, %s, 'running')
                 RETURNING tsma_ingestion_run_id
                 """,
-                ("tsma_ivr", path.resolve().as_uri(), source_period),
+                ("tsma_master", path.resolve().as_uri(), source_period),
             )
             run_id = cur.fetchone()[0]
             for table, _, batches in batch_sets:
@@ -492,7 +512,7 @@ def insert_tsma_workbook(
     dry_run: bool,
     sheet: Optional[str],
 ) -> dict[str, int]:
-    if feed == "tsma_ivr":
+    if feed == "tsma_master":
         return insert_tsma_master_workbook(conn, path, source_period, dry_run, sheet)
 
     xl = pd.ExcelFile(path)
@@ -667,7 +687,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         choices=(
             "tsma_wireless",
             "tsma_wireline",
-            "tsma_ivr",
+            "tsma_master",
             "tsma_lite_wireless",
             "tsma_lite_wireline",
         ),
@@ -677,7 +697,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--sheet",
         default=None,
-        help="Excel sheet name (default: first sheet with data, or 'Pivot - Hosted IVR' for tsma/master)",
+        help="Excel sheet name (default: first sheet with data, or 'Pivot - Hosted IVR' for tsma_master)",
     )
     args = parser.parse_args(argv)
 

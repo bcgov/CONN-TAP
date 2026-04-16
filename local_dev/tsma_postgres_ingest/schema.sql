@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS tsma_ingestion_run (
   tsma_ingestion_run_id   bigserial PRIMARY KEY,
   feed_code               text NOT NULL CHECK (feed_code IN (
-    'tsma_wireless', 'tsma_wireline', 'tsma_lite_wireless', 'tsma_lite_wireline', 'tsma_ivr'
+    'tsma_wireless', 'tsma_wireline', 'tsma_lite_wireless', 'tsma_lite_wireline', 'tsma_master'
   )),
   source_object_uri       text,
   source_period           date,

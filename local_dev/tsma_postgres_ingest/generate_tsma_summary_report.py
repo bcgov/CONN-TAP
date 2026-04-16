@@ -9,6 +9,7 @@ Rows:
 - Voice
 - Out of Scope
 - Total
+- MMS
 
 Then one block per entity/category with the same rows.
 """
@@ -36,6 +37,7 @@ from tsma_summary_report_utils import (
     load_ivr_totals,
     load_lite_cellular,
     load_lite_wireline,
+    load_mms,
     load_wireline,
     merge_maps,
     sum_maps,
@@ -76,8 +78,12 @@ def write_total_row(ws, row_num: int, source_rows: list[int]) -> None:
     ws.cell(row=row_num, column=2).font = Font(bold=True)
     ws.cell(row=row_num, column=2).border = THIN_BORDER
     for col_num in range(3, 3 + len(MONTH_CODES)):
-        refs = [f"{get_column_letter(col_num)}{row}" for row in source_rows]
-        cell = ws.cell(row=row_num, column=col_num, value=f"=SUM({','.join(refs)})")
+        total = Decimal("0")
+        for source_row in source_rows:
+            value = ws.cell(row=source_row, column=col_num).value
+            if value is not None:
+                total += Decimal(str(value))
+        cell = ws.cell(row=row_num, column=col_num, value=float(total))
         cell.number_format = "#,##0.00"
         cell.font = Font(bold=True)
         cell.border = THIN_BORDER
@@ -96,6 +102,7 @@ def build_workbook(
     cellular_map: dict[str, list[Decimal]],
     data_map: dict[str, list[Decimal]],
     voice_map: dict[str, list[Decimal]],
+    mms_map: dict[str, list[Decimal]],
     out_of_scope_map: dict[str, list[Decimal]],
     ivr_totals: list[Decimal],
 ) -> Workbook:
@@ -117,18 +124,20 @@ def build_workbook(
     write_amount_row(ws, row_num + 2, "Voice", sum_maps(voice_map))
     write_amount_row(ws, row_num + 3, "Out of Scope", sum_maps(out_of_scope_map))
     write_total_row(ws, row_num + 4, [row_num, row_num + 1, row_num + 2, row_num + 3])
+    write_amount_row(ws, row_num + 5, "MMS", sum_maps(mms_map))
 
-    row_num = 8
-    for entity in entity_names(cellular_map, data_map, voice_map, out_of_scope_map):
+    row_num = 9
+    for entity in entity_names(cellular_map, data_map, voice_map, mms_map, out_of_scope_map):
         ws.cell(row=row_num, column=1, value=entity)
         ws.cell(row=row_num, column=1).font = Font(bold=True)
 
         write_amount_row(ws, row_num + 1, "Cellular", cellular_map.get(entity, blank_amounts()))
         write_amount_row(ws, row_num + 2, "Data", data_map.get(entity, blank_amounts()))
         write_amount_row(ws, row_num + 3, "Voice", voice_map.get(entity, blank_amounts()))
+        write_amount_row(ws, row_num + 4, "MMS", mms_map.get(entity, blank_amounts()))
 
-        total_rows = [row_num + 1, row_num + 2, row_num + 3]
-        next_row = row_num + 4
+        total_rows = [row_num + 1, row_num + 2, row_num + 3, row_num + 4]
+        next_row = row_num + 5
         if entity == "GoBC":
             write_amount_row(ws, next_row, "Voice - IVR", ivr_totals)
             total_rows.append(next_row)
@@ -158,13 +167,14 @@ def main() -> int:
         cellular_map = merge_maps(load_cellular(conn), load_lite_cellular(conn))
         data_map = merge_maps(load_wireline(conn, DATA_TOWERS), load_lite_wireline(conn, DATA_TOWERS))
         voice_map = merge_maps(load_wireline(conn, VOICE_TOWERS), load_lite_wireline(conn, VOICE_TOWERS))
+        mms_map = load_mms(conn)
         out_of_scope_map = merge_maps(
             load_wireline(conn, OUT_OF_SCOPE_TOWERS),
             load_lite_wireline(conn, OUT_OF_SCOPE_TOWERS),
         )
         ivr_totals = load_ivr_totals(conn)
 
-    workbook = build_workbook(cellular_map, data_map, voice_map, out_of_scope_map, ivr_totals)
+    workbook = build_workbook(cellular_map, data_map, voice_map, mms_map, out_of_scope_map, ivr_totals)
     workbook.save(output)
     print(f"Wrote {output}")
     return 0
