@@ -29,11 +29,12 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "postgres" {
-  for_each = toset(compact(distinct(var.allowed_security_group_ids)))
+  # Keys must be static (map keys); values may be unknown until apply — valid for for_each.
+  for_each = var.allowed_security_group_ids
 
   security_group_id            = aws_security_group.rds.id
   referenced_security_group_id = each.value
-  description                  = "PostgreSQL 5432 from ${each.value}"
+  description                  = "PostgreSQL 5432 from ${each.key}"
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"

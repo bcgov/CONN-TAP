@@ -13,8 +13,12 @@ variable "data_subnet_ids" {
 }
 
 variable "allowed_security_group_ids" {
-  type        = list(string)
-  description = "Security groups allowed to reach PostgreSQL (typically EKS node + cluster primary SG)."
+  type        = map(string)
+  description = <<-EOT
+    Security groups allowed to reach PostgreSQL (typically EKS node, cluster, bastion).
+    Keys must be static strings in configuration (not derived from the SG id) so for_each
+    remains valid when values are known only after apply or during destroy planning.
+  EOT
 }
 
 variable "engine_version" {

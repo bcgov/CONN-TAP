@@ -50,11 +50,11 @@ module "superset_rds" {
     data.aws_subnet.data_b.id,
   ]
 
-  allowed_security_group_ids = compact([
-    module.eks.node_security_group_id,
-    module.eks.cluster_security_group_id,
-    module.ssm_rds_bastion.security_group_id,
-  ])
+  allowed_security_group_ids = {
+    eks_node    = module.eks.node_security_group_id
+    eks_cluster = module.eks.cluster_security_group_id
+    ssm_bastion = module.ssm_rds_bastion.security_group_id
+  }
 
   tags = {
     Environment = var.env
