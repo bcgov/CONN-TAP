@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Load TSMA Other Excel workbooks (managed security, router, WLAN/Wi‑Fi) into Postgres.
+Load TSMA Other Excel workbooks (managed security, router) into Postgres.
+
+WLAN / Wi‑Fi wireline-shaped extracts belong in ``tsma/wireline/`` and ``tsma_wireline`` via
+``ingest_tsma_excel_folder.py``, not this script.
 
 Prereqs:
   pip install -r local_dev/tsma_other_postgres_ingest/requirements.txt
@@ -11,14 +14,12 @@ Usage:
   python local_dev/tsma_other_postgres_ingest/ingest_tsma_other_excel_folder.py /path/to/tsma_other
   python ... /path/to/tsma_other --source-period 2025-06-01 --dry-run
 
-Layout: pass the ``tsma_other`` directory. It must contain up to three subfolders, each with
-one or more ``.xlsx`` / ``.xlsm`` files (typically one workbook per folder):
+Layout: pass the ``tsma_other`` directory. It may contain these subfolders, each with one or
+more ``.xlsx`` / ``.xlsm`` files directly inside (not nested paths):
 
   tsma_other/managed_security/   -> tsma_other_managed_security
   tsma_other/managed_router/     -> tsma_other_managed_router
-  tsma_other/managed_wlan_wifi/  -> tsma_other_managed_wlan_wifi
 
-Only workbooks placed directly under each subfolder are loaded (not nested paths).
 One ``tsma_other_ingestion_run`` row per workbook file.
 """
 
@@ -82,19 +83,16 @@ ROW_NUMERIC = frozenset(["rn_1", "rn_2", "rn_3", "rn_4", "quantity"])
 FeedCode = Literal[
     "tsma_other_managed_security",
     "tsma_other_managed_router",
-    "tsma_other_managed_wlan_wifi",
 ]
 
 SUBFOLDER_TO_FEED: dict[str, FeedCode] = {
     "managed_security": "tsma_other_managed_security",
     "managed_router": "tsma_other_managed_router",
-    "managed_wlan_wifi": "tsma_other_managed_wlan_wifi",
 }
 
 FEED_TO_TABLE: dict[FeedCode, str] = {
     "tsma_other_managed_security": "tsma_other_managed_security",
     "tsma_other_managed_router": "tsma_other_managed_router",
-    "tsma_other_managed_wlan_wifi": "tsma_other_managed_wlan_wifi",
 }
 
 HEADER_REMAP: dict[str, str] = {
@@ -360,7 +358,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "folder",
         type=Path,
-        help="Path to tsma_other (contains managed_security, managed_router, managed_wlan_wifi)",
+        help="Path to tsma_other (contains managed_security, managed_router)",
     )
     parser.add_argument(
         "--dsn",
@@ -398,8 +396,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     jobs = discover_jobs(root)
     if not jobs:
         print(
-            f"No .xlsx/.xlsm files directly under {root}/managed_security, "
-            f".../managed_router, or .../managed_wlan_wifi",
+            f"No .xlsx/.xlsm files directly under {root}/managed_security or {root}/managed_router",
             file=sys.stderr,
         )
         return 0
@@ -409,8 +406,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         "tsma_other_managed_security_rows": 0,
         "tsma_other_managed_router_files": 0,
         "tsma_other_managed_router_rows": 0,
-        "tsma_other_managed_wlan_wifi_files": 0,
-        "tsma_other_managed_wlan_wifi_rows": 0,
         "skipped": [],
     }
 
