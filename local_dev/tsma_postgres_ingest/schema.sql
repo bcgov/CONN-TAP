@@ -146,3 +146,14 @@ CREATE TABLE IF NOT EXISTS tsma_ivr (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tsma_ivr_ingestion ON tsma_ivr (ingestion_run_id);
+
+CREATE TABLE IF NOT EXISTS tsma_mms (
+  raw_id                    bigserial PRIMARY KEY,
+  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ccyymm                    text,
+  year_num                  integer,
+  entity_name               text,
+  total                     numeric(19,4)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tsma_mms_ingestion ON tsma_mms (ingestion_run_id);

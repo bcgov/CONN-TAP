@@ -126,6 +126,14 @@ TSMA_IVR_COLS = [
     "extras",
 ]
 
+TSMA_MMS_COLS = [
+    "ingestion_run_id",
+    "ccyymm",
+    "year_num",
+    "entity_name",
+    "total",
+]
+
 TSMA_WIRELESS_DB_FIELDS = frozenset(
     c for c in TSMA_WIRELESS_COLS if c not in ("ingestion_run_id", "extras")
 )
@@ -334,26 +342,70 @@ def pick_first_data_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
 def normalize_ccyymm_header(value: Any) -> Optional[str]:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
+    if isinstance(value, (datetime, pd.Timestamp, date)):
+        return f"{value.year}{value.month:02d}"
+    s = str(value).strip()
+    if re.fullmatch(r"\d{6}", s):
+        return s
     try:
-        s = str(int(Decimal(str(value).strip()))).strip()
-    except (InvalidOperation, ValueError):
-        s = str(value).strip()
-    return s if re.fullmatch(r"\d{6}", s) else None
+        parsed = datetime.strptime(s, "%b-%y")
+    except ValueError:
+        return None
+    return f"{parsed.year}{parsed.month:02d}"
+
+def extract_tsma_mms_batches(path: Path) -> list[tuple[Any, ...]]:
+    df = pd.read_excel(path, sheet_name="MMS", header=None, dtype=object)
+    df = df.dropna(how="all").dropna(axis=1, how="all")
+    if df.empty:
+        return []
+
+    batches: list[tuple[Any, ...]] = []
+    entity_name: Optional[str] = None
+    month_map: dict[int, str] = {}
+
+    for _, row in df.iterrows():
+        first_cell = row.iloc[0] if len(row) else None
+        label = as_text(first_cell)
+        label_key = re.sub(r"[^a-z0-9]+", "", label.casefold()) if label else ""
+        detected_month_map = {
+            col_idx: normalize_ccyymm_header(row.iloc[col_idx])
+            for col_idx in range(1, len(row))
+            if normalize_ccyymm_header(row.iloc[col_idx])
+        }
+        if label and detected_month_map:
+            entity_name = "VCHA" if label_key in {"vchphs", "vchaphs"} else label
+            month_map = detected_month_map
+            continue
+
+        if label_key != "totalmmswithtcas":
+            continue
+        if not entity_name or not month_map:
+            continue
+
+        for col_idx, ccyymm in month_map.items():
+            billed_amt = as_money(row.iloc[col_idx] if col_idx < len(row) else None)
+            if billed_amt is None:
+                continue
+            batches.append(
+                (
+                    None,
+                    ccyymm,
+                    int(ccyymm[:4]),
+                    entity_name,
+                    billed_amt,
+                )
+            )
+
+    return batches
 
 
-def insert_tsma_ivr_workbook(
-    conn: Optional[psycopg.Connection],
-    path: Path,
-    source_period: Optional[date],
-    dry_run: bool,
-    sheet: Optional[str],
-) -> int:
+def extract_tsma_ivr_batches(path: Path, sheet: Optional[str]) -> tuple[list[tuple[Any, ...]], str]:
     sheet_name = sheet or "Pivot - Hosted IVR"
     df = pd.read_excel(path, sheet_name=sheet_name, header=3, dtype=object)
     df = df.dropna(how="all").dropna(axis=1, how="all")
     month_columns = [(col, ccyymm) for col in df.columns if (ccyymm := normalize_ccyymm_header(col))]
 
-    batches = []
+    batches: list[tuple[Any, ...]] = []
     for _, row in df.iterrows():
         rcid_cust_nm = as_text(row.get("RCID_CUST_NM"))
         if not rcid_cust_nm or rcid_cust_nm.casefold() == "grand total":
@@ -365,19 +417,38 @@ def insert_tsma_ivr_workbook(
                 continue
             batches.append((None, ccyymm, as_int(ccyymm[:4]), rcid, rcid_cust_nm, billed_amt, None))
 
-    row_total = len(batches)
+    return batches, sheet_name
+
+
+def insert_tsma_master_workbook(
+    conn: Optional[psycopg.Connection],
+    path: Path,
+    source_period: Optional[date],
+    dry_run: bool,
+    sheet: Optional[str],
+) -> dict[str, int]:
+    ivr_batches, sheet_name = extract_tsma_ivr_batches(path, sheet)
+    mms_batches = extract_tsma_mms_batches(path)
+    batch_sets = [
+        ("tsma_ivr", TSMA_IVR_COLS, ivr_batches),
+        ("tsma_mms", TSMA_MMS_COLS, mms_batches),
+    ]
+    counts = {table: len(batches) for table, _, batches in batch_sets}
     if dry_run:
-        return row_total
+        return counts
     if conn is None:
         raise ValueError("Postgres connection required unless --dry-run")
 
-    sql = (
-        "INSERT INTO tsma_ivr ("
-        + ", ".join(TSMA_IVR_COLS)
-        + ") VALUES ("
-        + ", ".join(["%s"] * len(TSMA_IVR_COLS))
-        + ")"
-    )
+    inserts = {
+        table: (
+            f"INSERT INTO {table} ("
+            + ", ".join(cols_schema)
+            + ") VALUES ("
+            + ", ".join(["%s"] * len(cols_schema))
+            + ")"
+        )
+        for table, cols_schema, _ in batch_sets
+    }
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -389,12 +460,14 @@ def insert_tsma_ivr_workbook(
                 ("tsma_ivr", path.resolve().as_uri(), source_period),
             )
             run_id = cur.fetchone()[0]
-            final_rows = []
-            for tup in batches:
-                lst = list(tup)
-                lst[0] = run_id
-                final_rows.append(tuple(lst))
-            cur.executemany(sql, final_rows)
+            for table, _, batches in batch_sets:
+                final_rows = []
+                for tup in batches:
+                    lst = list(tup)
+                    lst[0] = run_id
+                    final_rows.append(tuple(lst))
+                if final_rows:
+                    cur.executemany(inserts[table], final_rows)
             cur.execute(
                 """
                 UPDATE tsma_ingestion_run
@@ -402,13 +475,13 @@ def insert_tsma_ivr_workbook(
                     row_counts_raw = %s::jsonb
                 WHERE tsma_ingestion_run_id = %s
                 """,
-                (json.dumps({"tsma_ivr": row_total, "sheet": sheet_name}), run_id),
+                (json.dumps({**counts, "sheet": sheet_name}), run_id),
             )
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return row_total
+    return counts
 
 
 def insert_tsma_workbook(
@@ -418,9 +491,9 @@ def insert_tsma_workbook(
     source_period: Optional[date],
     dry_run: bool,
     sheet: Optional[str],
-) -> int:
+) -> dict[str, int]:
     if feed == "tsma_ivr":
-        return insert_tsma_ivr_workbook(conn, path, source_period, dry_run, sheet)
+        return insert_tsma_master_workbook(conn, path, source_period, dry_run, sheet)
 
     xl = pd.ExcelFile(path)
     sname = pick_first_data_sheet(xl, sheet)
@@ -483,7 +556,7 @@ def insert_tsma_workbook(
 
     row_total = len(batches)
     if dry_run:
-        return row_total
+        return {table: row_total}
     if conn is None:
         raise ValueError("Postgres connection required unless --dry-run")
 
@@ -525,7 +598,7 @@ def insert_tsma_workbook(
     except Exception:
         conn.rollback()
         raise
-    return row_total
+    return {table: row_total}
 
 
 def parse_period(s: Optional[str]) -> Optional[date]:
@@ -635,6 +708,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "tsma_lite_wireline_rows": 0,
         "tsma_ivr_files": 0,
         "tsma_ivr_rows": 0,
+        "tsma_mms_files": 0,
+        "tsma_mms_rows": 0,
         "skipped": [],
     }
 
@@ -648,11 +723,11 @@ def main(argv: Optional[list[str]] = None) -> int:
                 file=sys.stderr,
             )
             return
-        n = insert_tsma_workbook(conn, path, feed, period, args.dry_run, args.sheet)
-        key_base = feed
-        totals[f"{key_base}_rows"] += n
-        totals[f"{key_base}_files"] += 1
-        print(f"[{feed}] {path.name}: {n} rows -> {feed}")
+        counts = insert_tsma_workbook(conn, path, feed, period, args.dry_run, args.sheet)
+        for key_base, row_count in counts.items():
+            totals[f"{key_base}_rows"] += row_count
+            totals[f"{key_base}_files"] += 1
+        print(f"[{feed}] {path.name}: {json.dumps(counts, sort_keys=True)}")
 
     if args.dry_run:
         for path in files:
