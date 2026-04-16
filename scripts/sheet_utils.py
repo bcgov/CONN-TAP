@@ -9,7 +9,7 @@ Imported by build_spend_sheet.py, telus_ngta.py, and build_telus_ngta.py.
 # Base hex values from xl/theme/theme1.xml.
 # The fill `theme` attribute uses OOXML ordering where theme=3 → dk2 (Text 2).
 _THEME_BASE = {
-    3: "0E2841",   # dk2  – dark navy
+    3: "64A3E3",   # accent 1 - dark blue
     5: "E97132",   # accent2 – orange
     6: "196B24",   # accent3 – dark green
     8: "A02B93",   # accent5 – purple/magenta
@@ -32,8 +32,8 @@ def _tint(hex6: str, tint: float) -> str:
     )
 
 
-BG_TSMA_HDR   = _tint(_THEME_BASE[3], 0.750)   # #C3C9D0
-BG_TSMA_BGE   = _tint(_THEME_BASE[3], 0.900)   # #E7EAEC
+BG_TSMA_HDR   = _tint(_THEME_BASE[3], 0.750)   
+BG_TSMA_BGE   = _tint(_THEME_BASE[3], 0.900)   
 BG_COMBINED   = _tint(_THEME_BASE[6], 0.600)   # #A3C4A7
 BG_SEPARATOR  = "#00B0F0"
 BG_TELUS_HDR  = _tint(_THEME_BASE[8], 0.600)   # #D9AAD4
