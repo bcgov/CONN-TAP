@@ -39,6 +39,7 @@ from sheet_utils import (
     set_column_widths, write_year_quarter_headers, write_month_label_row,
 )
 from telus_ngta import load_telus_ngta, build_telus_ngta_section
+from tsma_other import load_tsma_other, build_oos_section
 
 import os
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
@@ -144,12 +145,8 @@ ROGERS_VOI_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'voice')
 ROGERS_OTH_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'other')
 
 # ---------------------------------------------------------------------------
-# Out of Scope and TSMA Lite row constants
+# TSMA Lite row constants
 # ---------------------------------------------------------------------------
-OOS_MANAGED_ROUTER_ROWS = list(range(357, 364))
-OOS_MANAGED_WLAN_ROWS   = list(range(366, 372))
-OOS_MANAGED_SEC_ROWS    = list(range(374, 384))
-
 ROW_TSMALITE_VOICE  = 387
 ROW_TSMALITE_DATA   = 388
 ROW_TSMALITE_OTHER  = 389
@@ -519,82 +516,12 @@ def build():
     set_row_props(ws, 354, height=16, fmt=_fsep)
 
     # =========================================================
-    # ROWS 355-384: Out of Scope section
+    # ROWS 355-385: Out of Scope section  (delegated to tsma_other.py)
     # =========================================================
-    set_row_props(ws, 355, height=16)
-    write(ws, 355, COL_B, "Out of Scope", f_section)
-    write(ws, 355, COL_AO, 2024, f_bold)
-    write(ws, 355, COL_AP, 2025, f_bold)
-    write(ws, 355, COL_AQ, "Q1 2024", f_bold)
-    write(ws, 355, COL_AR, "Q1 2025", f_bold)
-    write(ws, 355, COL_AS, "Q4 2025", f_bold)
+    oos_data = load_tsma_other()
+    build_oos_section(ws, F, oos_data, first_row=355)
 
-    _fnum = F.n()   # plain currency format for OOS/TSMA Lite input rows (no background)
-
-    set_row_props(ws, 356, height=16)
-    write(ws, 356, COL_B, "Managed Router")
-    write(ws, 356, COL_AO, "Jan-Dec")
-
-    oos_mr_orgs = [
-        "CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY",
-        "FIRST NATIONS HEALTH AUTHORITY",
-        "GBC - MINISTRY OF CITIZENS SERVICES",
-        "GBC - SHARED SERVICES BC",
-        "GBC - MINISTRY OF EDUCATION & CHILD CARE",
-        "BRITISH COLUMBIA LIQUOR DISTRIBUTION BRANCH",
-        "GBC - LIQUOR DISTRIBUTION BRANCH",
-    ]
-    for r, org in zip(OOS_MANAGED_ROUTER_ROWS, oos_mr_orgs):
-        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
-        write(ws, r, COL_B, org)
-
-    set_row_props(ws, 364, height=17)
-    write(ws, 364, COL_B, "Total", f_total)
-    write_monthly_sum_range(ws, 364, 357, 363, f_total)
-
-    set_row_props(ws, 365, height=17)
-    write(ws, 365, COL_B, "Managed WLAN/Managed Wi-Fi")
-
-    oos_wlan_orgs = [
-        "VANCOUVER COASTAL HEALTH AUTHORITY O/A OLIVE DEVAUD RESIDENCE",
-        "VANCOUVER COASTAL HEALTH AUTHORITY O/A LIONS GATE HOSPITAL",
-        "VANCOUVER COASTAL HEALTH AUTHORITY HOWE SOUND HOME SUPPORT SERVICES",
-        "VANCOUVER COASTAL HEALTH AUTHORITY",
-        "PROVINCIAL HEALTH SERVICES AUTHORITY",
-        "GREATER VANCOUVER MENTAL HEALTH SERVICE",
-    ]
-    for r, org in zip(OOS_MANAGED_WLAN_ROWS, oos_wlan_orgs):
-        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
-        write(ws, r, COL_B, org)
-
-    set_row_props(ws, 372, height=17)
-    write(ws, 372, COL_B, "Total", f_total)
-    write_monthly_sum_range(ws, 372, 366, 371, f_total)
-
-    set_row_props(ws, 373, height=17)
-    write(ws, 373, COL_B, "Managed Security/Managed Firewall")
-
-    oos_sec_orgs = [
-        "BRITISH COLUMBIA HYDRO & POWER AUTHORITY",
-        "WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA",
-        "INSURANCE CORPORATION OF BRITISH COLUMBIA - ICBC",
-        "FRASER HEALTH AUTHORITY",
-        "GBC - MINISTRY OF EDUCATION & CHILD CARE",
-        "PROVINCIAL HEALTH SERVICES AUTHORITY",
-        "GBC - MINISTRY OF CITIZENS SERVICES",
-        "FIRST NATIONS HEALTH AUTHORITY",
-        "GBC - OFFICE OF THE CHIEF INFORMATION OFFICER",
-        "GBC - MINISTRY OF HEALTH",
-    ]
-    for r, org in zip(OOS_MANAGED_SEC_ROWS, oos_sec_orgs):
-        set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
-        write(ws, r, COL_B, org)
-
-    set_row_props(ws, 384, height=17)
-    write(ws, 384, COL_B, "Total", f_total)
-    write_monthly_sum_range(ws, 384, 375, 383, f_total)
-
-    set_row_props(ws, 385, height=16)
+    _fnum = F.n()   # plain currency format for TSMA Lite input rows
 
     # =========================================================
     # ROWS 386-394: TSMA Lite  (quarterly data)

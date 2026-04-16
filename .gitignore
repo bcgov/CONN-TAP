@@ -54,4 +54,5 @@ source/
 # generated spend tracking workbooks and Excel lock files
 scripts/spend_tracking.xlsx
 scripts/telus_ngta_spend.xlsx
+scripts/tsma_other_spend.xlsx
 scripts/~$*.xlsx
