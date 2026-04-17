@@ -39,6 +39,7 @@ from sheet_utils import (
     set_column_widths, write_year_quarter_headers, write_month_label_row,
 )
 from telus_ngta import load_telus_ngta, build_telus_ngta_section
+from tsma import load_tsma_data, write_tsma_detail_row
 from tsma_other import load_tsma_other, build_oos_section
 
 import os
@@ -131,8 +132,7 @@ def _tsma_rows_by_type(rtype):
     return [TSMA_ROW_MAP[b][rtype] for b in BGE_A_LABELS if rtype in TSMA_ROW_MAP[b]]
 
 
-TSMA_CEL_ROWS = (_tsma_rows_by_type('cellular')
-                 + [TSMA_ROW_MAP['School Districts']['data']])
+TSMA_CEL_ROWS = _tsma_rows_by_type('cellular')
 TSMA_MMS_ROWS = _tsma_rows_by_type('mms')
 TSMA_DAT_ROWS = _tsma_rows_by_type('data')
 TSMA_VOI_ROWS = _tsma_rows_by_type('voice') + _tsma_rows_by_type('voice_ivr')
@@ -164,6 +164,7 @@ def build():
     wb = xlsxwriter.Workbook(OUTPUT_PATH)
     ws = wb.add_worksheet("Sheet1")
     ws.outline_settings(True, False, True, True)
+    tsma_data = load_tsma_data()
 
     F = _FmtCache(wb)
 
@@ -246,6 +247,8 @@ def build():
                 if a2_label and r + 1 < last_r:
                     write(ws, r + 1, COL_A, a2_label, _ftb)
             write(ws, r, COL_B, label, fmt_cell)
+            if rtype != "total":
+                write_tsma_detail_row(ws, r, row_bg, tsma_data, a_label, rtype)
             if rtype == "total":
                 write_monthly_sum_range(ws, r, first_r, last_r - 1, _ftb_b)
 
