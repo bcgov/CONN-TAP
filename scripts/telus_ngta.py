@@ -59,6 +59,7 @@ ENTITY_KEY_MAP = {
     "FHA":  "FHA",
     "FNHA": "FNHA",
     "GBC":  "Gov BC",
+    "BCA":  "Gov BC",   # combined with GBC under the same BGE row
     "ICBC": "ICBC",
     "IHA":  "IHA",
     "NHA":  "NHA",
@@ -121,6 +122,10 @@ def load_telus_ngta(path: str = TELUS_CSV) -> dict:
 
     Rows with unknown entity_key values or dates outside 2024-2026 are silently
     skipped so the sheet still builds even with an incomplete CSV.
+
+    Values for the same (bge, row_type, col) are summed so multiple entity
+    codes mapping to the same BGE (e.g., BCA + GBC → Gov BC) are combined
+    into a single monthly figure.
     """
     data: dict = {}
     if not os.path.exists(path):
@@ -142,9 +147,11 @@ def load_telus_ngta(path: str = TELUS_CSV) -> dict:
                 if not raw:
                     continue
                 try:
-                    data[(bge, rtype, col)] = float(raw.replace(",", ""))
+                    val = float(raw.replace(",", ""))
                 except ValueError:
-                    pass
+                    continue
+                key = (bge, rtype, col)
+                data[key] = data.get(key, 0.0) + val
 
     return data
 
