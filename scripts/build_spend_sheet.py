@@ -39,7 +39,7 @@ from sheet_utils import (
     set_column_widths, write_year_quarter_headers, write_month_label_row,
 )
 from telus_ngta import load_telus_ngta, build_telus_ngta_section
-from tsma import load_tsma_data, write_tsma_detail_row
+from tsma import load_tsma_data, load_tsma_lite_data, write_tsma_detail_row
 from tsma_other import load_tsma_other, build_oos_section
 
 import os
@@ -147,13 +147,13 @@ ROGERS_OTH_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'other')
 # ---------------------------------------------------------------------------
 # TSMA Lite row constants
 # ---------------------------------------------------------------------------
-ROW_TSMALITE_VOICE  = 387
-ROW_TSMALITE_DATA   = 388
-ROW_TSMALITE_OTHER  = 389
-ROW_TSMALITE_CELUE  = 390
-ROW_TSMALITE_TOTAL  = 391
-ROW_TSMALITE_EXC    = 393
-ROW_TSMALITE_CELUE2 = 394
+ROW_TSMALITE_CONF    = 387
+ROW_TSMALITE_LDIST   = 388
+ROW_TSMALITE_VOICE   = 389
+ROW_TSMALITE_CELL    = 390
+ROW_TSMALITE_TOTAL   = 391
+ROW_TSMALITE_VOICE2  = 393
+ROW_TSMALITE_CELL2   = 394
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +165,7 @@ def build():
     ws = wb.add_worksheet("Sheet1")
     ws.outline_settings(True, False, True, True)
     tsma_data = load_tsma_data()
+    tsma_lite_data = load_tsma_lite_data()
 
     F = _FmtCache(wb)
 
@@ -525,6 +526,7 @@ def build():
     build_oos_section(ws, F, oos_data, first_row=355)
 
     _fnum = F.n()   # plain currency format for TSMA Lite input rows
+    _fnum_bold = F.n(bold=True)
 
     # =========================================================
     # ROWS 386-394: TSMA Lite  (quarterly data)
@@ -533,31 +535,45 @@ def build():
     write(ws, 386, COL_B, "TSMA Lite", f_section)
 
     for r, label in [
-        (ROW_TSMALITE_VOICE, "Voice - Total Charges"),
-        (ROW_TSMALITE_DATA,  "Data - Total Charges"),
-        (ROW_TSMALITE_OTHER, "*Other Charges & Credits"),
-        (ROW_TSMALITE_CELUE, "Cellular User Equipment Cost"),
+        (ROW_TSMALITE_CONF,  "Conferencing"),
+        (ROW_TSMALITE_LDIST, "Long Distance"),
+        (ROW_TSMALITE_VOICE, "Voice"),
+        (ROW_TSMALITE_CELL,  "Cellular"),
     ]:
         set_row_props(ws, r, height=17, fmt=_fnum)
         write(ws, r, COL_B, label)
 
-    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17)
-    for col in TSMA_LITE_Q_COLS:
+    for row_num, row_type in [
+        (ROW_TSMALITE_CONF, "conferencing"),
+        (ROW_TSMALITE_LDIST, "long_distance"),
+        (ROW_TSMALITE_VOICE, "voice"),
+        (ROW_TSMALITE_CELL, "cellular"),
+    ]:
+        for col in MONTH_COLS:
+            amount = tsma_lite_data.get((row_type, col))
+            if amount is not None:
+                ws.write_number(row_num - 1, col, round(amount, 2), _fnum)
+
+    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17, fmt=_fnum_bold)
+    write(ws, ROW_TSMALITE_TOTAL, COL_B, "Total", _fnum_bold)
+    for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_TOTAL, col,
-                sum_range(ROW_TSMALITE_VOICE, ROW_TSMALITE_CELUE, col), f_total)
+                sum_range(ROW_TSMALITE_CONF, ROW_TSMALITE_CELL, col), _fnum_bold)
 
     set_row_props(ws, 392, height=17)
 
-    set_row_props(ws, ROW_TSMALITE_EXC, height=17, fmt=_fnum)
-    for col in TSMA_LITE_Q_COLS:
+    set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold)
+    write(ws, ROW_TSMALITE_VOICE2, COL_B, "Voice", _fnum_bold)
+    for col in MONTH_COLS:
         cl = col_letter(col)
-        write_f(ws, ROW_TSMALITE_EXC, col,
-                f"={cl}{ROW_TSMALITE_VOICE}+{cl}{ROW_TSMALITE_DATA}+{cl}{ROW_TSMALITE_OTHER}",
-                f_total)
+        write_f(ws, ROW_TSMALITE_VOICE2, col,
+                f"={cl}{ROW_TSMALITE_CONF}+{cl}{ROW_TSMALITE_LDIST}+{cl}{ROW_TSMALITE_VOICE}",
+                _fnum_bold)
 
-    set_row_props(ws, ROW_TSMALITE_CELUE2, height=17, fmt=_fnum)
-    for col in TSMA_LITE_Q_COLS:
-        write_f(ws, ROW_TSMALITE_CELUE2, col, ref_cell(ROW_TSMALITE_CELUE, col), f_total)
+    set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold)
+    write(ws, ROW_TSMALITE_CELL2, COL_B, "Cellular", _fnum_bold)
+    for col in MONTH_COLS:
+        write_f(ws, ROW_TSMALITE_CELL2, col, ref_cell(ROW_TSMALITE_CELL, col), _fnum_bold)
 
     # =========================================================
     # Freeze first 4 rows and first 2 columns

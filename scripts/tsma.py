@@ -46,6 +46,9 @@ ENTITY_ALIASES = {
 DATA_TOWERS = ("Business Internet", "Data - WAN")
 VOICE_TOWERS = ("Conferencing", "Long Distance", "Voice")
 OUT_OF_SCOPE_TOWERS = ("Managed WLAN",)
+LITE_CONFERENCING_TOWERS = ("Conferencing",)
+LITE_LONG_DISTANCE_TOWERS = ("Long Distance",)
+LITE_VOICE_TOWERS = ("Voice",)
 
 
 def _blank_amounts() -> list[float]:
@@ -192,6 +195,32 @@ def merge_maps(*maps: dict[str, list[float]]) -> dict[str, list[float]]:
             for idx, amount in enumerate(amounts):
                 merged[entity][idx] += amount
     return dict(merged)
+
+
+def load_tsma_lite_data(dsn: str | None = None) -> dict[tuple[str, int], float]:
+    """Return {(row_type, excel_col): value} for TSMA Lite monthly rows."""
+    dsn = dsn or os.environ.get("DATABASE_URL")
+    if not dsn or psycopg is None:
+        return {}
+
+    with psycopg.connect(dsn) as conn:
+        conferencing = load_lite_wireline(conn, LITE_CONFERENCING_TOWERS).get("School Districts", _blank_amounts())
+        long_distance = load_lite_wireline(conn, LITE_LONG_DISTANCE_TOWERS).get("School Districts", _blank_amounts())
+        voice = load_lite_wireline(conn, LITE_VOICE_TOWERS).get("School Districts", _blank_amounts())
+        cellular = load_lite_cellular(conn).get("School Districts", _blank_amounts())
+
+    data: dict[tuple[str, int], float] = {}
+    for row_type, amounts in (
+        ("conferencing", conferencing),
+        ("long_distance", long_distance),
+        ("voice", voice),
+        ("cellular", cellular),
+    ):
+        for month_idx, amount in enumerate(amounts):
+            if amount:
+                data[(row_type, FIRST_MONTH + month_idx)] = amount
+
+    return data
 
 
 def load_tsma_data(dsn: str | None = None) -> dict[tuple[str, str, int], float]:
