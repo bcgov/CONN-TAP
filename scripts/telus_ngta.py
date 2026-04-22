@@ -143,6 +143,12 @@ def load_telus_ngta(path: str = TELUS_CSV) -> dict:
             if col is None:
                 continue
             for csv_col, rtype in SPEND_COL_MAP.items():
+                # === TEMPORARY (TODO remove): PHSA other_spend → Data row ===
+                # Until upstream classification is fixed, other_spend amounts for
+                # PHSA are posted to the Data BGE row instead of Other.
+                if csv_col == "other_spend" and bge == "PHSA":
+                    rtype = "data"
+                # === END TEMPORARY PHSA other_spend → Data ===
                 raw = row.get(csv_col, "").strip()
                 if not raw:
                     continue
