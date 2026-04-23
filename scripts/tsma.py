@@ -46,6 +46,7 @@ ENTITY_ALIASES = {
 DATA_TOWERS = ("Business Internet", "Data - WAN")
 VOICE_TOWERS = ("Conferencing", "Long Distance", "Voice")
 OUT_OF_SCOPE_TOWERS = ("Managed WLAN",)
+OTHER_OUT_OF_SCOPE_TOWERS = ("Managed Router", "Managed Security", "INM")
 LITE_CONFERENCING_TOWERS = ("Conferencing",)
 LITE_LONG_DISTANCE_TOWERS = ("Long Distance",)
 LITE_VOICE_TOWERS = ("Voice",)
@@ -109,6 +110,22 @@ def load_wireline(conn, service_towers: tuple[str, ...]) -> dict[str, list[float
         ORDER BY entity, ccyymm
         """,
         (MONTH_CODES[0], MONTH_CODES[-1], list(service_towers)),
+    )
+
+
+def load_other_out_of_scope(conn) -> dict[str, list[float]]:
+    return _load_amount_map(
+        conn,
+        """
+        SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
+        FROM public.tsma_other
+        WHERE ccyymm BETWEEN %s AND %s
+          AND tsma_service_tower = ANY(%s)
+          AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
+        GROUP BY entity, ccyymm
+        ORDER BY entity, ccyymm
+        """,
+        (MONTH_CODES[0], MONTH_CODES[-1], list(OTHER_OUT_OF_SCOPE_TOWERS)),
     )
 
 
@@ -237,6 +254,7 @@ def load_tsma_data(dsn: str | None = None) -> dict[tuple[str, str, int], float]:
         oos_map = merge_maps(
             load_wireline(conn, OUT_OF_SCOPE_TOWERS),
             load_lite_wireline(conn, OUT_OF_SCOPE_TOWERS),
+            load_other_out_of_scope(conn),
         )
         ivr_totals = load_ivr_totals(conn)
 
