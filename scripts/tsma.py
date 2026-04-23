@@ -46,7 +46,6 @@ ENTITY_ALIASES = {
 DATA_TOWERS = ("Business Internet", "Data - WAN")
 VOICE_TOWERS = ("Conferencing", "Long Distance", "Voice")
 OUT_OF_SCOPE_TOWERS = ("Managed WLAN",)
-OTHER_OUT_OF_SCOPE_TOWERS = ("Managed Router", "Managed Security", "INM")
 LITE_CONFERENCING_TOWERS = ("Conferencing",)
 LITE_LONG_DISTANCE_TOWERS = ("Long Distance",)
 LITE_VOICE_TOWERS = ("Voice",)
@@ -118,14 +117,19 @@ def load_other_out_of_scope(conn) -> dict[str, list[float]]:
         conn,
         """
         SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM public.tsma_other
+        FROM (
+            SELECT entity, ccyymm, billed_amt
+            FROM public.tsma_other_managed_router
+            UNION ALL
+            SELECT entity, ccyymm, billed_amt
+            FROM public.tsma_other_managed_security
+        ) AS other_out_of_scope
         WHERE ccyymm BETWEEN %s AND %s
-          AND tsma_service_tower = ANY(%s)
           AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
         GROUP BY entity, ccyymm
         ORDER BY entity, ccyymm
         """,
-        (MONTH_CODES[0], MONTH_CODES[-1], list(OTHER_OUT_OF_SCOPE_TOWERS)),
+        (MONTH_CODES[0], MONTH_CODES[-1]),
     )
 
 
