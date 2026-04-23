@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: conventional-commit
+        name: Conventional Commit
+        language: system
+        stages:
+          - commit-msg
+        entry: cog verify --file
+        pass_filenames: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-vcs-permalinks
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.2.5
+    hooks:
+      - id: gitleaks
