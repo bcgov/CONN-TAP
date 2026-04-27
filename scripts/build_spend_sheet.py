@@ -195,9 +195,9 @@ def build():
     for r in range(5, 11):
         set_row_props(ws, r, height=17, fmt=_fth)
 
-    write(ws, 5, COL_B, "Cellular", _fth)
-    write_monthly_ref(ws, 5, ROW_TSMA_TOTAL_CEL, _fth)
-    write_summary_cols(ws, 5, "Cellular")
+    write(ws, 5, COL_B, "Cellular (incl. MMS)", _fth)
+    write_monthly_sum_rows(ws, 5, [ROW_TSMA_TOTAL_CEL, ROW_TSMA_TOTAL_MMS], _fth)
+    write_summary_cols(ws, 5, "Cellular (incl. MMS)")
 
     write(ws, 6, COL_B, "Data", _fth)
     write_monthly_ref(ws, 6, ROW_TSMA_TOTAL_DAT, _fth)
@@ -563,7 +563,7 @@ def build():
     set_row_props(ws, 392, height=17)
 
     set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold)
-    write(ws, ROW_TSMALITE_VOICE2, COL_B, "Voice", _fnum_bold)
+    write(ws, ROW_TSMALITE_VOICE2, COL_B, "Total Voice", _fnum_bold)
     for col in MONTH_COLS:
         cl = col_letter(col)
         write_f(ws, ROW_TSMALITE_VOICE2, col,
@@ -571,7 +571,7 @@ def build():
                 _fnum_bold)
 
     set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold)
-    write(ws, ROW_TSMALITE_CELL2, COL_B, "Cellular", _fnum_bold)
+    write(ws, ROW_TSMALITE_CELL2, COL_B, "Total Cellular", _fnum_bold)
     for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_CELL2, col, ref_cell(ROW_TSMALITE_CELL, col), _fnum_bold)
 

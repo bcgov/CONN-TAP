@@ -1,285 +1,231 @@
-"""TSMA Postgres loader for the spend tracking workbook."""
+"""TSMA section CSV loader for the spend tracking workbook.
+
+Reads TSMA monthly spend from component CSVs in scripts/source and returns the
+same data shapes as tsma.py, without opening a database connection.
+
+Main TSMA component CSVs:
+  tsma_cellular_spend.csv      -> row type cellular
+  tsma_mms_spend.csv           -> row type mms
+  tsma_data_spend.csv          -> row type data
+  tsma_voice_spend.csv         -> row type voice
+  tsma_voice_ivr_spend.csv     -> row type voice_ivr
+
+Expected main TSMA CSV columns:
+  entity_key, month_start, amount
+
+TSMA Out of Scope is reused from tsma_other_spend.csv.
+
+TSMA Lite CSV:
+  tsma_lite_spend.csv
+
+Expected TSMA Lite CSV columns:
+  month_start, conferencing_spend, long_distance_spend, voice_spend, cellular_spend
+"""
 
 from __future__ import annotations
 
+import csv
 import os
 import re
-from collections import defaultdict
+from datetime import datetime
 
-try:
-    import psycopg
-except ImportError:  # pragma: no cover - optional at import time
-    psycopg = None
+from sheet_utils import FIRST_MONTH, LAST_MONTH, MONTH_COLS
+from tsma_other import load_tsma_other
 
-from sheet_utils import FIRST_MONTH, MONTH_COLS
+SOURCE_DIR = os.path.join(os.path.dirname(__file__), "source")
 
-YEARS = (2024, 2025, 2026)
-MONTH_CODES = [f"{year}{month:02d}" for year in YEARS for month in range(1, 13)]
-MONTH_INDEX = {code: idx for idx, code in enumerate(MONTH_CODES)}
-
-ENTITY_ALIASES = {
+ENTITY_KEY_MAP = {
+    "BCH": "BC Hydro",
+    "BCLC": "BCLC",
+    "BC HYDRO": "BC Hydro",
+    "BC HYDRO POWER AUTHORITY": "BC Hydro",
+    "BC HYDRO & POWER AUTHORITY": "BC Hydro",
+    "ECC": "ECC",
+    "MOE": "ECC",
+    "TMOE": "ECC",
+    "MINISTRY OF EDUCATION": "ECC",
+    "MINISTRY OF EDUCATION AND CHILD CARE": "ECC",
+    "FHA": "FHA",
+    "FRASER HEALTH": "FHA",
+    "FRASER HEALTH AUTHORITY": "FHA",
+    "FNHA": "FNHA",
+    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
+    "GBC": "Gov BC",
     "GOBC": "Gov BC",
     "GOVBC": "Gov BC",
-    "GOVERNMENTOFBRITISHCOLUMBIA": "Gov BC",
-    "BCLC": "BCLC",
-    "BCHYDRO": "BC Hydro",
-    "BCHYDROPOWERAUTHORITY": "BC Hydro",
-    "WSBC": "WSBC",
-    "WORKSAFEBC": "WSBC",
-    "WORKSAFEBRITISHCOLUMBIA": "WSBC",
-    "ECC": "ECC",
-    "TMOE": "ECC",
-    "FHA": "FHA",
-    "NHA": "NHA",
+    "GOV BC": "Gov BC",
+    "GOVERNMENT OF BC": "Gov BC",
+    "GOVERNMENT OF BRITISH COLUMBIA": "Gov BC",
     "ICBC": "ICBC",
-    "PHSA": "PHSA",
+    "INSURANCE CORPORATION OF BRITISH COLUMBIA": "ICBC",
     "IHA": "IHA",
-    "VIHA": "VIHA",
-    "FNHA": "FNHA",
-    "VCHA": "VCHA",
+    "INTERIOR HEALTH": "IHA",
+    "INTERIOR HEALTH AUTHORITY": "IHA",
+    "NHA": "NHA",
+    "NORTHERN HEALTH": "NHA",
+    "NORTHERN HEALTH AUTHORITY": "NHA",
     "PHC": "VCHA",
-    "VCHAPHC": "VCHA",
-    "VANCOUVERCOASTALHEALTHAUTHORITYPROVIDENCEHEALTHCARE": "VCHA",
-    "SCHOOLDISTRICTS": "School Districts",
+    "PHSA": "PHSA",
+    "PROVINCIAL HEALTH SERVICES": "PHSA",
+    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
+    "SD": "School Districts",
+    "SCHOOL DISTRICT": "School Districts",
+    "SCHOOL DISTRICTS": "School Districts",
+    "VCHA": "VCHA",
+    "VCHA PHC": "VCHA",
+    "VANCOUVER COASTAL HEALTH": "VCHA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
+    "VANCOUVER ISLAND HEALTH": "VIHA",
+    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
+    "VIHA": "VIHA",
+    "WORKERS COMPENSATION BOARD": "WSBC",
+    "WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA": "WSBC",
+    "WORKSAFEBC": "WSBC",
+    "WSBC": "WSBC",
+}
+ENTITY_LOOKUP = {
+    alias: bge
+    for key, bge in ENTITY_KEY_MAP.items()
+    for alias in (key, re.sub(r"[^A-Z0-9]+", "", key))
 }
 
-DATA_TOWERS = ("Business Internet", "Data - WAN")
-VOICE_TOWERS = ("Conferencing", "Long Distance", "Voice")
-OUT_OF_SCOPE_TOWERS = ("Managed WLAN",)
-LITE_CONFERENCING_TOWERS = ("Conferencing",)
-LITE_LONG_DISTANCE_TOWERS = ("Long Distance",)
-LITE_VOICE_TOWERS = ("Voice",)
+TSMA_OTHER_ORG_MAP = {
+    "BRITISH COLUMBIA HYDRO & POWER AUTHORITY": "BC Hydro",
+    "BRITISH COLUMBIA LIQUOR DISTRIBUTION BRANCH": "Gov BC",
+    "CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY": "PHSA",
+    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
+    "FRASER HEALTH AUTHORITY": "FHA",
+    "GBC - LIQUOR DISTRIBUTION BRANCH": "Gov BC",
+    "GBC - MINISTRY OF CITIZENS SERVICES": "Gov BC",
+    "GBC - MINISTRY OF EDUCATION & CHILD CARE": "ECC",
+    "GBC - MINISTRY OF HEALTH": "Gov BC",
+    "GBC - OFFICE OF THE CHIEF INFORMATION OFFICER": "Gov BC",
+    "GBC - SHARED SERVICES BC": "Gov BC",
+    "GREATER VANCOUVER MENTAL HEALTH SERVICE": "VCHA",
+    "INSURANCE CORPORATION OF BRITISH COLUMBIA - ICBC": "ICBC",
+    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY HOWE SOUND HOME SUPPORT SERVICES": "VCHA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY O/A LIONS GATE HOSPITAL": "VCHA",
+    "VANCOUVER COASTAL HEALTH AUTHORITY O/A OLIVE DEVAUD RESIDENCE": "VCHA",
+    "WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA": "WSBC",
+}
+
+TSMA_COMPONENT_CSVS = {
+    "cellular": "tsma_cellular_spend.csv",
+    "mms": "tsma_mms_spend.csv",
+    "data": "tsma_data_spend.csv",
+    "voice": "tsma_voice_spend.csv",
+    "voice_ivr": "tsma_voice_ivr_spend.csv",
+}
+
+TSMA_LITE_CSV = "tsma_lite_spend.csv"
+
+TSMA_LITE_COL_MAP = {
+    "conferencing_spend": "conferencing",
+    "long_distance_spend": "long_distance",
+    "voice_spend": "voice",
+    "cellular_spend": "cellular",
+}
 
 
-def _blank_amounts() -> list[float]:
-    return [0.0 for _ in MONTH_CODES]
+def _normalize_key(value: object) -> str:
+    return re.sub(r"\s+", " ", str(value).replace("\u00a0", " ").strip()).upper()
 
 
-def _normalize_entity_key(value: str) -> str:
-    return re.sub(r"[^A-Z0-9]+", "", value.upper())
+def _entity_key(value: object) -> str:
+    raw = _normalize_key(value)
+    compact = re.sub(r"[^A-Z0-9]+", "", raw)
+    return ENTITY_LOOKUP.get(raw) or ENTITY_LOOKUP.get(compact, "")
 
 
-def canonical_entity_name(value: object) -> str:
-    name = str(value).strip()
-    if not name:
-        return ""
-    return ENTITY_ALIASES.get(_normalize_entity_key(name), name)
+def _month_to_col(month_str: str):
+    """Parse a month_start string -> 0-based Excel column, or None if out of range."""
+    s = month_str.strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y/%m/%d", "%Y/%m", "%m/%d/%Y", "%d/%m/%Y"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            col = FIRST_MONTH + (dt.year - 2024) * 12 + (dt.month - 1)
+            return col if FIRST_MONTH <= col <= LAST_MONTH else None
+        except ValueError:
+            continue
+    return None
 
 
-def _load_amount_map(conn, sql: str, params: tuple, entity_idx: int = 0) -> dict[str, list[float]]:
-    results: dict[str, list[float]] = defaultdict(_blank_amounts)
-    with conn.cursor() as cur:
-        cur.execute(sql, params)
-        for row in cur.fetchall():
-            entity = canonical_entity_name(row[entity_idx])
-            month_code = str(row[entity_idx + 1])
-            amount = float(row[entity_idx + 2] or 0)
-            month_idx = MONTH_INDEX.get(month_code)
-            if not entity or month_idx is None:
+def _amount(value: str) -> float | None:
+    raw = str(value).strip()
+    if not raw:
+        return None
+    try:
+        return float(raw.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _read_rows(path: str):
+    if not os.path.exists(path):
+        return
+
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        reader.fieldnames = [h.strip().lower() for h in (reader.fieldnames or [])]
+        yield from reader
+
+
+def _component_path(source_dir: str, filename: str) -> str:
+    return os.path.join(source_dir, filename)
+
+
+def load_tsma_data(source_dir: str = SOURCE_DIR) -> dict[tuple[str, str, int], float]:
+    """Read TSMA component CSVs and return {(bge_name, row_type, col_idx): value}."""
+    data: dict[tuple[str, str, int], float] = {}
+    for row_type, filename in TSMA_COMPONENT_CSVS.items():
+        for row in _read_rows(_component_path(source_dir, filename)) or ():
+            bge = _entity_key(row.get("entity_key", ""))
+            if not bge:
                 continue
-            results[entity][month_idx] += amount
-    return dict(results)
+            col = _month_to_col(row.get("month_start", ""))
+            if col is None:
+                continue
+            val = _amount(row.get("amount", ""))
+            if val is None:
+                continue
+            key = (bge, row_type, col)
+            data[key] = data.get(key, 0.0) + val
 
+    for (_feed, org, col), amount in load_tsma_other(_component_path(source_dir, "tsma_other_spend.csv")).items():
+        bge = TSMA_OTHER_ORG_MAP.get(org)
+        if not bge:
+            continue
+        key = (bge, "oos", col)
+        data[key] = data.get(key, 0.0) + amount
 
-def load_cellular(conn) -> dict[str, list[float]]:
-    return _load_amount_map(
-        conn,
-        """
-        SELECT lcd_category, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM public.tsma_wireless
-        WHERE ccyymm BETWEEN %s AND %s
-          AND NULLIF(TRIM(COALESCE(lcd_category, '')), '') IS NOT NULL
-        GROUP BY lcd_category, ccyymm
-        ORDER BY lcd_category, ccyymm
-        """,
-        (MONTH_CODES[0], MONTH_CODES[-1]),
-    )
-
-
-def load_wireline(conn, service_towers: tuple[str, ...]) -> dict[str, list[float]]:
-    return _load_amount_map(
-        conn,
-        """
-        SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM public.tsma_wireline
-        WHERE ccyymm BETWEEN %s AND %s
-          AND tsma_service_tower = ANY(%s)
-          AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
-        GROUP BY entity, ccyymm
-        ORDER BY entity, ccyymm
-        """,
-        (MONTH_CODES[0], MONTH_CODES[-1], list(service_towers)),
-    )
-
-
-def load_other_out_of_scope(conn) -> dict[str, list[float]]:
-    return _load_amount_map(
-        conn,
-        """
-        SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM (
-            SELECT entity, ccyymm, billed_amt
-            FROM public.tsma_other_managed_router
-            UNION ALL
-            SELECT entity, ccyymm, billed_amt
-            FROM public.tsma_other_managed_security
-        ) AS other_out_of_scope
-        WHERE ccyymm BETWEEN %s AND %s
-          AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
-        GROUP BY entity, ccyymm
-        ORDER BY entity, ccyymm
-        """,
-        (MONTH_CODES[0], MONTH_CODES[-1]),
-    )
-
-
-def load_lite_cellular(conn) -> dict[str, list[float]]:
-    results: dict[str, list[float]] = defaultdict(_blank_amounts)
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_lite_wireless
-            WHERE ccyymm BETWEEN %s AND %s
-            GROUP BY ccyymm
-            ORDER BY ccyymm
-            """,
-            (MONTH_CODES[0], MONTH_CODES[-1]),
-        )
-        for month_code, amount in cur.fetchall():
-            month_idx = MONTH_INDEX.get(str(month_code))
-            if month_idx is not None:
-                results["School Districts"][month_idx] += float(amount or 0)
-    return dict(results)
-
-
-def load_lite_wireline(conn, service_towers: tuple[str, ...]) -> dict[str, list[float]]:
-    results: dict[str, list[float]] = defaultdict(_blank_amounts)
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_lite_wireline
-            WHERE ccyymm BETWEEN %s AND %s
-              AND tsma_service_tower = ANY(%s)
-            GROUP BY ccyymm
-            ORDER BY ccyymm
-            """,
-            (MONTH_CODES[0], MONTH_CODES[-1], list(service_towers)),
-        )
-        for month_code, amount in cur.fetchall():
-            month_idx = MONTH_INDEX.get(str(month_code))
-            if month_idx is not None:
-                results["School Districts"][month_idx] += float(amount or 0)
-    return dict(results)
-
-
-def load_ivr_totals(conn) -> list[float]:
-    totals = _blank_amounts()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_ivr
-            WHERE ccyymm BETWEEN %s AND %s
-            GROUP BY ccyymm
-            ORDER BY ccyymm
-            """,
-            (MONTH_CODES[0], MONTH_CODES[-1]),
-        )
-        for month_code, amount in cur.fetchall():
-            month_idx = MONTH_INDEX.get(str(month_code))
-            if month_idx is not None:
-                totals[month_idx] += float(amount or 0)
-    return totals
-
-
-def load_mms(conn) -> dict[str, list[float]]:
-    return _load_amount_map(
-        conn,
-        """
-        SELECT entity_name, ccyymm, COALESCE(SUM(total), 0)
-        FROM public.tsma_mms
-        WHERE ccyymm BETWEEN %s AND %s
-          AND NULLIF(TRIM(COALESCE(entity_name, '')), '') IS NOT NULL
-        GROUP BY entity_name, ccyymm
-        ORDER BY entity_name, ccyymm
-        """,
-        (MONTH_CODES[0], MONTH_CODES[-1]),
-    )
-
-
-def merge_maps(*maps: dict[str, list[float]]) -> dict[str, list[float]]:
-    merged: dict[str, list[float]] = defaultdict(_blank_amounts)
-    for data in maps:
-        for entity, amounts in data.items():
-            for idx, amount in enumerate(amounts):
-                merged[entity][idx] += amount
-    return dict(merged)
-
-
-def load_tsma_lite_data(dsn: str | None = None) -> dict[tuple[str, int], float]:
-    """Return {(row_type, excel_col): value} for TSMA Lite monthly rows."""
-    dsn = dsn or os.environ.get("DATABASE_URL")
-    if not dsn or psycopg is None:
-        return {}
-
-    with psycopg.connect(dsn) as conn:
-        conferencing = load_lite_wireline(conn, LITE_CONFERENCING_TOWERS).get("School Districts", _blank_amounts())
-        long_distance = load_lite_wireline(conn, LITE_LONG_DISTANCE_TOWERS).get("School Districts", _blank_amounts())
-        voice = load_lite_wireline(conn, LITE_VOICE_TOWERS).get("School Districts", _blank_amounts())
-        cellular = load_lite_cellular(conn).get("School Districts", _blank_amounts())
-
-    data: dict[tuple[str, int], float] = {}
-    for row_type, amounts in (
-        ("conferencing", conferencing),
-        ("long_distance", long_distance),
-        ("voice", voice),
-        ("cellular", cellular),
-    ):
-        for month_idx, amount in enumerate(amounts):
-            if amount:
-                data[(row_type, FIRST_MONTH + month_idx)] = amount
+    for (lite_type, col), amount in load_tsma_lite_data(source_dir).items():
+        if lite_type == "cellular":
+            row_type = "cellular"
+        elif lite_type in ("conferencing", "long_distance", "voice"):
+            row_type = "voice"
+        else:
+            continue
+        key = ("School Districts", row_type, col)
+        data[key] = data.get(key, 0.0) + amount
 
     return data
 
 
-def load_tsma_data(dsn: str | None = None) -> dict[tuple[str, str, int], float]:
-    """Return {(bge_name, row_type, excel_col): value} for TSMA section detail rows."""
-    dsn = dsn or os.environ.get("DATABASE_URL")
-    if not dsn or psycopg is None:
-        return {}
-
-    with psycopg.connect(dsn) as conn:
-        cellular_map = merge_maps(load_cellular(conn), load_lite_cellular(conn))
-        data_map = merge_maps(load_wireline(conn, DATA_TOWERS), load_lite_wireline(conn, DATA_TOWERS))
-        voice_map = merge_maps(load_wireline(conn, VOICE_TOWERS), load_lite_wireline(conn, VOICE_TOWERS))
-        mms_map = load_mms(conn)
-        oos_map = merge_maps(
-            load_wireline(conn, OUT_OF_SCOPE_TOWERS),
-            load_lite_wireline(conn, OUT_OF_SCOPE_TOWERS),
-            load_other_out_of_scope(conn),
-        )
-        ivr_totals = load_ivr_totals(conn)
-
-    data: dict[tuple[str, str, int], float] = {}
-
-    def add_amounts(entity: str, row_type: str, amounts: list[float]) -> None:
-        for month_idx, amount in enumerate(amounts):
-            if amount:
-                data[(entity, row_type, FIRST_MONTH + month_idx)] = amount
-
-    for entity, amounts in cellular_map.items():
-        add_amounts(entity, "cellular", amounts)
-    for entity, amounts in data_map.items():
-        add_amounts(entity, "data", amounts)
-    for entity, amounts in voice_map.items():
-        add_amounts(entity, "voice", amounts)
-    for entity, amounts in mms_map.items():
-        add_amounts(entity, "mms", amounts)
-    for entity, amounts in oos_map.items():
-        add_amounts(entity, "oos", amounts)
-    add_amounts("Gov BC", "voice_ivr", ivr_totals)
+def load_tsma_lite_data(source_dir: str = SOURCE_DIR) -> dict[tuple[str, int], float]:
+    """Read tsma_lite_spend.csv and return {(row_type, col_idx): value}."""
+    data: dict[tuple[str, int], float] = {}
+    for row in _read_rows(_component_path(source_dir, TSMA_LITE_CSV)) or ():
+        col = _month_to_col(row.get("month_start", ""))
+        if col is None:
+            continue
+        for csv_col, row_type in TSMA_LITE_COL_MAP.items():
+            val = _amount(row.get(csv_col, ""))
+            if val is None:
+                continue
+            key = (row_type, col)
+            data[key] = data.get(key, 0.0) + val
 
     return data
 
