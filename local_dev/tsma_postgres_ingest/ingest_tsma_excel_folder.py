@@ -14,6 +14,7 @@ Usage:
 Layout (relative to root):
   tsma/wireless/...       -> tsma_wireless
   tsma/wireline/...       -> tsma_wireline
+  tsma/master/...         -> tsma_master (loads tsma_ivr, tsma_mms)
   tsma_lite/wireless/...  -> tsma_lite_wireless
   tsma_lite/wireline/...  -> tsma_lite_wireline
 
@@ -54,7 +55,7 @@ TSMA_WIRELESS_COLS = [
     "lcd_category",
     "lob",
     "create_dt",
-    "total_amt",
+    "total",
     "charge_type",
     "charge_sub_type",
     "lcd_flg",
@@ -115,6 +116,35 @@ TSMA_LITE_WIRELINE_COLS = [
     "extras",
 ]
 
+TSMA_IVR_COLS = [
+    "ingestion_run_id",
+    "ccyymm",
+    "year_num",
+    "rcid",
+    "rcid_cust_nm",
+    "billed_amt",
+    "extras",
+]
+
+TSMA_MMS_COLS = [
+    "ingestion_run_id",
+    "ccyymm",
+    "year_num",
+    "entity_name",
+    "total",
+]
+
+TSMA_MASTER_IVR_SHEET = "Pivot - Hosted IVR"
+TSMA_MASTER_MMS_SHEET = "MMS"
+TSMA_MASTER_MMS_TOTAL_LABEL = "totalmmswithtcas"
+TSMA_MASTER_MMS_ENTITY_LABELS = {
+    "FHA": "FHA",
+    "VCH + PHS": "VCHA",
+    "PHSA": "PHSA",
+}
+TSMA_MIN_YEAR = 2010
+TSMA_MAX_YEAR = 2035
+
 TSMA_WIRELESS_DB_FIELDS = frozenset(
     c for c in TSMA_WIRELESS_COLS if c not in ("ingestion_run_id", "extras")
 )
@@ -124,6 +154,7 @@ TSMA_WIRELINE_DB_FIELDS = frozenset(
 TSMA_LITE_WIRELINE_DB_FIELDS = frozenset(
     c for c in TSMA_LITE_WIRELINE_COLS if c not in ("ingestion_run_id", "extras")
 )
+TSMA_IVR_DB_FIELDS = frozenset(c for c in TSMA_IVR_COLS if c not in ("ingestion_run_id", "extras"))
 
 TSMA_WIRELESS_DATES = frozenset(["month_start_dt", "create_dt"])
 TSMA_WIRELINE_DATES = frozenset(["month_start_dt"])
@@ -131,11 +162,11 @@ TSMA_WIRELESS_INTS = frozenset(["month_id", "year_num"])
 TSMA_WIRELINE_INTS = frozenset(["month_id", "year_num"])
 TSMA_LITE_WIRELINE_INTS = frozenset(["year_num"])
 
-TSMA_WIRELESS_MONEY = frozenset(["total_amt", "billed_amt"])
+TSMA_WIRELESS_MONEY = frozenset(["billed_amt"])
 TSMA_WIRELINE_MONEY = frozenset(["billed_amt"])
 TSMA_LITE_WIRELINE_MONEY = frozenset(["billed_amt"])
 
-TSMA_WIRELINE_NUMERIC = frozenset(["rn_1", "rn_2", "rn_3", "rn_4", "quantity"])
+TSMA_WIRELINE_NUMERIC = frozenset(["quantity"])
 TSMA_LITE_WIRELINE_NUMERIC = frozenset(["quantity"])
 
 FeedCode = Literal[
@@ -143,11 +174,11 @@ FeedCode = Literal[
     "tsma_wireline",
     "tsma_lite_wireless",
     "tsma_lite_wireline",
+    "tsma_master",
 ]
 
 # Canonical snake (after tsma_header_key) -> schema column when Excel label normalizes oddly.
 TSMA_HEADER_REMAP: dict[str, str] = {
-    "total": "total_amt",
     "comment": "line_comment",
     "dataexclusion_flg": "data_exclusion_flg",
     "data_exclusionflg": "data_exclusion_flg",
@@ -294,6 +325,8 @@ def feed_from_path(file_path: Path, root: Path, force: Optional[FeedCode]) -> Op
             return "tsma_wireless"
         if a == "tsma" and b == "wireline":
             return "tsma_wireline"
+        if a == "tsma" and b == "master":
+            return "tsma_master"
         if a == "tsma_lite" and b == "wireless":
             return "tsma_lite_wireless"
         if a == "tsma_lite" and b == "wireline":
@@ -317,6 +350,160 @@ def pick_first_data_sheet(xl: pd.ExcelFile, override: Optional[str]) -> str:
     return names[0]
 
 
+def normalize_ccyymm_header(value: Any) -> Optional[str]:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, (datetime, pd.Timestamp, date)):
+        if TSMA_MIN_YEAR <= value.year <= TSMA_MAX_YEAR:
+            return f"{value.year}{value.month:02d}"
+        return None
+    if isinstance(value, (int, float)):
+        parsed = pd.to_datetime(value, unit="D", origin="1899-12-30", errors="coerce")
+        if pd.notna(parsed) and TSMA_MIN_YEAR <= parsed.year <= TSMA_MAX_YEAR:
+            return f"{parsed.year}{parsed.month:02d}"
+    s = str(value).strip()
+    if re.fullmatch(r"\d{6}", s):
+        year = int(s[:4])
+        return s if TSMA_MIN_YEAR <= year <= TSMA_MAX_YEAR else None
+    try:
+        parsed = datetime.strptime(s, "%b-%y")
+    except ValueError:
+        return None
+    if TSMA_MIN_YEAR <= parsed.year <= TSMA_MAX_YEAR:
+        return f"{parsed.year}{parsed.month:02d}"
+    return None
+
+def extract_tsma_mms_batches(path: Path) -> list[tuple[Any, ...]]:
+    df = pd.read_excel(path, sheet_name=TSMA_MASTER_MMS_SHEET, header=None, dtype=object)
+    df = df.dropna(how="all").dropna(axis=1, how="all")
+    if df.empty:
+        return []
+
+    batches: list[tuple[Any, ...]] = []
+    entity_name: Optional[str] = None
+    month_map: dict[int, str] = {}
+
+    for _, row in df.iterrows():
+        first_cell = row.iloc[0] if len(row) else None
+        label = as_text(first_cell)
+        detected_month_map = {
+            col_idx: normalize_ccyymm_header(row.iloc[col_idx])
+            for col_idx in range(1, len(row))
+            if normalize_ccyymm_header(row.iloc[col_idx])
+        }
+        if label in TSMA_MASTER_MMS_ENTITY_LABELS:
+            entity_name = TSMA_MASTER_MMS_ENTITY_LABELS[label]
+            month_map = detected_month_map
+            continue
+
+        label_key = re.sub(r"[^a-z0-9]+", "", label.casefold()) if label else ""
+        if label_key != TSMA_MASTER_MMS_TOTAL_LABEL:
+            continue
+        if not entity_name or not month_map:
+            continue
+
+        for col_idx, ccyymm in month_map.items():
+            billed_amt = as_money(row.iloc[col_idx] if col_idx < len(row) else None)
+            if billed_amt is None:
+                continue
+            batches.append(
+                (
+                    None,
+                    ccyymm,
+                    int(ccyymm[:4]),
+                    entity_name,
+                    billed_amt,
+                )
+            )
+
+    return batches
+
+
+def extract_tsma_master_ivr_batches(path: Path, sheet: Optional[str]) -> tuple[list[tuple[Any, ...]], str]:
+    sheet_name = sheet or TSMA_MASTER_IVR_SHEET
+    df = pd.read_excel(path, sheet_name=sheet_name, header=3, dtype=object)
+    df = df.dropna(how="all").dropna(axis=1, how="all")
+    month_columns = [(col, ccyymm) for col in df.columns if (ccyymm := normalize_ccyymm_header(col))]
+
+    batches: list[tuple[Any, ...]] = []
+    for _, row in df.iterrows():
+        rcid_cust_nm = as_text(row.get("RCID_CUST_NM"))
+        if not rcid_cust_nm or rcid_cust_nm.casefold() == "grand total":
+            continue
+        rcid = as_text(row.get("RCID"))
+        for month_col, ccyymm in month_columns:
+            billed_amt = as_money(row.get(month_col))
+            if billed_amt is None:
+                continue
+            batches.append((None, ccyymm, as_int(ccyymm[:4]), rcid, rcid_cust_nm, billed_amt, None))
+
+    return batches, sheet_name
+
+
+def insert_tsma_master_workbook(
+    conn: Optional[psycopg.Connection],
+    path: Path,
+    source_period: Optional[date],
+    dry_run: bool,
+    sheet: Optional[str],
+) -> dict[str, int]:
+    ivr_batches, sheet_name = extract_tsma_master_ivr_batches(path, sheet)
+    mms_batches = extract_tsma_mms_batches(path)
+    batch_sets = [
+        ("tsma_ivr", TSMA_IVR_COLS, ivr_batches),
+        ("tsma_mms", TSMA_MMS_COLS, mms_batches),
+    ]
+    counts = {table: len(batches) for table, _, batches in batch_sets}
+    if dry_run:
+        return counts
+    if conn is None:
+        raise ValueError("Postgres connection required unless --dry-run")
+
+    inserts = {
+        table: (
+            f"INSERT INTO {table} ("
+            + ", ".join(cols_schema)
+            + ") VALUES ("
+            + ", ".join(["%s"] * len(cols_schema))
+            + ")"
+        )
+        for table, cols_schema, _ in batch_sets
+    }
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tsma_ingestion_run (feed_code, source_object_uri, source_period, status)
+                VALUES (%s, %s, %s, 'running')
+                RETURNING tsma_ingestion_run_id
+                """,
+                ("tsma_master", path.resolve().as_uri(), source_period),
+            )
+            run_id = cur.fetchone()[0]
+            for table, _, batches in batch_sets:
+                final_rows = []
+                for tup in batches:
+                    lst = list(tup)
+                    lst[0] = run_id
+                    final_rows.append(tuple(lst))
+                if final_rows:
+                    cur.executemany(inserts[table], final_rows)
+            cur.execute(
+                """
+                UPDATE tsma_ingestion_run
+                SET finished_at = now(), status = 'completed',
+                    row_counts_raw = %s::jsonb
+                WHERE tsma_ingestion_run_id = %s
+                """,
+                (json.dumps({**counts, "sheet": sheet_name}), run_id),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return counts
+
+
 def insert_tsma_workbook(
     conn: Optional[psycopg.Connection],
     path: Path,
@@ -324,7 +511,10 @@ def insert_tsma_workbook(
     source_period: Optional[date],
     dry_run: bool,
     sheet: Optional[str],
-) -> int:
+) -> dict[str, int]:
+    if feed == "tsma_master":
+        return insert_tsma_master_workbook(conn, path, source_period, dry_run, sheet)
+
     xl = pd.ExcelFile(path)
     sname = pick_first_data_sheet(xl, sheet)
     df = pd.read_excel(xl, sheet_name=sname, dtype=object)
@@ -386,7 +576,7 @@ def insert_tsma_workbook(
 
     row_total = len(batches)
     if dry_run:
-        return row_total
+        return {table: row_total}
     if conn is None:
         raise ValueError("Postgres connection required unless --dry-run")
 
@@ -428,7 +618,7 @@ def insert_tsma_workbook(
     except Exception:
         conn.rollback()
         raise
-    return row_total
+    return {table: row_total}
 
 
 def parse_period(s: Optional[str]) -> Optional[date]:
@@ -453,6 +643,7 @@ def iter_excel_files(folder: Path, recursive: bool) -> list[Path]:
                 folder,
                 folder / "tsma" / "wireless",
                 folder / "tsma" / "wireline",
+                folder / "tsma" / "master",
                 folder / "tsma_lite" / "wireless",
                 folder / "tsma_lite" / "wireline",
             ):
@@ -466,7 +657,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "folder",
         type=Path,
-        help="Root directory; workbooks under tsma/{wireless|wireline}/ or tsma_lite/...",
+        help="Root directory; workbooks under tsma/{wireless|wireline|master}/ or tsma_lite/...",
     )
     parser.add_argument(
         "--dsn",
@@ -496,6 +687,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         choices=(
             "tsma_wireless",
             "tsma_wireline",
+            "tsma_master",
             "tsma_lite_wireless",
             "tsma_lite_wireline",
         ),
@@ -505,7 +697,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--sheet",
         default=None,
-        help="Excel sheet name (default: first sheet with data)",
+        help="Excel sheet name (default: first sheet with data, or 'Pivot - Hosted IVR' for tsma_master)",
     )
     args = parser.parse_args(argv)
 
@@ -534,6 +726,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         "tsma_lite_wireless_rows": 0,
         "tsma_lite_wireline_files": 0,
         "tsma_lite_wireline_rows": 0,
+        "tsma_ivr_files": 0,
+        "tsma_ivr_rows": 0,
+        "tsma_mms_files": 0,
+        "tsma_mms_rows": 0,
         "skipped": [],
     }
 
@@ -543,15 +739,15 @@ def main(argv: Optional[list[str]] = None) -> int:
             totals["skipped"].append(str(path))
             print(
                 f"[skip] expected path under .../tsma/{{wireless|wireline}}/... or "
-                f".../tsma_lite/{{wireless|wireline}}/... relative to {folder}: {path}",
+                f".../tsma/master/... or .../tsma_lite/{{wireless|wireline}}/... relative to {folder}: {path}",
                 file=sys.stderr,
             )
             return
-        n = insert_tsma_workbook(conn, path, feed, period, args.dry_run, args.sheet)
-        key_base = feed
-        totals[f"{key_base}_rows"] += n
-        totals[f"{key_base}_files"] += 1
-        print(f"[{feed}] {path.name}: {n} rows -> {feed}")
+        counts = insert_tsma_workbook(conn, path, feed, period, args.dry_run, args.sheet)
+        for key_base, row_count in counts.items():
+            totals[f"{key_base}_rows"] += row_count
+            totals[f"{key_base}_files"] += 1
+        print(f"[{feed}] {path.name}: {json.dumps(counts, sort_keys=True)}")
 
     if args.dry_run:
         for path in files:
