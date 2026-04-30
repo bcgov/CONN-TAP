@@ -22,3 +22,8 @@ output "rds_replica_addresses" {
   description = "Read replica endpoints (empty when no replicas are configured)."
   value       = module.superset_rds.replica_addresses
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions to assume via OIDC. Set this as the role-to-assume in aws-actions/configure-aws-credentials."
+  value       = module.github_actions_oidc.role_arn
+}
