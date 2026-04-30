@@ -1,5 +1,10 @@
 variable "aws_region" {
   type = string
+
+  validation {
+    condition     = var.aws_region == "ca-central-1"
+    error_message = "This account is restricted to ca-central-1."
+  }
 }
 
 variable "license" {

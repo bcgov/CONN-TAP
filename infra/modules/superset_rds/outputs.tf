@@ -21,3 +21,8 @@ output "secret_arn" {
 output "security_group_id" {
   value = aws_security_group.rds.id
 }
+
+output "replica_addresses" {
+  description = "List of read replica endpoints (empty when read_replica_count = 0)."
+  value       = aws_db_instance.replica[*].address
+}

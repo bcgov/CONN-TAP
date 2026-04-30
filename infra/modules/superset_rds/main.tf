@@ -79,7 +79,27 @@ resource "aws_db_instance" "superset" {
 
   backup_retention_period = var.backup_retention_period
   skip_final_snapshot     = var.skip_final_snapshot
-  deletion_protection     = false
+  deletion_protection     = var.deletion_protection
+  multi_az                = var.multi_az
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-superset-meta" })
+}
+
+# Async read replicas (no replicate_source_db ⇒ this is a primary; presence here ⇒ replica).
+# Replicas live in the same subnet group / SG as the primary.
+resource "aws_db_instance" "replica" {
+  count = var.read_replica_count
+
+  identifier             = "${var.name_prefix}-superset-meta-replica-${count.index + 1}"
+  replicate_source_db    = aws_db_instance.superset.identifier
+  instance_class         = coalesce(var.replica_instance_class, var.instance_class)
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  storage_encrypted = true
+  kms_key_id        = var.storage_kms_key_id
+
+  skip_final_snapshot = true
+  deletion_protection = var.deletion_protection
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-superset-meta-replica-${count.index + 1}" })
 }

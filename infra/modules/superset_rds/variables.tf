@@ -63,6 +63,30 @@ variable "storage_kms_key_id" {
   description = "KMS key ARN or ID for RDS storage encryption. If null, AWS uses the RDS-managed key for the account/region."
 }
 
+variable "multi_az" {
+  type        = bool
+  default     = false
+  description = "Enable Multi-AZ deployment with a synchronous standby for HA. The standby is not readable; pair with read_replica_count for read scaling."
+}
+
+variable "deletion_protection" {
+  type        = bool
+  default     = false
+  description = "Block accidental DB deletion. Recommended true for prod."
+}
+
+variable "read_replica_count" {
+  type        = number
+  default     = 0
+  description = "Number of asynchronous read replicas to create alongside the primary. Replicas inherit the primary's instance class unless replica_instance_class is set."
+}
+
+variable "replica_instance_class" {
+  type        = string
+  default     = null
+  description = "Instance class for read replicas. Defaults to the primary's instance_class when null."
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

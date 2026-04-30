@@ -27,6 +27,16 @@ module "superset_rds" {
   name_prefix = local.rds_resource_prefix
   vpc_id      = data.aws_vpc.workload.id
 
+  # Prod sizing: Multi-AZ standby (HA) + 1 readable async replica (read scaling).
+  # The standby is not readable — replicas serve reporting/analytics offload.
+  instance_class          = "db.t4g.medium"
+  allocated_storage       = 50
+  multi_az                = true
+  read_replica_count      = 1
+  backup_retention_period = 14
+  deletion_protection     = true
+  skip_final_snapshot     = false
+
   data_subnet_ids = [
     data.aws_subnet.data_a.id,
     data.aws_subnet.data_b.id,
