@@ -22,3 +22,12 @@ output "github_actions_role_arn" {
   description = "IAM role ARN for GitHub Actions to assume via OIDC. Set this as the role-to-assume in aws-actions/configure-aws-credentials."
   value       = module.github_actions_oidc.role_arn
 }
+
+output "postgres_bastion_instance_id" {
+  description = "Use with: aws ssm start-session --target <id> --document-name AWS-StartPortForwardingSessionToRemoteHost"
+  value       = module.postgres_bastion.instance_id
+}
+
+output "postgres_bastion_private_ip" {
+  value = module.postgres_bastion.private_ip
+}

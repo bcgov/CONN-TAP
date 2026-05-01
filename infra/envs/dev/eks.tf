@@ -22,8 +22,22 @@ module "eks" {
 
 # Postgres RDS retained as the platform metadata DB. Only EKS workloads are
 # permitted ingress; the SSM bastion has been removed along with Superset.
+module "postgres_bastion" {
+  source = "../../modules/ssm_rds_bastion"
+
+  name_prefix   = local.rds_resource_prefix
+  vpc_id        = data.aws_vpc.workload.id
+  subnet_id     = data.aws_subnet.app_a.id
+  instance_type = "t3.micro"
+
+  tags = {
+    Environment = var.env
+    License     = var.license
+  }
+}
+
 module "platform_rds" {
-  source = "../../modules/superset_rds"
+  source = "../../modules/postgres_rds"
 
   name_prefix = local.rds_resource_prefix
   vpc_id      = data.aws_vpc.workload.id
@@ -39,8 +53,9 @@ module "platform_rds" {
   ]
 
   allowed_security_group_ids = {
-    eks_node    = module.eks.node_security_group_id
-    eks_cluster = module.eks.cluster_security_group_id
+    eks_node       = module.eks.node_security_group_id
+    eks_cluster    = module.eks.cluster_security_group_id
+    postgres_bastion = module.postgres_bastion.security_group_id
   }
 
   tags = {
