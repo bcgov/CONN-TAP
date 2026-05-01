@@ -1,0 +1,74 @@
+name: dmp
+
+services:
+  postgres:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    image: dmp-postgres:16
+    container_name: dmp-postgres
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_partman_bgw
+      -c pg_partman_bgw.interval=3600
+      -c pg_partman_bgw.role=dmp
+      -c pg_partman_bgw.dbname=dmp
+    environment:
+      POSTGRES_USER: dmp
+      POSTGRES_PASSWORD: dmp
+      POSTGRES_DB: dmp
+    ports:
+      - "5432:5432"
+    volumes:
+      - dmp-pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dmp -d dmp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dmp-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: dmp
+      POSTGRES_PASSWORD: dmp
+      POSTGRES_DB: dmp
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    ports:
+      - "8000:8000"
+    # Mount source for hot-reload during local development.
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: dmp-frontend
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      BACKEND_INTERNAL_URL: http://backend:8000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  dmp-pgdata:
