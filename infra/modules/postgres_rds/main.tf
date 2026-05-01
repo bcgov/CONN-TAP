@@ -1,4 +1,4 @@
-resource "aws_db_subnet_group" "superset" {
+resource "aws_db_subnet_group" "primary" {
   name       = "${var.name_prefix}-db"
   subnet_ids = var.data_subnet_ids
 
@@ -57,7 +57,7 @@ resource "aws_secretsmanager_secret_version" "db" {
   secret_string = random_password.master.result
 }
 
-resource "aws_db_instance" "superset" {
+resource "aws_db_instance" "primary" {
   identifier     = var.name_prefix
   engine         = "postgres"
   engine_version = var.engine_version
@@ -71,7 +71,7 @@ resource "aws_db_instance" "superset" {
   username = var.username
   password = random_password.master.result
 
-  db_subnet_group_name   = aws_db_subnet_group.superset.name
+  db_subnet_group_name   = aws_db_subnet_group.primary.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   storage_encrypted = true
@@ -91,7 +91,7 @@ resource "aws_db_instance" "replica" {
   count = var.read_replica_count
 
   identifier             = "${var.name_prefix}-replica-${count.index + 1}"
-  replicate_source_db    = aws_db_instance.superset.identifier
+  replicate_source_db    = aws_db_instance.primary.identifier
   instance_class         = coalesce(var.replica_instance_class, var.instance_class)
   vpc_security_group_ids = [aws_security_group.rds.id]
 

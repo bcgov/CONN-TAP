@@ -1,5 +1,5 @@
 output "security_group_id" {
-  description = "Attach this SG to RDS allow rules (or pass into superset_rds allowed_security_group_ids)."
+  description = "Attach this SG to RDS allow rules (or pass into postgres_rds allowed_security_group_ids)."
   value       = aws_security_group.bastion.id
 }
 

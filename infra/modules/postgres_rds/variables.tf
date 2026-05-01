@@ -39,12 +39,12 @@ variable "allocated_storage" {
 
 variable "db_name" {
   type    = string
-  default = "superset"
+  default = "app"
 }
 
 variable "username" {
   type    = string
-  default = "superset"
+  default = "dbadmin"
 }
 
 variable "skip_final_snapshot" {
