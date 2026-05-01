@@ -8,6 +8,12 @@ module "eks" {
   cluster_endpoint_public_access  = var.cluster_endpoint_public_access
   cluster_endpoint_private_access = true
 
+  # Opt out of extended support — clusters stay on standard (12-month) support
+  # and must be upgraded before the version reaches end-of-standard-support.
+  cluster_upgrade_policy = {
+    support_type = "STANDARD"
+  }
+
   vpc_id                   = var.vpc_id
   subnet_ids               = var.app_subnet_ids
   control_plane_subnet_ids = var.app_subnet_ids
@@ -27,21 +33,10 @@ module "eks" {
     eks-pod-identity-agent = {
       most_recent = true
     }
-    aws-ebs-csi-driver = {
-      most_recent = true
-      # Without this, the AWS SDK prefers the node instance profile (IMDS) over
-      # Pod Identity credentials and the controller keeps using the node role.
-      configuration_values = jsonencode({
-        controller = {
-          env = [
-            {
-              name  = "AWS_EC2_METADATA_DISABLED"
-              value = "true"
-            }
-          ]
-        }
-      })
-    }
+    # aws-ebs-csi-driver is declared as a standalone aws_eks_addon in each
+    # environment's ebs_csi.tf with depends_on = [aws_eks_pod_identity_association.ebs_csi]
+    # so Terraform guarantees the Pod Identity association exists before the
+    # addon health-check runs.
   }
 
   eks_managed_node_groups = {
