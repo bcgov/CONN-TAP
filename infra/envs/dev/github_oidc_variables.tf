@@ -24,7 +24,7 @@ variable "github_actions_allowed_subjects" {
 
 variable "github_actions_create_oidc_provider" {
   type        = bool
-  default     = true
+  default     = false
   description = "Create the account-level GitHub OIDC provider. Set false if one already exists in this AWS account."
 }
 

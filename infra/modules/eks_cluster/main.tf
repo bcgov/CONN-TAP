@@ -45,8 +45,8 @@ module "eks" {
   }
 
   eks_managed_node_groups = {
-    superset = {
-      name                     = "superset-ng"
+    (var.node_group_name) = {
+      name                     = "${var.node_group_name}-ng"
       instance_types           = var.node_instance_types
       min_size                 = var.node_min_size
       max_size                 = var.node_max_size

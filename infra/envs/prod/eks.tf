@@ -12,6 +12,7 @@ module "eks" {
   node_desired_size   = var.eks_node_desired_size
 
   cluster_endpoint_public_access = var.eks_cluster_endpoint_public_access
+  node_group_name                = "${var.license}-${var.env}"
 
   tags = {
     Environment = var.env
@@ -21,7 +22,7 @@ module "eks" {
 
 # Postgres RDS retained as the platform metadata DB. Only EKS workloads are
 # permitted ingress; the SSM bastion has been removed along with Superset.
-module "superset_rds" {
+module "platform_rds" {
   source = "../../modules/superset_rds"
 
   name_prefix = local.rds_resource_prefix

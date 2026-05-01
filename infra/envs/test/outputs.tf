@@ -10,12 +10,12 @@ output "eks_cluster_endpoint" {
 
 output "rds_address" {
   description = "Platform PostgreSQL endpoint."
-  value       = module.superset_rds.db_instance_address
+  value       = module.platform_rds.db_instance_address
 }
 
 output "rds_secret_arn" {
   description = "Secrets Manager ARN for the RDS master password."
-  value       = module.superset_rds.secret_arn
+  value       = module.platform_rds.secret_arn
 }
 
 output "github_actions_role_arn" {

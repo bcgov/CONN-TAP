@@ -23,6 +23,11 @@ variable "cluster_endpoint_public_access" {
   description = "If false, the API is only reachable from the VPC (align with LZA). May require two-step apply from inside the network."
 }
 
+variable "node_group_name" {
+  type        = string
+  description = "Name prefix for the managed node group. Recommend '{license}-{env}'."
+}
+
 variable "node_instance_types" {
   type    = list(string)
   default = ["m5.large"]
