@@ -1,10 +1,13 @@
 # SSM bastion for port-forwarding to the platform Postgres RDS.
 # No inbound traffic — access is via AWS Systems Manager Session Manager only.
+# In LZA this belongs in the Management subnet tier.
+# Although the docs, specify bastion hosts should go on management, connection was not possible from this subnet to Data subnet.
 module "postgres_bastion" {
   source = "../../modules/ssm_rds_bastion"
 
   name_prefix   = local.rds_resource_prefix
   vpc_id        = data.aws_vpc.workload.id
+  # subnet_id     = data.aws_subnet.management_a.id
   subnet_id     = data.aws_subnet.app_a.id
   instance_type = "t3.micro"
 

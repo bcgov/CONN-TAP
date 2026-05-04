@@ -2,21 +2,6 @@ data "aws_vpc" "this" {
   id = var.vpc_id
 }
 
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
 resource "aws_security_group" "bastion" {
   name_prefix = "${var.name_prefix}-ssm-bastion-"
   description = "SSM-only host for port-forwarding to RDS (no inbound traffic)."
@@ -66,7 +51,7 @@ resource "aws_iam_instance_profile" "bastion" {
 }
 
 resource "aws_instance" "bastion" {
-  ami                    = data.aws_ami.al2023.id
+  ami                    = "ami-0dd6ad74006372963"
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [aws_security_group.bastion.id]
