@@ -1,9 +1,11 @@
 -- TSMA cost extracts — raw landing. Run:
---   psql "$DATABASE_URL" -f local_dev/tsma_postgres_ingest/schema.sql
+--   psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
 --
 -- Uses tsma_ingestion_run (separate from NGTA ingestion_run) so CHECK constraints stay independent.
 
-CREATE TABLE IF NOT EXISTS tsma_ingestion_run (
+CREATE SCHEMA IF NOT EXISTS raw_data;
+
+CREATE TABLE IF NOT EXISTS raw_data.tsma_ingestion_run (
   tsma_ingestion_run_id   bigserial PRIMARY KEY,
   feed_code               text NOT NULL CHECK (feed_code IN (
     'tsma_wireless', 'tsma_wireline', 'tsma_lite_wireless', 'tsma_lite_wireline', 'tsma_master'
@@ -16,11 +18,11 @@ CREATE TABLE IF NOT EXISTS tsma_ingestion_run (
   row_counts_raw          jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_ingestion_run_feed ON tsma_ingestion_run (feed_code);
+CREATE INDEX IF NOT EXISTS idx_tsma_ingestion_run_feed ON raw_data.tsma_ingestion_run (feed_code);
 
-CREATE TABLE IF NOT EXISTS tsma_wireless (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_wireless (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   month_id                  integer,
   month_start_dt            date,
   ccyymm                    text,
@@ -45,11 +47,11 @@ CREATE TABLE IF NOT EXISTS tsma_wireless (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_wireless_ingestion ON tsma_wireless (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_wireless_ingestion ON raw_data.tsma_wireless (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_lite_wireless (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_lite_wireless (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   month_id                  integer,
   month_start_dt            date,
   ccyymm                    text,
@@ -74,11 +76,11 @@ CREATE TABLE IF NOT EXISTS tsma_lite_wireless (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_lite_wireless_ingestion ON tsma_lite_wireless (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_lite_wireless_ingestion ON raw_data.tsma_lite_wireless (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_wireline (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_wireline (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   month_id                  integer,
   month_start_dt            date,
   ccyymm                    text,
@@ -112,11 +114,11 @@ CREATE TABLE IF NOT EXISTS tsma_wireline (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_wireline_ingestion ON tsma_wireline (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_wireline_ingestion ON raw_data.tsma_wireline (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_lite_wireline (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_lite_wireline (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   ccyymm                    text,
   year_num                  integer,
   rcid                      text,
@@ -132,11 +134,11 @@ CREATE TABLE IF NOT EXISTS tsma_lite_wireline (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_lite_wireline_ingestion ON tsma_lite_wireline (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_lite_wireline_ingestion ON raw_data.tsma_lite_wireline (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_ivr (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_ivr (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   ccyymm                    text,
   year_num                  integer,
   rcid                      text,
@@ -145,15 +147,15 @@ CREATE TABLE IF NOT EXISTS tsma_ivr (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_ivr_ingestion ON tsma_ivr (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_ivr_ingestion ON raw_data.tsma_ivr (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_mms (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_mms (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_ingestion_run (tsma_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_ingestion_run (tsma_ingestion_run_id),
   ccyymm                    text,
   year_num                  integer,
   entity_name               text,
   total                     numeric(19,4)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tsma_mms_ingestion ON tsma_mms (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_tsma_mms_ingestion ON raw_data.tsma_mms (ingestion_run_id);

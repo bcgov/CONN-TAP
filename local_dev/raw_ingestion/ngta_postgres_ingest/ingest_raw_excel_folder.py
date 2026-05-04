@@ -3,12 +3,12 @@
 Load NGTA Telus / Rogers spend Excel workbooks from a folder into Postgres raw tables.
 
 Prereqs:
-  pip install -r local_dev/ngta_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/ngta_postgres_ingest/schema.sql
+  pip install -r local_dev/raw_ingestion/ngta_postgres_ingest/requirements.txt
+  psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
-  python local_dev/ngta_postgres_ingest/ingest_raw_excel_folder.py /path/to/excel/folder
+  python local_dev/raw_ingestion/ngta_postgres_ingest/ingest_raw_excel_folder.py /path/to/excel/folder
   python ... /path/to/root --source-period 2025-06-01 --dry-run   # no DATABASE_URL
 
 Layout:
@@ -36,6 +36,13 @@ from typing import Any, Literal, Optional
 
 import pandas as pd
 import psycopg
+
+PG_SCHEMA = "raw_data"
+
+
+def _fq(ident: str) -> str:
+    return f"{PG_SCHEMA}.{ident}"
+
 
 # --- Column lists (must match schema.sql) ---
 
@@ -540,7 +547,7 @@ def insert_telus_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        "INSERT INTO raw_telus_spend ("
+        f"INSERT INTO {_fq('raw_telus_spend')} ("
         + ", ".join(TELUS_COLS)
         + ") VALUES ("
         + ", ".join(["%s"] * len(TELUS_COLS))
@@ -549,8 +556,8 @@ def insert_telus_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO ingestion_run (provider, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('ingestion_run')} (provider, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING ingestion_run_id
                 """,
@@ -564,8 +571,8 @@ def insert_telus_workbook(
                 final_rows.append(tuple(lst))
             cur.executemany(sql, final_rows)
             cur.execute(
-                """
-                UPDATE ingestion_run
+                f"""
+                UPDATE {_fq('ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE ingestion_run_id = %s
@@ -629,7 +636,7 @@ def insert_rogers_cellular_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        "INSERT INTO raw_rogers_spend_cellular ("
+        f"INSERT INTO {_fq('raw_rogers_spend_cellular')} ("
         + ", ".join(ROGERS_CELLULAR_COLS)
         + ") VALUES ("
         + ", ".join(["%s"] * len(ROGERS_CELLULAR_COLS))
@@ -638,8 +645,8 @@ def insert_rogers_cellular_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO ingestion_run (provider, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('ingestion_run')} (provider, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING ingestion_run_id
                 """,
@@ -653,8 +660,8 @@ def insert_rogers_cellular_workbook(
                 final_rows.append(tuple(lst))
             cur.executemany(sql, final_rows)
             cur.execute(
-                """
-                UPDATE ingestion_run
+                f"""
+                UPDATE {_fq('ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE ingestion_run_id = %s
@@ -716,7 +723,7 @@ def insert_rogers_voice_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        "INSERT INTO raw_rogers_spend_data_voice ("
+        f"INSERT INTO {_fq('raw_rogers_spend_data_voice')} ("
         + ", ".join(ROGERS_VOICE_COLS)
         + ") VALUES ("
         + ", ".join(["%s"] * len(ROGERS_VOICE_COLS))
@@ -725,8 +732,8 @@ def insert_rogers_voice_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO ingestion_run (provider, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('ingestion_run')} (provider, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING ingestion_run_id
                 """,
@@ -740,8 +747,8 @@ def insert_rogers_voice_workbook(
                 final_rows.append(tuple(lst))
             cur.executemany(sql, final_rows)
             cur.execute(
-                """
-                UPDATE ingestion_run
+                f"""
+                UPDATE {_fq('ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE ingestion_run_id = %s
