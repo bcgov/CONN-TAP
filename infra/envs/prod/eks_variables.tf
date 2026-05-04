@@ -59,3 +59,15 @@ variable "lza_subnet_name_data_b" {
   default     = null
   description = "Override Data subnet B Name tag."
 }
+
+variable "lza_subnet_name_management_a" {
+  type        = string
+  default     = null
+  description = "Override Management subnet A Name tag."
+}
+
+variable "lza_subnet_name_management_b" {
+  type        = string
+  default     = null
+  description = "Override Management subnet B Name tag."
+}
