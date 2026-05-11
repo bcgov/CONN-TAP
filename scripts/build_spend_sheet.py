@@ -8,7 +8,7 @@ Organized into 6 fillable categories:
   3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Other row added)
   4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Other row added)
   5. out_of_scope   – Out-of-Scope sub-categories (rows 355-384)
-  6. tsma_lite      – TSMA Lite quarterly data (rows 386-394)
+  6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
 
 Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking.xlsx
@@ -132,6 +132,7 @@ ROW_TSMALITE_CELL    = 390
 ROW_TSMALITE_TOTAL   = 391
 ROW_TSMALITE_VOICE2  = 393
 ROW_TSMALITE_CELL2   = 394
+ROW_TSMALITE_TOTAL2  = 395
 
 
 # ---------------------------------------------------------------------------
@@ -161,11 +162,12 @@ def build():
     # =========================================================
     # ROW 4: Month labels  +  TSMA section header
     # =========================================================
-    _fth   = F.n(bg_color=BG_TSMA_HDR)
-    _fth_b = F.n(bold=True, bg_color=BG_TSMA_HDR)
+    _fth     = F.n(bg_color=BG_TSMA_HDR)
+    _fth_b   = F.n(bold=True, bg_color=BG_TSMA_HDR)
+    _fth_hdr = F(bg_color=BG_TSMA_HDR, align="center", valign="vcenter", border=1)
     set_row_props(ws, 4, height=17, fmt=_fth)
     write(ws, 4, COL_B, "TSMA", _fth_b)
-    write_month_label_row(ws, 4, _fth)
+    write_month_label_row(ws, 4, _fth_hdr)
 
     # =========================================================
     # ROWS 5-10: TSMA summary rows
@@ -202,8 +204,10 @@ def build():
     _ftb     = F.n(bg_color=BG_TSMA_BGE)
     _ftb_b   = F.n(bold=True, bg_color=BG_TSMA_BGE)
     _ftb_ivr = F.n(bg_color=BG_IVR)
+    _collapsed = {"level": 1, "hidden": True}
 
-    set_row_props(ws, 11, fmt=_fth, opts={"level": 1})
+    set_row_props(ws, 10, height=17, fmt=_fth, opts={"collapsed": True})
+    set_row_props(ws, 11, fmt=_fth, opts=_collapsed)
     write(ws, 11, COL_A, "BGEs", _fth_b)
 
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
@@ -220,7 +224,7 @@ def build():
                 row_bg, fmt_cell = _ftb, _ftb_b
             else:
                 row_bg, fmt_cell = _ftb, _ftb
-            set_row_props(ws, r, height=17, fmt=row_bg, opts={"level": 1})
+            set_row_props(ws, r, height=17, fmt=row_bg, opts=_collapsed)
             if r == first_r:
                 write(ws, r, COL_A, a_label, row_bg)
                 if a2_label and r + 1 < last_r:
@@ -233,7 +237,7 @@ def build():
 
     # TSMA TOTAL aggregate rows 86-90
     for r in range(86, 91):
-        set_row_props(ws, r, height=17, fmt=_fth, opts={"level": 1})
+        set_row_props(ws, r, height=17, fmt=_fth, opts=_collapsed)
 
     write(ws, ROW_TSMA_TOTAL_CEL, COL_B, "TOTAL Cellular", _fth)
     write_monthly_sum_rows(ws, ROW_TSMA_TOTAL_CEL, TSMA_CEL_ROWS, _fth)
@@ -254,14 +258,15 @@ def build():
     # ROW 91: TSMA + NGTAs combined totals
     # =========================================================
     _fcomb = F.n(bg_color=BG_COMBINED)
+    _fcomb_i = F.n(bg_color=BG_COMBINED, italic=True)
     set_row_props(ws, 91, height=16, fmt=_fcomb)
-    write(ws, 91, 13, "TSMA+NGTAs", _fcomb)
+    write(ws, 91, COL_B, "TSMA+NGTAs", _fcomb_i)
     write_monthly_formula(
         ws, 91,
         lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
                   f"+{col_letter(c)}116"   # TELUS NGTA summary Total (first_row=110 → row 116)
                   f"+{col_letter(c)}238",  # Rogers NGTA summary Total
-        _fcomb,
+        _fcomb_i,
     )
 
     # =========================================================
@@ -367,9 +372,10 @@ def build():
 
     _fnum = F.n()   # plain currency format for TSMA Lite input rows
     _fnum_bold = F.n(bold=True)
+    _tsma_lite_hidden = {"level": 1, "hidden": True}
 
     # =========================================================
-    # ROWS 386-394: TSMA Lite  (quarterly data)
+    # ROWS 386-395: TSMA Lite  (quarterly data)
     # =========================================================
     set_row_props(ws, 386, height=16)
     write(ws, 386, COL_B, "TSMA Lite", f_section)
@@ -380,7 +386,7 @@ def build():
         (ROW_TSMALITE_VOICE, "Voice"),
         (ROW_TSMALITE_CELL,  "Cellular"),
     ]:
-        set_row_props(ws, r, height=17, fmt=_fnum)
+        set_row_props(ws, r, height=17, fmt=_fnum, opts=_tsma_lite_hidden)
         write(ws, r, COL_B, label)
 
     for row_num, row_type in [
@@ -394,15 +400,15 @@ def build():
             if amount is not None:
                 ws.write_number(row_num - 1, col, round(amount, 2), _fnum)
 
-    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_TOTAL, COL_B, "Total", _fnum_bold)
     for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_TOTAL, col,
                 sum_range(ROW_TSMALITE_CONF, ROW_TSMALITE_CELL, col), _fnum_bold)
 
-    set_row_props(ws, 392, height=17)
+    set_row_props(ws, 392, height=17, opts=_tsma_lite_hidden)
 
-    set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_VOICE2, COL_B, "Total Voice", _fnum_bold)
     for col in MONTH_COLS:
         cl = col_letter(col)
@@ -410,10 +416,16 @@ def build():
                 f"={cl}{ROW_TSMALITE_CONF}+{cl}{ROW_TSMALITE_LDIST}+{cl}{ROW_TSMALITE_VOICE}",
                 _fnum_bold)
 
-    set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_CELL2, COL_B, "Total Cellular", _fnum_bold)
     for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_CELL2, col, ref_cell(ROW_TSMALITE_CELL, col), _fnum_bold)
+
+    set_row_props(ws, ROW_TSMALITE_TOTAL2, height=17, fmt=_fnum_bold, opts={"collapsed": True})
+    write(ws, ROW_TSMALITE_TOTAL2, COL_B, "Total", _fnum_bold)
+    for col in MONTH_COLS:
+        write_f(ws, ROW_TSMALITE_TOTAL2, col,
+                sum_range(ROW_TSMALITE_VOICE2, ROW_TSMALITE_CELL2, col), _fnum_bold)
 
     # =========================================================
     # Freeze first 4 rows and first 2 columns

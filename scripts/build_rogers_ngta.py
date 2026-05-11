@@ -26,7 +26,7 @@ def build():
 
     set_column_widths(ws)
     write_year_quarter_headers(ws, F)
-    write_month_label_row(ws, 4)
+    write_month_label_row(ws, 4, F=F)
 
     rogers_data = load_rogers_ngta()
     build_rogers_ngta_section(ws, F, rogers_data, first_row=5, include_separator=False)
