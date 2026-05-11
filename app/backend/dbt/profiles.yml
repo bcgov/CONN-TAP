@@ -1,12 +1,12 @@
-dmp:
+app:
   target: dev
   outputs:
     dev:
       type: postgres
-      host: "{{ env_var('POSTGRES_HOST', 'postgres') }}"
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
       port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
-      user: "{{ env_var('POSTGRES_USER', 'dmp') }}"
-      password: "{{ env_var('POSTGRES_PASSWORD', 'dmp') }}"
-      dbname: "{{ env_var('POSTGRES_DB', 'dmp') }}"
-      schema: analytics
+      user: "{{ env_var('POSTGRES_USER', 'app') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'app') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'app') }}"
+      schema: public
       threads: 4

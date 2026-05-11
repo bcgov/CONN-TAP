@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Data Management Platform",
-  description: "DMP UI",
+  description: "app UI",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

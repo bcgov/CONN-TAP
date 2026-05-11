@@ -1,4 +1,4 @@
-# DMP Application
+# App
 
 End-to-end application skeleton:
 
@@ -21,7 +21,7 @@ Services:
 | Frontend | http://localhost:3000        |
 | Backend  | http://localhost:8000        |
 | API docs | http://localhost:8000/docs   |
-| Postgres | postgres://dmp:dmp@localhost:5432/dmp |
+| Postgres | postgres://app:app@localhost:5432/app |
 
 Local file changes auto-reload:
 
@@ -44,13 +44,13 @@ Each component has its own Dockerfile and is independently buildable / pushable:
 
 ```bash
 # Backend
-docker build -t <registry>/dmp-backend:<tag> ./app/backend
+docker build -t <registry>/app-backend:<tag> ./app/backend
 
 # Frontend (multi-stage, standalone Next.js output)
-docker build -t <registry>/dmp-frontend:<tag> ./app/frontend
+docker build -t <registry>/app-frontend:<tag> ./app/frontend
 
 # Postgres (only if self-hosting; prefer RDS/Aurora in production)
-docker build -t <registry>/dmp-postgres:<tag> ./app/db
+docker build -t <registry>/app-postgres:<tag> ./app/db
 ```
 
 Push to ECR and reference the images from your EKS Deployments / Helm charts.

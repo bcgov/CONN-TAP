@@ -1,8 +1,8 @@
-name: dmp
+name: app
 version: "0.1.0"
 config-version: 2
 
-profile: dmp
+profile: app
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -17,7 +17,7 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  dmp:
+  app:
     +materialized: view
     marts:
       +materialized: table

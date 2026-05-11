@@ -7,15 +7,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    PROJECT_NAME: str = "DMP API"
+    PROJECT_NAME: str = "app API"
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
 
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = "dmp"
-    POSTGRES_PASSWORD: str = "dmp"
-    POSTGRES_DB: str = "dmp"
+    POSTGRES_USER: str = "app"
+    POSTGRES_PASSWORD: str = "app"
+    POSTGRES_DB: str = "app"
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 

@@ -1,29 +1,29 @@
-name: dmp
+name: app
 
 services:
   postgres:
     build:
       context: ./db
       dockerfile: Dockerfile
-    image: dmp-postgres:16
-    container_name: dmp-postgres
+    image: app-postgres:16
+    container_name: app-postgres
     command: >
       postgres
       -c shared_preload_libraries=pg_partman_bgw
       -c pg_partman_bgw.interval=3600
-      -c pg_partman_bgw.role=dmp
-      -c pg_partman_bgw.dbname=dmp
+      -c pg_partman_bgw.role=app
+      -c pg_partman_bgw.dbname=app
     environment:
-      POSTGRES_USER: dmp
-      POSTGRES_PASSWORD: dmp
-      POSTGRES_DB: dmp
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
     ports:
       - "5432:5432"
     volumes:
-      - dmp-pgdata:/var/lib/postgresql/data
+      - app-pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dmp -d dmp"]
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,16 +32,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: dmp-backend
+    container_name: app-backend
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: dmp
-      POSTGRES_PASSWORD: dmp
-      POSTGRES_DB: dmp
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
       CORS_ORIGINS: '["http://localhost:3000"]'
     ports:
       - "8000:8000"
@@ -54,7 +54,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    container_name: dmp-frontend
+    container_name: app-frontend
     depends_on:
       - backend
     environment:
@@ -71,4 +71,4 @@ services:
     command: npm run dev
 
 volumes:
-  dmp-pgdata:
+  app-pgdata:
