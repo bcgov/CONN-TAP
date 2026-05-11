@@ -1,0 +1,244 @@
+name: terraform-deploy
+
+# Deploy infrastructure (EKS + RDS + GitHub Actions OIDC role) to dev/test/prod.
+#
+# Authentication uses GitHub OIDC → AWS IAM (no long-lived AWS keys).
+# See docs/github_action_and_aws.md for setup details.
+#
+# Triggers:
+#   - pull_request to main: terraform plan against the targeted env(s) (read-only).
+#   - push to main:         terraform apply to dev (auto), then test, then prod.
+#   - workflow_dispatch:    manual run; pick env and action (plan|apply|destroy).
+#
+# Secrets / variables required (per GitHub Environment):
+#   AWS_DEPLOY_ROLE_ARN  — ARN of the github_actions role from infra/envs/<env>.
+#                          Set as an Environment secret on each of: dev, test, prod.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform-deploy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev, test, prod]
+      action:
+        description: "Terraform action"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+
+permissions:
+  contents: read
+  id-token: write   # required for aws-actions/configure-aws-credentials OIDC
+  pull-requests: write  # plan summary comments on PRs
+
+concurrency:
+  # Serialize per environment so two runs cannot apply concurrently and corrupt state.
+  group: terraform-${{ github.workflow }}-${{ github.event.inputs.env || 'pipeline' }}
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.14.6"
+  AWS_REGION: "ca-central-1"   # LZA only permits ca-central-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Pull-request plan: run plan against every env on PR for review.
+  # -------------------------------------------------------------------------
+  plan:
+    if: github.event_name == 'pull_request'
+    name: plan (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, test, prod]
+    environment: ${{ matrix.env }}
+    defaults:
+      run:
+        working-directory: infra/envs/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-${{ matrix.env }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: infra
+
+      - name: Terraform init
+        run: terraform init -backend-config=backend.hcl -no-color
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_env: ${{ matrix.env }}
+          TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+
+      - name: Show plan summary
+        run: terraform show -no-color tfplan | tee plan.txt | tail -200
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.env }}-${{ github.run_id }}
+          path: infra/envs/${{ matrix.env }}/tfplan
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Pipeline apply: dev → test → prod on push to main.
+  # Each apply re-runs plan with the role assumed in the target env's account.
+  # -------------------------------------------------------------------------
+  apply-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: apply (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: infra/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-dev-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config=backend.hcl -no-color
+      - run: terraform apply -auto-approve -no-color
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_env: dev
+          TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+
+  apply-test:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: apply (test)
+    needs: apply-dev
+    runs-on: ubuntu-latest
+    environment: test
+    defaults:
+      run:
+        working-directory: infra/envs/test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-test-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config=backend.hcl -no-color
+      - run: terraform apply -auto-approve -no-color
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_env: test
+          TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+
+  apply-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: apply (prod)
+    needs: apply-test
+    runs-on: ubuntu-latest
+    environment: prod   # Configure required reviewers in repo settings → Environments → prod
+    defaults:
+      run:
+        working-directory: infra/envs/prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-prod-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: terraform init -backend-config=backend.hcl -no-color
+      - run: terraform apply -auto-approve -no-color
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_env: prod
+          TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+
+  # -------------------------------------------------------------------------
+  # Manual dispatch: run plan/apply/destroy against a single env on demand.
+  # -------------------------------------------------------------------------
+  manual:
+    if: github.event_name == 'workflow_dispatch'
+    name: ${{ github.event.inputs.action }} (${{ github.event.inputs.env }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.env }}
+    defaults:
+      run:
+        working-directory: infra/envs/${{ github.event.inputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-${{ github.event.inputs.env }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: terraform init -backend-config=backend.hcl -no-color
+
+      - name: Terraform ${{ github.event.inputs.action }}
+        run: |
+          case "${{ github.event.inputs.action }}" in
+            plan)
+              terraform plan -no-color
+              ;;
+            apply)
+              terraform apply -auto-approve -no-color
+              ;;
+            destroy)
+              terraform destroy -auto-approve -no-color
+              ;;
+          esac
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_env: ${{ github.event.inputs.env }}
+          TF_VAR_license: ${{ vars.LICENSE_PLATE }}

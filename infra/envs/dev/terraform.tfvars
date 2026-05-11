@@ -1,7 +1,7 @@
 # Will be set via environment variable
 # aws_region = "ca-central-1"
 # license    = "dd5a29"
-# env        = "test"
+# env        = "dev"
 
 # Defaults are set in eks_variables.tf — uncomment to override:
 # eks_cluster_version                = "1.33"

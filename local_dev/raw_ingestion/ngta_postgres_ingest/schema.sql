@@ -1,13 +1,16 @@
--- NGTA raw landing. Run: psql "$DATABASE_URL" -f local_dev/ngta_postgres_ingest/schema.sql
+-- NGTA raw landing. Run:
+--   psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
 --
 -- If you already have raw_rogers_spend from an older version:
---   ALTER TABLE raw_rogers_spend RENAME TO raw_rogers_spend_cellular;
---   ALTER INDEX idx_raw_rogers_ingestion RENAME TO idx_raw_rogers_cellular_ingestion;
+--   ALTER TABLE raw_data.raw_rogers_spend RENAME TO raw_rogers_spend_cellular;
+--   ALTER INDEX raw_data.idx_raw_rogers_ingestion RENAME TO idx_raw_rogers_cellular_ingestion;
 -- If you have raw_rogers_spend_voice from a prior ingest:
---   ALTER TABLE raw_rogers_spend_voice RENAME TO raw_rogers_spend_data_voice;
---   ALTER INDEX idx_raw_rogers_voice_ingestion RENAME TO idx_raw_rogers_data_voice_ingestion;
+--   ALTER TABLE raw_data.raw_rogers_spend_voice RENAME TO raw_rogers_spend_data_voice;
+--   ALTER INDEX raw_data.idx_raw_rogers_voice_ingestion RENAME TO idx_raw_rogers_data_voice_ingestion;
 
-CREATE TABLE IF NOT EXISTS ingestion_run (
+CREATE SCHEMA IF NOT EXISTS raw_data;
+
+CREATE TABLE IF NOT EXISTS raw_data.ingestion_run (
   ingestion_run_id   bigserial PRIMARY KEY,
   provider           text NOT NULL CHECK (provider IN ('telus', 'rogers')),
   source_object_uri  text,
@@ -18,9 +21,9 @@ CREATE TABLE IF NOT EXISTS ingestion_run (
   row_counts_raw     jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_telus_spend (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_spend (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES ingestion_run (ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.ingestion_run (ingestion_run_id),
   sheet_name                text,
   account_number            text,
   account_description       text,
@@ -44,11 +47,11 @@ CREATE TABLE IF NOT EXISTS raw_telus_spend (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_raw_telus_ingestion ON raw_telus_spend (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_raw_telus_ingestion ON raw_data.raw_telus_spend (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS raw_rogers_spend_cellular (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_spend_cellular (
   raw_id                   bigserial PRIMARY KEY,
-  ingestion_run_id         bigint NOT NULL REFERENCES ingestion_run (ingestion_run_id),
+  ingestion_run_id         bigint NOT NULL REFERENCES raw_data.ingestion_run (ingestion_run_id),
   invoice_date             date,
   company_code             text,
   bge                      text,
@@ -125,11 +128,11 @@ CREATE TABLE IF NOT EXISTS raw_rogers_spend_cellular (
   extras                   jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_raw_rogers_cellular_ingestion ON raw_rogers_spend_cellular (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_raw_rogers_cellular_ingestion ON raw_data.raw_rogers_spend_cellular (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS raw_rogers_spend_data_voice (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_spend_data_voice (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES ingestion_run (ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.ingestion_run (ingestion_run_id),
   bge                       text,
   sub_bge                   text,
   accountno                 text,
@@ -165,7 +168,7 @@ CREATE TABLE IF NOT EXISTS raw_rogers_spend_data_voice (
   extras                    jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_raw_rogers_data_voice_ingestion ON raw_rogers_spend_data_voice (ingestion_run_id);
+CREATE INDEX IF NOT EXISTS idx_raw_rogers_data_voice_ingestion ON raw_data.raw_rogers_spend_data_voice (ingestion_run_id);
 
 -- Rogers voice + data share one long-form table raw_rogers_spend_data_voice (voice-shaped columns). No separate raw_rogers_spend_data.
--- If an older DB still has raw_rogers_spend_data: DROP TABLE raw_rogers_spend_data;
+-- If an older DB still has raw_rogers_spend_data: DROP TABLE raw_data.raw_rogers_spend_data;

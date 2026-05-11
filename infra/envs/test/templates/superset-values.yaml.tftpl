@@ -1,0 +1,87 @@
+# LZA-oriented Ingress (Pattern 1). /bcgovhealthcheck is defined separately in eks.tf (same IngressGroup).
+# Official Superset images omit psycopg2; the Helm chart still builds postgresql+psycopg2:// by default.
+bootstrapScript: |
+  # Sourced under /bin/sh. Superset 5 image uses /app/.venv/bin/python3 (no pip); bootstrap with ensurepip or system pip --target.
+  set -eu
+  VENV_PY="/app/.venv/bin/python3"
+  if ! [ -x "$VENV_PY" ]; then
+    VENV_PY="python3"
+  fi
+  if ! "$VENV_PY" -c "import psycopg2" 2>/dev/null; then
+    if ! "$VENV_PY" -m pip --version >/dev/null 2>&1; then
+      "$VENV_PY" -m ensurepip --default-pip 2>/dev/null || true
+    fi
+    if "$VENV_PY" -m pip --version >/dev/null 2>&1; then
+      "$VENV_PY" -m pip install --no-cache-dir "psycopg2-binary>=2.9.9,<3"
+    else
+      SITE_PKG="$("$VENV_PY" -c 'import site; print(site.getsitepackages()[0])')"
+      INSTALLED=0
+      for C in /usr/local/bin/python3 /usr/bin/python3; do
+        if [ -x "$C" ] && "$C" -m pip --version >/dev/null 2>&1; then
+          "$C" -m pip install --no-cache-dir "psycopg2-binary>=2.9.9,<3" --target "$SITE_PKG"
+          INSTALLED=1
+          break
+        fi
+      done
+      if [ "$INSTALLED" != 1 ]; then
+        echo "Could not install psycopg2-binary (no pip in venv, ensurepip failed, no system pip)" >&2
+        exit 1
+      fi
+    fi
+  fi
+  if ! "$VENV_PY" -c "import psycopg2" 2>/dev/null; then
+    echo "psycopg2 still missing after install" >&2
+    exit 1
+  fi
+  if [ ! -f ~/bootstrap ]; then echo "Running Superset with uid {{ .Values.runAsUser }}" > ~/bootstrap; fi
+
+postgresql:
+  enabled: false
+redis:
+  enabled: true
+  auth:
+    enabled: true
+  # Bitnami redis chart 17.9.4 defaults to tag 7.0.10-debian-11-r4 (removed from Docker Hub).
+  image:
+    registry: docker.io
+    repository: bitnami/redis
+    digest: sha256:98cf67395e80506c7bc21b889107980365558ef30d59059ac6d76aab2678bf7e
+    tag: ""
+
+ingress:
+  enabled: true
+  ingressClassName: alb
+  path: /
+  pathType: Prefix
+  hosts:
+    - ${superset_ingress_host}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: ${web_subnet_ids_csv}
+    alb.ingress.kubernetes.io/certificate-arn: ${acm_certificate_arn}
+    alb.ingress.kubernetes.io/group.name: ${ingress_group_name}
+    alb.ingress.kubernetes.io/tags: Public=True
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+
+supersetNode:
+  connections:
+    db_host: ${db_host}
+    db_port: "5432"
+    db_user: ${db_user}
+    db_name: ${db_name}
+    redis_host: ${redis_host}
+    redis_port: "6379"
+
+# the actual info gets set separately this ia a placeholder
+init:
+  createAdmin: true
+  adminUser:
+    username: admin
+    firstname: Admin
+    lastname: User
+    email: admin@localhost
+
+supersetWorker:
+  replicas:
+    enabled: false
