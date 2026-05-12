@@ -365,7 +365,7 @@ source/rogers_ngta_spend.csv   (project root)
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `provider` | string | Always `TELUS` — not used, present for consistency |
+| `provider` | string | Always `ROGERS` — not used, present for consistency |
 | `entity_key` | string | BGE identifier (see mapping below) |
 | `month_start` | date | Any of `YYYY-MM-DD`, `YYYY-MM`, `YYYY/MM/DD`, `MM/DD/YYYY` |
 | `cellular_plans` | number | Fills the Cellular Plans sub-row |
