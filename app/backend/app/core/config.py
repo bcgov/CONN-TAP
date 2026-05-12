@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "app"
     POSTGRES_DB: str = "app"
 
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3001"]
 
     @property
     def database_url(self) -> str:

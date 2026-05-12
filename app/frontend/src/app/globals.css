@@ -1,2 +1,85 @@
-html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+body.telecom-landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.telecom-landing__shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.telecom-main {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--layout-padding-xlarge, 2rem) var(--layout-padding-medium, 1rem);
+  box-sizing: border-box;
+}
+
+.telecom-main__intro {
+  font: var(--typography-regular-body, 1rem / 1.5 system-ui);
+  color: var(--typography-color-primary, #313131);
+  margin: 0 0 var(--layout-padding-large, 1.5rem);
+  max-width: 52rem;
+}
+
+.telecom-main__login-block {
+  margin-bottom: var(--layout-padding-xlarge, 2rem);
+}
+
+.telecom-main__login-hint {
+  font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
+  color: var(--typography-color-secondary, #474543);
+  margin: var(--layout-padding-small, 0.75rem) 0 0;
+}
+
+.telecom-main__access {
+  margin-bottom: var(--layout-padding-xlarge, 2rem);
+  font: var(--typography-regular-body, 1rem / 1.5 system-ui);
+  color: var(--typography-color-primary, #313131);
+  max-width: 52rem;
+}
+
+.telecom-main__access strong {
+  font: var(--typography-bold-body, 700 1rem / 1.5 system-ui);
+}
+
+.telecom-main__features-title {
+  margin: 0 0 var(--layout-padding-medium, 1rem);
+}
+
+.telecom-main__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-width: 52rem;
+  font: var(--typography-regular-body, 1rem / 1.5 system-ui);
+  color: var(--typography-color-primary, #313131);
+}
+
+.telecom-main__list li {
+  margin-bottom: var(--layout-padding-medium, 1rem);
+}
+
+.telecom-main__list li:last-child {
+  margin-bottom: 0;
+}
+
+.telecom-main__list strong {
+  font: var(--typography-bold-body, 700 1rem / 1.5 system-ui);
+}
+
+/* Footer: three columns to match Telecom Hub reference layout */
+.telecom-landing .bcds-footer--logo-links.vertical > .bcds-footer--links ul {
+  grid-template-columns: repeat(3, 1fr);
+}

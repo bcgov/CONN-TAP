@@ -5,7 +5,7 @@ End-to-end application skeleton:
 - **`backend/`** — FastAPI + SQLAlchemy 2 + pandas + dbt (dbt-core / dbt-postgres).
 - **`frontend/`** — Next.js 15 + React 19 + React Query (`@tanstack/react-query`) + `react-plotly.js` + `@bcgov/design-system-react-components`.
 - **`db/`** — Postgres 16 image with `pg_partman` for partitioning plus `pg_trgm` / `btree_gin` / `btree_gist` for advanced indexing.
-- **`docker-compose.yml`** — Local development stack (live reload for both backend and frontend, volume-mounted source).
+- **`docker-compose.yml`** — Local development stack for Postgres and the FastAPI backend. The Next.js frontend is intended to run locally by default.
 
 ## Local development
 
@@ -14,11 +14,26 @@ cd app
 docker compose up --build
 ```
 
+Run the frontend locally in a separate terminal:
+
+```bash
+cd app/frontend
+pnpm install
+pnpm dev
+```
+
+If you want the frontend in Docker again, enable the optional profile:
+
+```bash
+cd app
+docker compose --profile frontend up --build
+```
+
 Services:
 
 | Service  | URL                          |
 | -------- | ---------------------------- |
-| Frontend | http://localhost:3000        |
+| Frontend | http://localhost:3001        |
 | Backend  | http://localhost:8000        |
 | API docs | http://localhost:8000/docs   |
 | Postgres | postgres://app:app@localhost:5432/app |
@@ -26,7 +41,17 @@ Services:
 Local file changes auto-reload:
 
 - Backend: `uvicorn --reload` watches `./backend/app`.
-- Frontend: Next.js dev server with filesystem polling enabled for Docker.
+- Frontend: run `pnpm dev` locally for reliable Fast Refresh on macOS.
+
+To verify backend auto-reload from Docker Compose:
+
+1. Start the stack with `docker compose up --build` from `app/`.
+2. Open `http://localhost:8000/docs`.
+3. Edit a file under `backend/app/`, for example change a response string in an API route.
+4. Watch the backend container logs for a reload message from Uvicorn.
+5. Refresh `/docs` or call the changed endpoint again to confirm the new code is live.
+
+The backend container bind-mounts `./backend` into `/app` and starts `uvicorn app.main:app --reload --reload-dir /app/app`, so Python code changes under `backend/app/` should reload automatically.
 
 ## Running dbt
 
