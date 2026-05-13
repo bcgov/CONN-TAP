@@ -42,43 +42,46 @@ const FOOTER_LINKS = (
   />
 );
 
-export function AppFooter() {
+interface AppFooterProps {
+  showAcknowledgement?: boolean;
+}
+
+export function AppFooter({ showAcknowledgement = false }: AppFooterProps) {
   const { isAuthenticated, username } = useAuth();
 
+  const contact = isAuthenticated && username ? (
+    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+      <span style={{ fontSize: "0.875rem", color: "#474543" }}>
+        Signed in as: <strong>{username}</strong>
+      </span>
+      <button
+        onClick={() => {
+          window.location.href = "/auth/logout";
+        }}
+        style={{
+          padding: "0.5rem 1rem",
+          backgroundColor: "#003366",
+          color: "white",
+          border: "none",
+          borderRadius: "0.25rem",
+          cursor: "pointer",
+          fontSize: "0.875rem",
+          fontFamily: "BC Sans, system-ui, -apple-system, sans-serif",
+        }}
+      >
+        Logout
+      </button>
+    </div>
+  ) : <></>;
+
+
   return (
-    <Footer acknowledgement={ACKNOWLEDGEMENT}>
-      <>
-        <div className="bcds-footer--logo">
-          <SvgBcLogo id="bcgov-logo-footer" />
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-          <div>{FOOTER_LINKS}</div>
-          {isAuthenticated && username && (
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem", paddingRight: "2rem" }}>
-              <span style={{ fontSize: "0.875rem", color: "#474543" }}>
-                Signed in as: <strong>{username}</strong>
-              </span>
-              <button
-                onClick={() => {
-                  window.location.href = "/auth/logout";
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#003366",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontFamily: "BC Sans, system-ui, -apple-system, sans-serif",
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
-      </>
-    </Footer>
+    <Footer
+      acknowledgement={showAcknowledgement ? ACKNOWLEDGEMENT : undefined}
+      hideAcknowledgement={!showAcknowledgement}
+      logo={<SvgBcLogo id="bcgov-logo-footer" />}
+      links={FOOTER_LINKS}
+      contact={contact}
+    />
   );
 }

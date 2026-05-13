@@ -77,7 +77,7 @@ export function HomeClient() {
         </ul>
       </main>
 
-      <AppFooter />
+      <AppFooter showAcknowledgement />
     </div>
   );
 }
