@@ -164,6 +164,7 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
     f_section = F(bold=True)
     f_total   = F.n(bold=True)
     _fnum     = F.n()
+    _collapsed = {"level": 1, "hidden": True}
 
     # ---- Derive all row positions ----
     mr_hdr    = first_row + 1
@@ -199,14 +200,14 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
             write(ws, sub_hdr_row, COL_AO, "Jan-Dec")
 
         for r, org in zip(detail_rows, org_list):
-            set_row_props(ws, r, height=17, fmt=_fnum, opts={"level": 1})
+            set_row_props(ws, r, height=17, fmt=_fnum, opts=_collapsed)
             write(ws, r, COL_B, org)
             for col in MONTH_COLS:
                 val = oos_data.get((feed_key, org, col))
                 if val is not None:
                     write(ws, r, col, val, _fnum)
 
-        set_row_props(ws, total_row, height=17)
+        set_row_props(ws, total_row, height=17, opts={"collapsed": True})
         write(ws, total_row, COL_B, "Total", f_total)
         write_monthly_sum_range(ws, total_row, sum_from_row, total_row - 1, f_total)
 

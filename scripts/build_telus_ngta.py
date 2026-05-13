@@ -43,7 +43,7 @@ def build():
     write_year_quarter_headers(ws, F)
 
     # Row 4: plain month labels (no section-header colour)
-    write_month_label_row(ws, 4)
+    write_month_label_row(ws, 4, F=F)
 
     # Rows 5-126: TELUS NGTA section (no trailing separator needed)
     telus_data = load_telus_ngta()

@@ -2,16 +2,16 @@
 """
 Load TSMA Other Excel workbooks (managed security, router) into Postgres.
 
-WLAN / Wi‑Fi wireline-shaped extracts belong in ``tsma/wireline/`` and ``tsma_wireline`` via
+WLAN / Wi‑Fi wireline-shaped extracts belong in ``tsma/wireline/`` and ``raw_data.tsma_wireline`` via
 ``ingest_tsma_excel_folder.py``, not this script.
 
 Prereqs:
-  pip install -r local_dev/tsma_other_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/tsma_other_postgres_ingest/schema.sql
+  pip install -r local_dev/raw_ingestion/tsma_other_postgres_ingest/requirements.txt
+  psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
-  python local_dev/tsma_other_postgres_ingest/ingest_tsma_other_excel_folder.py /path/to/tsma_other
+  python local_dev/raw_ingestion/tsma_other_postgres_ingest/ingest_tsma_other_excel_folder.py /path/to/tsma_other
   python ... /path/to/tsma_other --source-period 2025-06-01 --dry-run
 
 Layout: pass the ``tsma_other`` directory. It may contain these subfolders, each with one or
@@ -37,6 +37,13 @@ from typing import Any, Literal, Optional
 
 import pandas as pd
 import psycopg
+
+PG_SCHEMA = "raw_data"
+
+
+def _fq(ident: str) -> str:
+    return f"{PG_SCHEMA}.{ident}"
+
 
 # Wireline-shaped columns (must match schema.sql insert order).
 ROW_COLS = [
@@ -304,7 +311,7 @@ def insert_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        f"INSERT INTO {table} ("
+        f"INSERT INTO {_fq(table)} ("
         + ", ".join(ROW_COLS)
         + ") VALUES ("
         + ", ".join(["%s"] * len(ROW_COLS))
@@ -313,8 +320,8 @@ def insert_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO tsma_other_ingestion_run (feed_code, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('tsma_other_ingestion_run')} (feed_code, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING tsma_other_ingestion_run_id
                 """,
@@ -328,8 +335,8 @@ def insert_workbook(
                 final_rows.append(tuple(lst))
             cur.executemany(sql, final_rows)
             cur.execute(
-                """
-                UPDATE tsma_other_ingestion_run
+                f"""
+                UPDATE {_fq('tsma_other_ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE tsma_other_ingestion_run_id = %s

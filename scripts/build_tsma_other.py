@@ -46,7 +46,7 @@ def build():
     write_year_quarter_headers(ws, F)
 
     # Row 4: plain month labels
-    write_month_label_row(ws, 4)
+    write_month_label_row(ws, 4, F=F)
 
     # Rows 5-35: Out-of-Scope section
     oos_data = load_tsma_other()

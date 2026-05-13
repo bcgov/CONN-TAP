@@ -3,12 +3,12 @@
 Load TSMA / TSMA lite cost Excel workbooks from a folder into Postgres raw tables.
 
 Prereqs:
-  pip install -r local_dev/tsma_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/tsma_postgres_ingest/schema.sql
+  pip install -r local_dev/raw_ingestion/tsma_postgres_ingest/requirements.txt
+  psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
-  python local_dev/tsma_postgres_ingest/ingest_tsma_excel_folder.py /path/to/excel/root
+  python local_dev/raw_ingestion/tsma_postgres_ingest/ingest_tsma_excel_folder.py /path/to/excel/root
   python ... /path/to/root --source-period 2025-06-01 --dry-run
 
 Layout (relative to root):
@@ -35,6 +35,13 @@ from typing import Any, Literal, Optional
 
 import pandas as pd
 import psycopg
+
+PG_SCHEMA = "raw_data"
+
+
+def _fq(ident: str) -> str:
+    return f"{PG_SCHEMA}.{ident}"
+
 
 # --- Column lists (must match schema.sql insert column order) ---
 
@@ -461,7 +468,7 @@ def insert_tsma_master_workbook(
 
     inserts = {
         table: (
-            f"INSERT INTO {table} ("
+            f"INSERT INTO {_fq(table)} ("
             + ", ".join(cols_schema)
             + ") VALUES ("
             + ", ".join(["%s"] * len(cols_schema))
@@ -472,8 +479,8 @@ def insert_tsma_master_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO tsma_ingestion_run (feed_code, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('tsma_ingestion_run')} (feed_code, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING tsma_ingestion_run_id
                 """,
@@ -489,8 +496,8 @@ def insert_tsma_master_workbook(
                 if final_rows:
                     cur.executemany(inserts[table], final_rows)
             cur.execute(
-                """
-                UPDATE tsma_ingestion_run
+                f"""
+                UPDATE {_fq('tsma_ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE tsma_ingestion_run_id = %s
@@ -581,7 +588,7 @@ def insert_tsma_workbook(
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
-        f"INSERT INTO {table} ("
+        f"INSERT INTO {_fq(table)} ("
         + ", ".join(cols_schema)
         + ") VALUES ("
         + ", ".join(["%s"] * len(cols_schema))
@@ -591,8 +598,8 @@ def insert_tsma_workbook(
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                INSERT INTO tsma_ingestion_run (feed_code, source_object_uri, source_period, status)
+                f"""
+                INSERT INTO {_fq('tsma_ingestion_run')} (feed_code, source_object_uri, source_period, status)
                 VALUES (%s, %s, %s, 'running')
                 RETURNING tsma_ingestion_run_id
                 """,
@@ -606,8 +613,8 @@ def insert_tsma_workbook(
                 final_rows.append(tuple(lst))
             cur.executemany(sql, final_rows)
             cur.execute(
-                """
-                UPDATE tsma_ingestion_run
+                f"""
+                UPDATE {_fq('tsma_ingestion_run')}
                 SET finished_at = now(), status = 'completed',
                     row_counts_raw = %s::jsonb
                 WHERE tsma_ingestion_run_id = %s

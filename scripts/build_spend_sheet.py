@@ -8,7 +8,7 @@ Organized into 6 fillable categories:
   3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Other row added)
   4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Other row added)
   5. out_of_scope   – Out-of-Scope sub-categories (rows 355-384)
-  6. tsma_lite      – TSMA Lite quarterly data (rows 386-394)
+  6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
 
 Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking.xlsx
@@ -19,18 +19,14 @@ import xlsxwriter
 from sheet_utils import (
     # Colors
     BG_TSMA_HDR, BG_TSMA_BGE, BG_COMBINED, BG_SEPARATOR, BG_IVR,
-    BG_ROGERS_HDR, BG_ROGERS_BGE,
     _FmtCache,
     # Column constants
-    COL_A, COL_B, COL_AM, COL_AN, COL_AO, COL_AP, COL_AQ, COL_AR, COL_AS,
+    COL_A, COL_B, COL_AM, COL_AN, COL_AO, COL_AP,
     FIRST_MONTH, LAST_MONTH, MONTH_COLS, Y2024, Y2025, TSMA_LITE_Q_COLS,
-    MONTH_LABELS,
     # BGE data
-    BGES, BGE_A_LABELS, BGE_A2_LABELS, NGTA_BGE_ROWS,
-    # NGTA helpers
-    _build_ngta_row_map, _ngta_rows_by_type,
+    BGES, BGE_A_LABELS, BGE_A2_LABELS,
     # Formula builders
-    col_letter, sum_rows, sum_range, ref_cell, annual_sum, q_sum,
+    col_letter, sum_range, ref_cell, annual_sum,
     # Sheet writers
     write, write_f, merge, set_row_props,
     write_monthly_formula, write_monthly_ref,
@@ -39,6 +35,7 @@ from sheet_utils import (
     set_column_widths, write_year_quarter_headers, write_month_label_row,
 )
 from telus_ngta import load_telus_ngta, build_telus_ngta_section
+from rogers_ngta import load_rogers_ngta, build_rogers_ngta_section
 from tsma import load_tsma_data, load_tsma_lite_data, write_tsma_detail_row
 from tsma_other import load_tsma_other, build_oos_section
 
@@ -112,19 +109,6 @@ ROW_TSMA_SUM_TOT = 9
 ROW_TSMA_SUM_MMS = 10
 
 # ---------------------------------------------------------------------------
-# Rogers NGTA row numbers
-# ---------------------------------------------------------------------------
-ROW_ROGERS_BGES_START = 240
-ROGERS_ROW_MAP, _ROGERS_TOTAL_START = _build_ngta_row_map(ROW_ROGERS_BGES_START)
-assert _ROGERS_TOTAL_START == 324
-
-ROW_ROGERS_TOT_PLANS = 324
-ROW_ROGERS_TOT_HW    = 325
-ROW_ROGERS_TOT_DAT   = 326
-ROW_ROGERS_TOT_VOI   = 327
-ROW_ROGERS_TOT_OTH   = 328
-
-# ---------------------------------------------------------------------------
 # Aggregate row lists
 # ---------------------------------------------------------------------------
 
@@ -138,12 +122,6 @@ TSMA_DAT_ROWS = _tsma_rows_by_type('data')
 TSMA_VOI_ROWS = _tsma_rows_by_type('voice') + _tsma_rows_by_type('voice_ivr')
 TSMA_OOS_ROWS = _tsma_rows_by_type('oos')
 
-ROGERS_PLANS_ROWS = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_plans')
-ROGERS_HW_ROWS    = _ngta_rows_by_type(ROGERS_ROW_MAP, 'cell_hw')
-ROGERS_DAT_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'data')
-ROGERS_VOI_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'voice')
-ROGERS_OTH_ROWS   = _ngta_rows_by_type(ROGERS_ROW_MAP, 'other')
-
 # ---------------------------------------------------------------------------
 # TSMA Lite row constants
 # ---------------------------------------------------------------------------
@@ -154,6 +132,7 @@ ROW_TSMALITE_CELL    = 390
 ROW_TSMALITE_TOTAL   = 391
 ROW_TSMALITE_VOICE2  = 393
 ROW_TSMALITE_CELL2   = 394
+ROW_TSMALITE_TOTAL2  = 395
 
 
 # ---------------------------------------------------------------------------
@@ -183,11 +162,12 @@ def build():
     # =========================================================
     # ROW 4: Month labels  +  TSMA section header
     # =========================================================
-    _fth   = F.n(bg_color=BG_TSMA_HDR)
-    _fth_b = F.n(bold=True, bg_color=BG_TSMA_HDR)
+    _fth     = F.n(bg_color=BG_TSMA_HDR)
+    _fth_b   = F.n(bold=True, bg_color=BG_TSMA_HDR)
+    _fth_hdr = F(bg_color=BG_TSMA_HDR, align="center", valign="vcenter", border=1)
     set_row_props(ws, 4, height=17, fmt=_fth)
     write(ws, 4, COL_B, "TSMA", _fth_b)
-    write_month_label_row(ws, 4, _fth)
+    write_month_label_row(ws, 4, _fth_hdr)
 
     # =========================================================
     # ROWS 5-10: TSMA summary rows
@@ -224,8 +204,10 @@ def build():
     _ftb     = F.n(bg_color=BG_TSMA_BGE)
     _ftb_b   = F.n(bold=True, bg_color=BG_TSMA_BGE)
     _ftb_ivr = F.n(bg_color=BG_IVR)
+    _collapsed = {"level": 1, "hidden": True}
 
-    set_row_props(ws, 11, fmt=_fth, opts={"level": 1})
+    set_row_props(ws, 10, height=17, fmt=_fth, opts={"collapsed": True})
+    set_row_props(ws, 11, fmt=_fth, opts=_collapsed)
     write(ws, 11, COL_A, "BGEs", _fth_b)
 
     for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
@@ -242,7 +224,7 @@ def build():
                 row_bg, fmt_cell = _ftb, _ftb_b
             else:
                 row_bg, fmt_cell = _ftb, _ftb
-            set_row_props(ws, r, height=17, fmt=row_bg, opts={"level": 1})
+            set_row_props(ws, r, height=17, fmt=row_bg, opts=_collapsed)
             if r == first_r:
                 write(ws, r, COL_A, a_label, row_bg)
                 if a2_label and r + 1 < last_r:
@@ -255,7 +237,7 @@ def build():
 
     # TSMA TOTAL aggregate rows 86-90
     for r in range(86, 91):
-        set_row_props(ws, r, height=17, fmt=_fth, opts={"level": 1})
+        set_row_props(ws, r, height=17, fmt=_fth, opts=_collapsed)
 
     write(ws, ROW_TSMA_TOTAL_CEL, COL_B, "TOTAL Cellular", _fth)
     write_monthly_sum_rows(ws, ROW_TSMA_TOTAL_CEL, TSMA_CEL_ROWS, _fth)
@@ -276,14 +258,15 @@ def build():
     # ROW 91: TSMA + NGTAs combined totals
     # =========================================================
     _fcomb = F.n(bg_color=BG_COMBINED)
+    _fcomb_i = F.n(bg_color=BG_COMBINED, italic=True)
     set_row_props(ws, 91, height=16, fmt=_fcomb)
-    write(ws, 91, 13, "TSMA+NGTAs", _fcomb)
+    write(ws, 91, COL_B, "TSMA+NGTAs", _fcomb_i)
     write_monthly_formula(
         ws, 91,
         lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
                   f"+{col_letter(c)}116"   # TELUS NGTA summary Total (first_row=110 → row 116)
                   f"+{col_letter(c)}238",  # Rogers NGTA summary Total
-        _fcomb,
+        _fcomb_i,
     )
 
     # =========================================================
@@ -376,148 +359,10 @@ def build():
     build_telus_ngta_section(ws, F, telus_data, first_row=110, include_separator=True)
 
     # =========================================================
-    # ROWS 232-354: Rogers NGTA section
+    # ROWS 232-354: Rogers NGTA section  (delegated to rogers_ngta.py)
     # =========================================================
-    _frogh   = F.n(bg_color=BG_ROGERS_HDR)
-    _frogh_b = F.n(bold=True, bg_color=BG_ROGERS_HDR)
-    _frogb   = F.n(bg_color=BG_ROGERS_BGE)
-    _frogb_b = F.n(bold=True, bg_color=BG_ROGERS_BGE)
-
-    set_row_props(ws, 232, height=16, fmt=_frogh)
-    write(ws, 232, COL_B, "Rogers NGTA", _frogh_b)
-
-    for r, label, tot_row in [
-        (233, "Cellular Plans", ROW_ROGERS_TOT_PLANS),
-        (234, "Cellular H/W",   ROW_ROGERS_TOT_HW),
-        (235, "Data",           ROW_ROGERS_TOT_DAT),
-        (236, "Voice",          ROW_ROGERS_TOT_VOI),
-        (237, "Other",          ROW_ROGERS_TOT_OTH),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogh)
-        write(ws, r, COL_B, label, _frogh)
-        write_monthly_ref(ws, r, tot_row, _frogh)
-        write(ws, r, COL_AN, label)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 238, height=17, fmt=_frogh)
-    write(ws, 238, COL_B, "Total", _frogh_b)
-    write_monthly_sum_range(ws, 238, 233, 237, _frogh_b)
-
-    set_row_props(ws, 239, fmt=_frogh, opts={"level": 1})
-    write(ws, 239, COL_A, "BGEs", _frogh_b)
-
-    for bge_name, a_label, a2_label in zip(BGES, BGE_A_LABELS, BGE_A2_LABELS):
-        bge_key = bge_name if bge_name != "VCHA\n(+PHC)" else "VCHA"
-        bge_rm  = ROGERS_ROW_MAP[bge_key]
-        first_r = bge_rm["cell_plans"]
-        last_r  = bge_rm["total"]
-
-        for label, rtype in NGTA_BGE_ROWS:
-            r = bge_rm[rtype]
-            set_row_props(ws, r, height=17, fmt=_frogb, opts={"level": 1})
-            if r == first_r:
-                write(ws, r, COL_A, a_label, _frogb)
-                if a2_label:
-                    write(ws, r + 1, COL_A, a2_label, _frogb)
-            fmt_cell = _frogb_b if rtype == "total" else _frogb
-            write(ws, r, COL_B, label, fmt_cell)
-            if rtype == "total":
-                write_monthly_sum_range(ws, r, first_r, last_r - 1, _frogb_b)
-
-    for r, label, rows_list in [
-        (ROW_ROGERS_TOT_PLANS, "TOTAL Cellular Plans", ROGERS_PLANS_ROWS),
-        (ROW_ROGERS_TOT_HW,    "TOTAL Cellular H/W",   ROGERS_HW_ROWS),
-        (ROW_ROGERS_TOT_DAT,   "TOTAL Data",            ROGERS_DAT_ROWS),
-        (ROW_ROGERS_TOT_VOI,   "TOTAL Voice",           ROGERS_VOI_ROWS),
-        (ROW_ROGERS_TOT_OTH,   "TOTAL Other",           ROGERS_OTH_ROWS),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogh)
-        write(ws, r, COL_B, label, _frogh)
-        write_monthly_sum_rows(ws, r, rows_list, _frogh)
-        write(ws, r, COL_AN, label.replace("TOTAL ", ""))
-        write_f(ws, r, COL_AR, q_sum(r, 13, 15))
-        write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
-
-    # ---- Hidden Rogers sub-aggregates ----
-    set_row_props(ws, 329, height=16, fmt=_frogb, opts=_hidden)
-
-    rogers_gov_r = ROGERS_ROW_MAP["Gov BC"]
-    rogers_ecc_r = ROGERS_ROW_MAP["ECC"]
-    for r, label, rtype in [
-        (330, "Cellular",     "cell_plans"),
-        (331, "Cellular H/W", "cell_hw"),
-        (332, "Data",         "data"),
-        (333, "Voice",        "voice"),
-        (334, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
-        write(ws, r, COL_B, label, _frogb)
-        write_monthly_formula(ws, r, lambda c, rt=rtype:
-            f"={col_letter(c)}{rogers_gov_r[rt]}+{col_letter(c)}{rogers_ecc_r[rt]}", _frogb)
-        write(ws, r, COL_AM, "Gov & ECC", _frogb)
-        write(ws, r, COL_AN, label, _frogb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 335, height=16, fmt=_frogb, opts=_hidden)
-
-    rogers_health = ["FHA","NHA","ICBC","PHSA","IHA","VIHA","FNHA","VCHA"]
-    for r, label, rtype in [
-        (336, "Cellular",     "cell_plans"),
-        (337, "Cellular H/W", "cell_hw"),
-        (338, "Data",         "data"),
-        (339, "Voice",        "voice"),
-        (340, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
-        write(ws, r, COL_B, label, _frogb)
-        rows_list = [ROGERS_ROW_MAP[b][rtype] for b in rogers_health]
-        write_monthly_sum_rows(ws, r, rows_list, _frogb)
-        write(ws, r, COL_AM, "Health", _frogb)
-        write(ws, r, COL_AN, label, _frogb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 341, height=16, fmt=_frogb, opts=_hidden)
-
-    rogers_crown = ["BCLC","BC Hydro","WSBC","ICBC"]
-    for r, label, rtype in [
-        (342, "Cellular",     "cell_plans"),
-        (343, "Cellular H/W", "cell_hw"),
-        (344, "Data",         "data"),
-        (345, "Voice",        "voice"),
-        (346, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
-        write(ws, r, COL_B, label, _frogb)
-        rows_list = [ROGERS_ROW_MAP[b][rtype] for b in rogers_crown]
-        write_monthly_sum_rows(ws, r, rows_list, _frogb)
-        write(ws, r, COL_AM, "Crown Corps", _frogb)
-        write(ws, r, COL_AN, label, _frogb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 347, height=16, fmt=_frogb, opts=_hidden)
-
-    rogers_sd_r = ROGERS_ROW_MAP["School Districts"]
-    for r, label, rtype in [
-        (348, "Cellular",     "cell_plans"),
-        (349, "Cellular H/W", "cell_hw"),
-        (350, "Data",         "data"),
-        (351, "Voice",        "voice"),
-        (352, "Other",        "other"),
-    ]:
-        set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
-        write(ws, r, COL_B, label, _frogb)
-        write_monthly_ref(ws, r, rogers_sd_r[rtype], _frogb)
-        write(ws, r, COL_AM, "School Districts", _frogb)
-        write(ws, r, COL_AN, label, _frogb)
-        write_f(ws, r, COL_AO, annual_sum(r, Y2024))
-        write_f(ws, r, COL_AP, annual_sum(r, Y2025))
-
-    set_row_props(ws, 353, height=16)
-    set_row_props(ws, 354, height=16, fmt=_fsep)
+    rogers_data = load_rogers_ngta()
+    build_rogers_ngta_section(ws, F, rogers_data, first_row=232, include_separator=True)
 
     # =========================================================
     # ROWS 355-385: Out of Scope section  (delegated to tsma_other.py)
@@ -527,9 +372,10 @@ def build():
 
     _fnum = F.n()   # plain currency format for TSMA Lite input rows
     _fnum_bold = F.n(bold=True)
+    _tsma_lite_hidden = {"level": 1, "hidden": True}
 
     # =========================================================
-    # ROWS 386-394: TSMA Lite  (quarterly data)
+    # ROWS 386-395: TSMA Lite  (quarterly data)
     # =========================================================
     set_row_props(ws, 386, height=16)
     write(ws, 386, COL_B, "TSMA Lite", f_section)
@@ -540,7 +386,7 @@ def build():
         (ROW_TSMALITE_VOICE, "Voice"),
         (ROW_TSMALITE_CELL,  "Cellular"),
     ]:
-        set_row_props(ws, r, height=17, fmt=_fnum)
+        set_row_props(ws, r, height=17, fmt=_fnum, opts=_tsma_lite_hidden)
         write(ws, r, COL_B, label)
 
     for row_num, row_type in [
@@ -554,15 +400,15 @@ def build():
             if amount is not None:
                 ws.write_number(row_num - 1, col, round(amount, 2), _fnum)
 
-    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_TOTAL, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_TOTAL, COL_B, "Total", _fnum_bold)
     for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_TOTAL, col,
                 sum_range(ROW_TSMALITE_CONF, ROW_TSMALITE_CELL, col), _fnum_bold)
 
-    set_row_props(ws, 392, height=17)
+    set_row_props(ws, 392, height=17, opts=_tsma_lite_hidden)
 
-    set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_VOICE2, COL_B, "Total Voice", _fnum_bold)
     for col in MONTH_COLS:
         cl = col_letter(col)
@@ -570,10 +416,16 @@ def build():
                 f"={cl}{ROW_TSMALITE_CONF}+{cl}{ROW_TSMALITE_LDIST}+{cl}{ROW_TSMALITE_VOICE}",
                 _fnum_bold)
 
-    set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold)
+    set_row_props(ws, ROW_TSMALITE_CELL2, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_CELL2, COL_B, "Total Cellular", _fnum_bold)
     for col in MONTH_COLS:
         write_f(ws, ROW_TSMALITE_CELL2, col, ref_cell(ROW_TSMALITE_CELL, col), _fnum_bold)
+
+    set_row_props(ws, ROW_TSMALITE_TOTAL2, height=17, fmt=_fnum_bold, opts={"collapsed": True})
+    write(ws, ROW_TSMALITE_TOTAL2, COL_B, "Total", _fnum_bold)
+    for col in MONTH_COLS:
+        write_f(ws, ROW_TSMALITE_TOTAL2, col,
+                sum_range(ROW_TSMALITE_VOICE2, ROW_TSMALITE_CELL2, col), _fnum_bold)
 
     # =========================================================
     # Freeze first 4 rows and first 2 columns

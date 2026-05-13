@@ -1,5 +1,5 @@
 -- TSMA Other (managed security / router) — raw landing. Run:
---   psql "$DATABASE_URL" -f local_dev/tsma_other_postgres_ingest/schema.sql
+--   psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
 --
 -- WLAN / Wi‑Fi wireline-shaped TSMA rows use tsma_wireline + core tsma ingest (tsma/wireline/), not this module.
 --
@@ -7,9 +7,11 @@
 --
 -- If you previously applied a schema with tsma_other_managed_wlan_wifi, drop that table and
 -- alter the feed_code CHECK to remove 'tsma_other_managed_wlan_wifi' (constraint name may vary:
--- \d tsma_other_ingestion_run in psql).
+-- \d raw_data.tsma_other_ingestion_run in psql).
 
-CREATE TABLE IF NOT EXISTS tsma_other_ingestion_run (
+CREATE SCHEMA IF NOT EXISTS raw_data;
+
+CREATE TABLE IF NOT EXISTS raw_data.tsma_other_ingestion_run (
   tsma_other_ingestion_run_id  bigserial PRIMARY KEY,
   feed_code                    text NOT NULL CHECK (feed_code IN (
     'tsma_other_managed_security',
@@ -24,13 +26,13 @@ CREATE TABLE IF NOT EXISTS tsma_other_ingestion_run (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tsma_other_ingestion_run_feed
-  ON tsma_other_ingestion_run (feed_code);
+  ON raw_data.tsma_other_ingestion_run (feed_code);
 
 -- Same wireline-shaped columns as tsma_wireline.
 
-CREATE TABLE IF NOT EXISTS tsma_other_managed_security (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_other_managed_security (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_other_ingestion_run (tsma_other_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_other_ingestion_run (tsma_other_ingestion_run_id),
   month_id                  integer,
   month_start_dt            date,
   ccyymm                    text,
@@ -65,11 +67,11 @@ CREATE TABLE IF NOT EXISTS tsma_other_managed_security (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tsma_other_managed_security_ingestion
-  ON tsma_other_managed_security (ingestion_run_id);
+  ON raw_data.tsma_other_managed_security (ingestion_run_id);
 
-CREATE TABLE IF NOT EXISTS tsma_other_managed_router (
+CREATE TABLE IF NOT EXISTS raw_data.tsma_other_managed_router (
   raw_id                    bigserial PRIMARY KEY,
-  ingestion_run_id          bigint NOT NULL REFERENCES tsma_other_ingestion_run (tsma_other_ingestion_run_id),
+  ingestion_run_id          bigint NOT NULL REFERENCES raw_data.tsma_other_ingestion_run (tsma_other_ingestion_run_id),
   month_id                  integer,
   month_start_dt            date,
   ccyymm                    text,
@@ -104,4 +106,4 @@ CREATE TABLE IF NOT EXISTS tsma_other_managed_router (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tsma_other_managed_router_ingestion
-  ON tsma_other_managed_router (ingestion_run_id);
+  ON raw_data.tsma_other_managed_router (ingestion_run_id);

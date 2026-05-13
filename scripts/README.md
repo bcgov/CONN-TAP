@@ -3,7 +3,7 @@
 ## Overview
 
 `build_spend_sheet.py` generates `spend_tracking.xlsx` using the
-[xlsxwriter](https://xlsxwriter.readthedocs.io/) library.  
+[xlsxwriter](https://xlsxwriter.readthedocs.io/) library.
 It recreates the structure, formulas, colours, row groupings, and freeze panes
 of the original **empty spend sheet.xlsx**, then leaves the data cells blank so
 that values can be entered (or injected programmatically) separately.
@@ -33,7 +33,7 @@ pip install xlsxwriter
 | **AM** | Visible group label (Gov & ECC, Health, …) |
 | **AN – AS** | Hidden summary columns (annual totals, quarterly sums) |
 
-**Data entry columns are C through AL (36 months).**  
+**Data entry columns are C through AL (36 months).**
 Columns AM onward contain formulas and should not be edited.
 
 ---
@@ -47,10 +47,10 @@ with the exact rows that need to be filled in and the format expected.
 
 ### 1. TSMA  (rows 12 – 85)
 
-**Owner:** TSMA contributor  
+**Owner:** TSMA contributor
 **Background colour:** light steel-blue
 
-The TSMA section contains one block of rows per BGE entity.  
+The TSMA section contains one block of rows per BGE entity.
 Each block has the following sub-rows (all within the same entity):
 
 | Sub-row label | Meaning | Notes |
@@ -90,7 +90,7 @@ should **not** be edited.
 
 ### 2. TELUS NGTA  (rows 118 – 201)
 
-**Owner:** TELUS NGTA contributor  
+**Owner:** TELUS NGTA contributor
 **Background colour:** light lavender
 
 Each BGE has exactly **6 sub-rows**:
@@ -123,14 +123,14 @@ Each BGE has exactly **6 sub-rows**:
 | VCHA (+PHC) | 190 | 191 | 192 | 193 | 194 | 195 |
 | School Districts | 196 | 197 | 198 | 199 | 200 | 201 |
 
-Rows 110–116 are **summary rows** — do not edit.  
+Rows 110–116 are **summary rows** — do not edit.
 Rows 202–206 are **aggregate totals** — do not edit.
 
 ---
 
 ### 3. Rogers NGTA  (rows 240 – 323)
 
-**Owner:** Rogers NGTA contributor  
+**Owner:** Rogers NGTA contributor
 **Background colour:** light peach
 
 Identical structure to TELUS NGTA (6 sub-rows per BGE).
@@ -154,14 +154,14 @@ Identical structure to TELUS NGTA (6 sub-rows per BGE).
 | VCHA (+PHC) | 312 | 313 | 314 | 315 | 316 | 317 |
 | School Districts | 318 | 319 | 320 | 321 | 322 | 323 |
 
-Rows 232–238 are **summary rows** — do not edit.  
+Rows 232–238 are **summary rows** — do not edit.
 Rows 324–328 are **aggregate totals** — do not edit.
 
 ---
 
 ### 4. Out of Scope  (rows 357 – 383)
 
-**Owner:** Out of Scope contributor  
+**Owner:** Out of Scope contributor
 **Background colour:** white (no fill)
 
 Three sub-categories, each with a set of organisation-level detail rows
@@ -209,9 +209,9 @@ All data cells are columns **C:AL** (monthly, Jan 2024 – Dec 2026).
 
 ---
 
-### 5. TSMA Lite  (rows 387 – 394)
+### 5. TSMA Lite  (rows 387 – 395)
 
-**Owner:** TSMA Lite contributor  
+**Owner:** TSMA Lite contributor
 **Background colour:** white (no fill)
 
 TSMA Lite uses **quarterly** data only.  Enter values in the quarter-end
@@ -241,7 +241,8 @@ columns listed below — leave all other month columns empty.
 | 389 | \*Other Charges & Credits |
 | 390 | Cellular User Equipment Cost |
 
-Rows 391 (Total), 393 (Voice + Data + Other), and 394 (Cellular UE reference)
+Rows 391 (Total), 393 (Voice + Data + Other), 394 (Cellular UE reference),
+and 395 (Total Voice + Total Cellular)
 are **formula rows** — do not edit.
 
 ---
@@ -259,7 +260,7 @@ sub-row:
 | PHSA | **55** |
 | VCHA (+PHC) | **76** |
 
-Enter monthly values in columns **C:AL**.  
+Enter monthly values in columns **C:AL**.
 Row 10 (TSMA summary "MMS") and row 87 ("TOTAL MMS") are formula rows —
 do not edit.
 
@@ -283,7 +284,7 @@ The following rows are fully formula-driven and must not be overwritten:
 | 324–328 | Rogers NGTA aggregate totals |
 | 329–354 | Hidden Rogers sub-aggregates |
 | 364, 372, 384 | Out of Scope category totals |
-| 391, 393, 394 | TSMA Lite totals/references |
+| 391, 393, 394, 395 | TSMA Lite totals/references |
 
 ---
 
@@ -291,7 +292,7 @@ The following rows are fully formula-driven and must not be overwritten:
 
 ## Filling TELUS NGTA data from a CSV
 
-The TELUS NGTA section can be populated automatically from a CSV file.  
+The TELUS NGTA section can be populated automatically from a CSV file.
 Place the file at:
 
 ```
@@ -336,7 +337,7 @@ Commas inside numeric values are stripped automatically (e.g. `1,234.56` is acce
 | `FNHA` | FNHA |
 | `SD` | School Districts |
 
-Unknown `entity_key` values and dates outside 2024–2026 are silently skipped.  
+Unknown `entity_key` values and dates outside 2024–2026 are silently skipped.
 If the CSV file is absent the script still runs and leaves the TELUS section blank.
 
 ### Example row
@@ -346,6 +347,45 @@ provider,entity_key,month_start,cellular_hardware,cellular_plans,data_spend,voic
 TELUS,GBC,2024-01-01,100.00,2500.00,300.00,150.00,50.00,3100.00
 TELUS,MOE,2024-02-01,50.00,950.00,125.00,82.00,12.00,1219.00
 ```
+
+---
+
+## Filling Rogers NGTA data from a CSV
+
+The Rogers NGTA section can be populated automatically from a CSV file.
+Place the file at:
+
+```
+source/rogers_ngta_spend.csv   (project root)
+```
+
+> `source/` is in `.gitignore` — files there are never committed.
+
+### CSV format
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `provider` | string | Always `ROGERS` — not used, present for consistency |
+| `entity_key` | string | BGE identifier (see mapping below) |
+| `month_start` | date | Any of `YYYY-MM-DD`, `YYYY-MM`, `YYYY/MM/DD`, `MM/DD/YYYY` |
+| `cellular_plans` | number | Fills the Cellular Plans sub-row |
+| `cellular_hardware` | number | Fills the Cellular H/W sub-row |
+| `data_spend` | number | Fills the Data sub-row |
+| `voice_spend` | number | Fills the Voice sub-row |
+| `other_spend` | number | Fills the Other sub-row |
+| `total_reported` | number | **Ignored** — Total is calculated by Excel formulas |
+
+Commas inside numeric values are stripped automatically (e.g. `1,234.56` is accepted).
+
+### Example summary rows
+
+```csv
+provider,entity_key,month_start,cellular_plans,cellular_hardware,data_spend,voice_spend,other_spend
+ROGERS,GBC,2024-01-01,2500.00,100.00,300.00,150.00,50.00
+ROGERS,MOE,2024-02-01,950.00,50.00,125.00,82.00,12.00
+```
+
+Unknown BGEs and dates outside 2024-2026 are skipped.
 
 ---
 

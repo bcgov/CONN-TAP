@@ -133,15 +133,15 @@ resource "aws_glue_job" "telus_quantities_ingestion" {
   }
 
   default_arguments = {
-  "--BUCKET"                    = var.ngta_raw_bucket_name
-  "--OUTPUT_PREFIX_BASE"        = "processed"
-  "--PROVIDER"                  = "telus"
-  "--REPORT_TYPE"               = "quantities_reports"
-  "--SOURCE_PREFIX_BASE"        = "raw"
-  "--additional-python-modules" = "openpyxl==3.1.2"
-  "--enable-glue-datacatalog"   = "true"
-  "--job-bookmark-option"       = "job-bookmark-disable"
-  "--job-language"              = "python"
+    "--BUCKET"                    = var.ngta_raw_bucket_name
+    "--OUTPUT_PREFIX_BASE"        = "processed"
+    "--PROVIDER"                  = "telus"
+    "--REPORT_TYPE"               = "quantities_reports"
+    "--SOURCE_PREFIX_BASE"        = "raw"
+    "--additional-python-modules" = "openpyxl==3.1.2"
+    "--enable-glue-datacatalog"   = "true"
+    "--job-bookmark-option"       = "job-bookmark-disable"
+    "--job-language"              = "python"
   }
 }
 
@@ -159,12 +159,12 @@ resource "aws_glue_job" "telus_spend_ingestion" {
   }
 
   default_arguments = {
-  "--OUTPUT_BUCKET"             = var.ngta_raw_bucket_name
-  "--RAW_BUCKET"                = var.ngta_raw_bucket_name
-  "--additional-python-modules" = "openpyxl==3.1.2"
-  "--enable-glue-datacatalog"   = "true"
-  "--job-bookmark-option"       = "job-bookmark-disable"
-  "--job-language"              = "python"
+    "--OUTPUT_BUCKET"             = var.ngta_raw_bucket_name
+    "--RAW_BUCKET"                = var.ngta_raw_bucket_name
+    "--additional-python-modules" = "openpyxl==3.1.2"
+    "--enable-glue-datacatalog"   = "true"
+    "--job-bookmark-option"       = "job-bookmark-disable"
+    "--job-language"              = "python"
   }
 }
 
@@ -210,12 +210,12 @@ resource "aws_glue_job" "tsma_qsr_ingestion" {
   }
 
   default_arguments = {
-  "--OUTPUT_BUCKET"             = var.tsma_raw_bucket_name
-  "--RAW_BUCKET"                = var.tsma_raw_bucket_name
-  "--additional-python-modules" = "pyarrow==14.0.2,openpyxl==3.1.2"
-  "--enable-glue-datacatalog"   = "true"
-  "--job-bookmark-option"       = "job-bookmark-disable"
-  "--job-language"              = "python"
+    "--OUTPUT_BUCKET"             = var.tsma_raw_bucket_name
+    "--RAW_BUCKET"                = var.tsma_raw_bucket_name
+    "--additional-python-modules" = "pyarrow==14.0.2,openpyxl==3.1.2"
+    "--enable-glue-datacatalog"   = "true"
+    "--job-bookmark-option"       = "job-bookmark-disable"
+    "--job-language"              = "python"
   }
 }
 

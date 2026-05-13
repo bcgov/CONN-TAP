@@ -12,7 +12,7 @@ Row layout relative to first_row
   first_row + 7     : BGEs header (outline level 1)
   first_row + 8     : first BGE data row
   first_row + 91    : last BGE data row (14 BGEs × 6 rows)
-  first_row + 92-96 : aggregate TOTAL rows (plans / hw / data / voice / other)
+  first_row + 92-96 : aggregate TOTAL rows (outline level 1)
   first_row + 97    : hidden separator
   first_row + 98-102 : hidden Gov & ECC sub-totals
   first_row + 103   : hidden separator
@@ -214,6 +214,7 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
     _ftelh_b = F.n(bold=True, bg_color=BG_TELUS_HDR)
     _ftelb   = F.n(bg_color=BG_TELUS_BGE)
     _ftelb_b = F.n(bold=True, bg_color=BG_TELUS_BGE)
+    _collapsed = {"level": 1, "hidden": True}
     _hidden  = {"hidden": True}
 
     # ---- section header ----
@@ -239,13 +240,13 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
 
     # ---- summary Total row ----
     sum_total_r = sum_start + 5   # = first_row + 6
-    set_row_props(ws, sum_total_r, height=17, fmt=_ftelh)
+    set_row_props(ws, sum_total_r, height=17, fmt=_ftelh, opts={"collapsed": True})
     write(ws, sum_total_r, COL_B, "Total", _ftelh_b)
     write_monthly_sum_range(ws, sum_total_r, sum_start, sum_start + 4, _ftelh_b)
 
     # ---- BGEs header ----
     bges_hdr = first_row + 7
-    set_row_props(ws, bges_hdr, fmt=_ftelh, opts={"level": 1})
+    set_row_props(ws, bges_hdr, fmt=_ftelh, opts=_collapsed)
     write(ws, bges_hdr, COL_A, "BGEs", _ftelh_b)
 
     # ---- BGE detail rows ----
@@ -257,7 +258,7 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
 
         for label, rtype in NGTA_BGE_ROWS:
             r = bge_rm[rtype]
-            set_row_props(ws, r, height=17, fmt=_ftelb, opts={"level": 1})
+            set_row_props(ws, r, height=17, fmt=_ftelb, opts=_collapsed)
             if r == first_r:
                 write(ws, r, COL_A, a_label, _ftelb)
                 if a2_label:
@@ -280,7 +281,7 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
         (tot_voi,   "TOTAL Voice",           voi_rows),
         (tot_oth,   "TOTAL Other",           oth_rows),
     ]:
-        set_row_props(ws, r, height=17, fmt=_ftelh)
+        set_row_props(ws, r, height=17, fmt=_ftelh, opts=_collapsed)
         write(ws, r, COL_B, label, _ftelh)
         write_monthly_sum_rows(ws, r, rows_list, _ftelh)
         write(ws, r, COL_AN, label.replace("TOTAL ", ""))
