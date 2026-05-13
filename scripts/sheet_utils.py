@@ -32,8 +32,8 @@ def _tint(hex6: str, tint: float) -> str:
     )
 
 
-BG_TSMA_HDR   = _tint(_THEME_BASE[3], 0.750)   
-BG_TSMA_BGE   = _tint(_THEME_BASE[3], 0.900)   
+BG_TSMA_HDR   = _tint(_THEME_BASE[3], 0.750)
+BG_TSMA_BGE   = _tint(_THEME_BASE[3], 0.900)
 BG_COMBINED   = _tint(_THEME_BASE[6], 0.600)   # #A3C4A7
 BG_SEPARATOR  = "#00B0F0"
 BG_TELUS_HDR  = _tint(_THEME_BASE[8], 0.600)   # #D9AAD4
@@ -45,6 +45,17 @@ BG_IVR        = "#FFA7A7"
 
 # Standard dollar format: positive → $1,234.56 ; negative → ($1,234.56) in red
 NUM_FMT = '$#,##0.00;[Red]($#,##0.00)'
+FONT_NAME = "Aptos Narrow"
+
+
+def set_workbook_default_font(wb, font_name: str = FONT_NAME):
+    """Apply the workbook default font used by unformatted cells."""
+    if getattr(wb, "_spend_default_font_set", False):
+        return
+    default_formats = getattr(wb, "formats", [])
+    if default_formats:
+        default_formats[0].set_font_name(font_name)
+    wb._spend_default_font_set = True
 
 
 class _FmtCache:
@@ -52,8 +63,10 @@ class _FmtCache:
     def __init__(self, wb):
         self._wb = wb
         self._cache = {}
+        set_workbook_default_font(wb)
 
     def __call__(self, **props):
+        props.setdefault("font_name", FONT_NAME)
         key = tuple(sorted(props.items()))
         if key not in self._cache:
             self._cache[key] = self._wb.add_format(props)
@@ -264,7 +277,7 @@ def set_column_widths(ws):
 
 def write_year_quarter_headers(ws, F):
     """Write rows 1-3: year spans, calendar quarters, fiscal quarters."""
-    f_bold = F(bold=True)
+    f_bold = F(bold=True, align="center", valign="vcenter", border=1)
     set_row_props(ws, 3, height=16)
 
     merge(ws, 1, 2,  1, 13, 2024, f_bold)
@@ -287,10 +300,12 @@ def write_year_quarter_headers(ws, F):
         for qi, label in enumerate(fq):
             c = yr_start + qi * 3
             merge(ws, 3, c, 3, c + 2, label, f_bold)
-    write(ws, 3, COL_AO, "Jan-Dec")
+    write(ws, 3, COL_AO, "Jan-Dec", f_bold)
 
 
-def write_month_label_row(ws, row_1: int, fmt=None):
+def write_month_label_row(ws, row_1: int, fmt=None, F=None):
     """Write month labels (Jan 2024 … Dec 2026) across the data columns."""
+    if fmt is None and F is not None:
+        fmt = F(align="center", valign="vcenter", border=1)
     for i, lbl in enumerate(MONTH_LABELS):
         write(ws, row_1, FIRST_MONTH + i, lbl, fmt)
