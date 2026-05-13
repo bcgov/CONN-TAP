@@ -3,7 +3,7 @@
 End-to-end application skeleton:
 
 - **`backend/`** — FastAPI + SQLAlchemy 2 + pandas + dbt (dbt-core / dbt-postgres).
-- **`frontend/`** — Next.js 15 + React 19 + React Query (`@tanstack/react-query`) + `react-plotly.js` + `@bcgov/design-system-react-components`.
+- **`frontend/`** — Next.js 16 + React 19 + React Query (`@tanstack/react-query`) + `react-plotly.js` + `@bcgov/design-system-react-components` + server-side Keycloak authentication.
 - **`db/`** — Postgres 16 image with `pg_partman` for partitioning plus `pg_trgm` / `btree_gin` / `btree_gist` for advanced indexing.
 - **`docker-compose.yml`** — Local development stack for Postgres and the FastAPI backend. The Next.js frontend is intended to run locally by default.
 
@@ -52,6 +52,29 @@ To verify backend auto-reload from Docker Compose:
 5. Refresh `/docs` or call the changed endpoint again to confirm the new code is live.
 
 The backend container bind-mounts `./backend` into `/app` and starts `uvicorn app.main:app --reload --reload-dir /app/app`, so Python code changes under `backend/app/` should reload automatically.
+
+## Authentication
+
+This application uses **Keycloak** for user authentication via the BC Government's login proxy. 
+
+For detailed Keycloak setup, environment variables, and authentication flow documentation, see [KEYCLOAK.md](./frontend/KEYCLOAK.md).
+
+### Quick Start - Authentication
+
+1. Configure Keycloak and session environment variables in `frontend/.env.local`:
+   ```bash
+   APP_BASE_URL=http://localhost:3001
+   BACKEND_INTERNAL_URL=http://localhost:8000
+   KEYCLOAK_ISSUER_URL=https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+   KEYCLOAK_CLIENT_ID=conn-hub-6434
+   KEYCLOAK_CLIENT_SECRET=your-secret-here
+   SESSION_SECRET=<same 32+ byte secret as backend>
+   TOKEN_ENCRYPTION_KEY=<32+ byte token encryption key>
+   ```
+
+2. Configure the same `KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_NAME`, and `SESSION_SECRET` for FastAPI.
+
+3. Users log in via the landing page and are redirected to a secure dashboard after authentication. The browser receives only an opaque `HttpOnly` session cookie.
 
 ## Running dbt
 

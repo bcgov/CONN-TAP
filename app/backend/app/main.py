@@ -8,7 +8,7 @@ from app.api.routes import router as api_router
 from app.core.config import settings
 from app.db.session import engine
 from app.db.base import Base
-from app.models import dataset  # noqa: F401  -- ensure models are registered on Base.metadata
+from app.models import auth, dataset  # noqa: F401  -- ensure models are registered on Base.metadata
 
 
 @asynccontextmanager

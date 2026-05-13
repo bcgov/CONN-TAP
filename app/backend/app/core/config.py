@@ -19,6 +19,11 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list[str] = ["http://localhost:3001"]
 
+    KEYCLOAK_ISSUER_URL: str = "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
+    KEYCLOAK_CLIENT_ID: str = "conn-hub-6434"
+    SESSION_COOKIE_NAME: str = "telecom_session"
+    SESSION_SECRET: str = "change-me-change-me-change-me-change-me"
+
     @property
     def database_url(self) -> str:
         return (

@@ -43,6 +43,10 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: app
       CORS_ORIGINS: '["http://localhost:3001"]'
+      KEYCLOAK_ISSUER_URL: https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+      KEYCLOAK_CLIENT_ID: conn-hub-6434
+      SESSION_COOKIE_NAME: telecom_session
+      SESSION_SECRET: local-dev-session-secret-32-bytes-min
       WATCHFILES_FORCE_POLLING: "true"
       WATCHFILES_POLL_DELAY_MS: "300"
     ports:
@@ -62,8 +66,19 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      APP_BASE_URL: http://localhost:3001
       BACKEND_INTERNAL_URL: http://backend:8000
+      KEYCLOAK_ISSUER_URL: https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+      KEYCLOAK_CLIENT_ID: conn-hub-6434
+      KEYCLOAK_CLIENT_SECRET: replace-with-confidential-client-secret
+      SESSION_COOKIE_NAME: telecom_session
+      SESSION_SECRET: local-dev-session-secret-32-bytes-min
+      TOKEN_ENCRYPTION_KEY: local-dev-token-encryption-key-32-b
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:

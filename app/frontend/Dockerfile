@@ -3,8 +3,8 @@
 # ---------- deps ----------
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json ./
-RUN npm install --no-audit --no-fund
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 # ---------- builder ----------
 FROM node:20-alpine AS builder
