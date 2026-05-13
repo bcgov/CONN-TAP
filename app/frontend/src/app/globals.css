@@ -83,3 +83,122 @@ body.telecom-landing {
 .telecom-landing .bcds-footer--logo-links.vertical > .bcds-footer--links ul {
   grid-template-columns: repeat(3, 1fr);
 }
+
+/* ─── Dashboard layout ──────────────────────────────────────────────────── */
+
+.dashboard-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.dashboard-sidebar {
+  width: 52px;
+  background: var(--surface-color-background-dark-blue, #053662);
+  transition: width 220ms ease;
+  overflow: hidden;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.dashboard-sidebar:hover {
+  width: 220px;
+}
+
+.dashboard-sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.dashboard-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  white-space: nowrap;
+  border-left: 3px solid transparent;
+  font-size: 0.875rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  transition: background 150ms ease;
+}
+
+.dashboard-sidebar__item:hover {
+  background: var(--surface-color-primary-hover, #1e5189);
+  color: #ffffff;
+}
+
+.dashboard-sidebar__item--active {
+  border-left-color: #fcba19;
+  color: #ffffff;
+}
+
+.dashboard-sidebar__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.dashboard-sidebar__label {
+  opacity: 0;
+  transition: opacity 150ms ease 0ms;
+  pointer-events: none;
+}
+
+.dashboard-sidebar:hover .dashboard-sidebar__label {
+  opacity: 1;
+  transition: opacity 150ms ease 80ms;
+}
+
+/* Override header container max-width so user info reaches the right edge */
+.dashboard-shell .bcds-header > .bcds-header--container {
+  max-width: none;
+}
+
+/* Header user section */
+.dashboard-header__user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--typography-color-primary, #313131);
+  font-size: 0.875rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  margin-left: auto;
+  padding: 0 1rem;
+}
+
+.dashboard-header__logout {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  color: var(--typography-color-primary, #313131);
+  border: 1px solid var(--surface-color-border-medium, #898785);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-header__logout:hover {
+  background: var(--surface-color-secondary-hover, #edebe9);
+  border-color: var(--surface-color-border-dark, #353433);
+}
+
+/* Dashboard main content */
+.dashboard-main {
+  flex: 1;
+  padding: 2rem;
+  background: var(--surface-color-background-light-gray, #faf9f8);
+  overflow: auto;
+}

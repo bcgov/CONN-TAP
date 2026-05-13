@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@bcgov/bc-sans/css/BC_Sans.css";
+import "@bcgov/design-tokens/css/variables.css";
 import Providers from "./providers";
 import "./globals.css";
 

@@ -14,9 +14,15 @@ importers:
       '@bcgov/design-system-react-components':
         specifier: ^0.7.0
         version: 0.7.0(@bcgov/bc-sans@2.1.0)(@react-spectrum/provider@3.11.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@bcgov/design-tokens':
+        specifier: ^4.0.0
+        version: 4.0.0
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.100.10(react@19.2.6)
+      lucide-react:
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.6)
       next:
         specifier: ^16.2.4
         version: 16.2.6(@babel/core@7.29.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -167,6 +173,9 @@ packages:
 
   '@bcgov/design-tokens@3.2.0':
     resolution: {integrity: sha512-2D3mPFKTpNLeIp8ER9y8oDKxXE8+rBfcvuF4yFd7uUvDm0izZNFhambUi6sN3OdkmuZoGQO7AjlMtOQzsHtxzA==}
+
+  '@bcgov/design-tokens@4.0.0':
+    resolution: {integrity: sha512-kcen18Q/snP6M6JQ6XUQTlWXM1Gnm6y8Zk0i29K+T/Y0m/ab4PufmGpl43l/EJKCnYgpOaZFSXDK7CCO6P0INw==}
 
   '@choojs/findup@0.2.1':
     resolution: {integrity: sha512-YstAqNb0MCN8PjdLCDfRsBcGVRN41f3vgLvaI0IrIcBp4AqILRSS0DeWNGkicC+f/zRIPJLc+9RURVSepwvfBw==}
@@ -2321,6 +2330,11 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  lucide-react@1.14.0:
+    resolution: {integrity: sha512-+1mdWcfSJVUsaTIjN9zoezmUhfXo5l0vP7ekBMPo3jcS/aIkxHnXqAPsByszMZx/Y8oQBRJxJx5xg+RH3urzxA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   map-limit@0.0.1:
     resolution: {integrity: sha512-pJpcfLPnIF/Sk3taPW21G/RQsEEirGaFpCW3oXRwH9dnFHPHNGjNyvh++rdmC2fNqEaTw2MhYJraoJWAHx8kEg==}
 
@@ -3420,6 +3434,8 @@ snapshots:
       - '@react-spectrum/provider'
 
   '@bcgov/design-tokens@3.2.0': {}
+
+  '@bcgov/design-tokens@4.0.0': {}
 
   '@choojs/findup@0.2.1':
     dependencies:
@@ -5878,6 +5894,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-react@1.14.0(react@19.2.6):
+    dependencies:
+      react: 19.2.6
 
   map-limit@0.0.1:
     dependencies:
