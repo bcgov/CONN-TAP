@@ -9,6 +9,7 @@ interface AuthenticatedSession {
   email: string | null;
   name: string | null;
   expiresAt: string;
+  roles: string[];
 }
 
 interface AnonymousSession {

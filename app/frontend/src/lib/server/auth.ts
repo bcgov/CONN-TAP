@@ -8,6 +8,9 @@ import { createOpaqueToken, decryptToken, encryptToken, hashAccessToken, hashSes
 import { ensureAuthSchema, query } from "./db";
 import { refreshAccessToken } from "./oidc";
 
+export const ALLOWED_ROLES = ["global_admin", "global_analyst"] as const;
+export type AllowedRole = (typeof ALLOWED_ROLES)[number];
+
 export interface PublicSession {
   authenticated: true;
   subject: string;
@@ -15,6 +18,7 @@ export interface PublicSession {
   email: string | null;
   name: string | null;
   expiresAt: string;
+  roles: string[];
 }
 
 export interface ServerSession extends PublicSession {
@@ -31,6 +35,7 @@ interface SessionRow {
   username: string | null;
   email: string | null;
   name: string | null;
+  claims: Record<string, unknown> | null;
   encrypted_access_token: string;
   encrypted_refresh_token: string | null;
   encrypted_id_token: string | null;
@@ -43,7 +48,7 @@ export function sanitizeReturnTo(value: string | null): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/dashboard";
   }
-  if (value.startsWith("/auth/")) {
+  if (value.startsWith("/auth/") || value === "/unauthorized") {
     return "/dashboard";
   }
   return value;
@@ -65,6 +70,17 @@ function claimString(claims: Record<string, unknown>, name: string): string | nu
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function extractClientRoles(claims: Record<string, unknown> | null): string[] {
+  if (!claims) return [];
+  const clientRoles = claims["client_roles"];
+  if (!Array.isArray(clientRoles)) return [];
+  return clientRoles.filter((r): r is string => typeof r === "string");
+}
+
+export function hasAuthorizedRole(roles: string[]): boolean {
+  return roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r));
+}
+
 export function publicSession(session: ServerSession): PublicSession {
   return {
     authenticated: true,
@@ -73,6 +89,7 @@ export function publicSession(session: ServerSession): PublicSession {
     email: session.email,
     name: session.name,
     expiresAt: session.expiresAt,
+    roles: session.roles,
   };
 }
 
@@ -222,6 +239,7 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
             username,
             email,
             name,
+            claims,
             encrypted_access_token,
             encrypted_refresh_token,
             encrypted_id_token,
@@ -292,6 +310,7 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
     username: row.username,
     email: row.email,
     name: row.name,
+    roles: extractClientRoles(row.claims),
     accessToken,
     refreshToken,
     idToken,
@@ -304,6 +323,14 @@ export async function requireSession(returnTo: string): Promise<ServerSession> {
   const session = await getCurrentSession({ refresh: true });
   if (!session) {
     redirect(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }
+  return session;
+}
+
+export async function requireAuthorizedSession(returnTo: string): Promise<ServerSession> {
+  const session = await requireSession(returnTo);
+  if (!hasAuthorizedRole(session.roles)) {
+    redirect("/unauthorized");
   }
   return session;
 }

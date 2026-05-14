@@ -202,3 +202,18 @@ body.telecom-landing {
   background: var(--surface-color-background-light-gray, #faf9f8);
   overflow: auto;
 }
+
+/* Unauthorized page */
+.unauthorized-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  color: var(--support-color-danger, #ce3e39);
+}
+
+.unauthorized-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
