@@ -5,7 +5,7 @@ import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Telecom Hub",
+  title: "Telecom Access Point",
   description:
     "Explore dashboards, reports, contract information, spend and savings analytics, and key performance metrics for telecom services.",
 };

@@ -9,7 +9,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   return (
     <div className="dashboard-shell">
       <Header
-        title="Telecom Hub"
+        title="Telecom Access Point"
         skipLinks={[
           <a key="main" href="#main-content">
             Skip to main content
@@ -34,7 +34,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
       <div className="dashboard-body">
         <DashboardSidebar />
         <main id="main-content" className="dashboard-main">
-          <Heading level={1}>Welcome to the Telecom Dashboard</Heading>
+          <Heading level={1}>Welcome to the Telecom Access Point</Heading>
           <p style={{ color: "#313131", marginBottom: "2rem" }}>
             You are signed in as {displayName}.
           </p>

@@ -12,7 +12,7 @@ export function HomeClient() {
   return (
     <div className="telecom-landing__shell">
       <Header
-        title="Telecom Hub"
+        title="Telecom Access Point"
         skipLinks={[
           <a key="main" href="#main-content">
             Skip to main content
@@ -24,11 +24,11 @@ export function HomeClient() {
       />
 
       <main id="main-content" className="telecom-main">
-        <Heading level={1}>Welcome to the Telecom Hub</Heading>
+        <Heading level={1}>Welcome to the Telecom Access Point</Heading>
 
         <p className="telecom-main__intro">
           Explore dashboards, reports, contract information, spend and savings analytics, and key
-          performance metrics for telecom services.
+          performance metrics for telecom services on the Telecom Access Point.
         </p>
 
         <div className="telecom-main__login-block">
@@ -49,11 +49,11 @@ export function HomeClient() {
           <strong>Need access?</strong>
           <br />
           Contact your Telecom Office administrator or{" "}
-          <BcLink href="mailto:example@gov.bc.ca">email us</BcLink> to request access.
+          <BcLink href="mailto:example@gov.bc.ca">email us</BcLink> to request access to the Telecom Access Point.
         </div>
 
         <Heading className="telecom-main__features-title" level={2}>
-          What you can do in Telecom Hub
+          What you can do in Telecom Access Point
         </Heading>
 
         <ul className="telecom-main__list">

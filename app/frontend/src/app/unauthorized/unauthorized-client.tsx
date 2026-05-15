@@ -17,7 +17,7 @@ export function UnauthorizedClient({
   return (
     <div className="telecom-landing__shell">
       <Header
-        title="Telecom Hub"
+        title="Telecom Access Point"
         skipLinks={[
           <a key="main" href="#main-content">
             Skip to main content
