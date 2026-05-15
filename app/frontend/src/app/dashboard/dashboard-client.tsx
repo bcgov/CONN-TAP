@@ -4,6 +4,7 @@ import { Header, Heading } from "@bcgov/design-system-react-components";
 import Link from "next/link";
 import { UserCircle2 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { MinimalFooter } from "@/components/minimal-footer";
 
 export function DashboardClient({ displayName }: { displayName: string }) {
   return (
@@ -33,12 +34,15 @@ export function DashboardClient({ displayName }: { displayName: string }) {
 
       <div className="dashboard-body">
         <DashboardSidebar />
-        <main id="main-content" className="dashboard-main">
-          <Heading level={1}>Welcome to the Telecom Access Point</Heading>
-          <p style={{ color: "#313131", marginBottom: "2rem" }}>
-            You are signed in as {displayName}.
-          </p>
-        </main>
+        <div className="dashboard-content">
+          <main id="main-content" className="dashboard-main">
+            <Heading level={1}>Welcome to the Telecom Access Point</Heading>
+            <p style={{ color: "#313131", marginBottom: "2rem" }}>
+              You are signed in as {displayName}.
+            </p>
+          </main>
+          <MinimalFooter />
+        </div>
       </div>
     </div>
   );
