@@ -88,15 +88,16 @@ body.telecom-landing {
 
 .dashboard-shell {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   overflow: hidden;
 }
 
-.dashboard-body {
+.dashboard-right {
   display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: 0;
+  min-width: 0;
 }
 
 .dashboard-content {
@@ -123,7 +124,7 @@ body.telecom-landing {
 .dashboard-sidebar__list {
   list-style: none;
   margin: 0;
-  padding: 0.5rem 0;
+  padding: var(--dashboard-header-height, 65px) 0 0.5rem;
 }
 
 .dashboard-sidebar__item {
@@ -170,7 +171,7 @@ body.telecom-landing {
 }
 
 /* Override header container max-width so user info reaches the right edge */
-.dashboard-shell .bcds-header > .bcds-header--container {
+.dashboard-right .bcds-header > .bcds-header--container {
   max-width: none;
 }
 
