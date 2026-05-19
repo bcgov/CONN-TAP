@@ -107,15 +107,6 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_voice_pricebook (
   extras                     jsonb
 );
 
--- If the voice table already exists from an earlier schema version:
-ALTER TABLE raw_data.raw_rogers_voice_pricebook
-  ADD COLUMN IF NOT EXISTS service_subcategory text,
-  ADD COLUMN IF NOT EXISTS terminating_country text;
-
-UPDATE raw_data.raw_rogers_voice_pricebook
-SET voice_table_section = 'base_service'
-WHERE voice_table_section = 'contact_center';
-
 CREATE INDEX IF NOT EXISTS idx_raw_rogers_voice_ingestion
   ON raw_data.raw_rogers_voice_pricebook (pricebook_ingestion_run_id);
 
@@ -131,7 +122,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_additional_fees_pricebook
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   service text, fee text, cpm_rate text, type_of_service text,
   extras jsonb
 );
@@ -140,7 +131,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_catalog_and_price_list_pr
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   category text, fee_based_optional_features text, service_id text, monthly_fee text,
   extras jsonb
 );
@@ -149,7 +140,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_device_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   device_name text, device_price text, type_of_service text,
   extras jsonb
 );
@@ -158,7 +149,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_long_distance_cost_per_mi
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   calling_to text, cpm_rate text, type_of_service text,
   extras jsonb
 );
@@ -167,7 +158,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_mms_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   service text, service_id text, monthly_fee text, type_of_service text,
   extras jsonb
 );
@@ -176,7 +167,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_roaming_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   roaming text, fee text, type_of_service text,
   extras jsonb
 );
@@ -185,7 +176,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_cellular_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   category text, rate_plan text, service_id text, monthly_fee text, type_of_service text,
   extras jsonb
 );
@@ -194,7 +185,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_control_center_services_pricebook 
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   category text, rate_plan text, service_id text, monthly_fee text,
   extras jsonb
 );
@@ -203,7 +194,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_data_professional_services_pricebo
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   professional_service_category text, title text, service_supported text,
   service_id text, business_hours_rate_hourly text, after_business_hours_rate_hourly text,
   extras jsonb
@@ -213,7 +204,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_data_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   service_category text, service_id text, service_name text,
   short_service_description text, monthly_fee text, ecf_rate text, service_sla text,
   technical_services_support text, ordering_lead_times_objectives text,
@@ -225,7 +216,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_voice_long_distance_fees_pricebook
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   country text, landline_termination_cpm_rate text, mobile_termination_cpm_rate text,
   extras jsonb
 );
@@ -234,7 +225,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_voice_professional_services_priceb
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   professional_service_category text, title text, service_supported text,
   service_id text, business_hours_rate_hourly text, after_business_hours_rate_hourly text,
   extras jsonb
@@ -244,7 +235,7 @@ CREATE TABLE IF NOT EXISTS raw_data.raw_telus_voice_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
-  sheet_name text,
+  excel_row_number integer,
   service_category text, service_id text, service_name text,
   short_service_description text, monthly_fee text, ecf_rate text, service_sla text,
   technical_services_support text, ordering_lead_times_objectives text,

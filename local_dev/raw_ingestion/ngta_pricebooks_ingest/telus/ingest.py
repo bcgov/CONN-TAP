@@ -15,7 +15,7 @@ from telus.excel import parse_workbook
 
 
 def _insert_columns(spec_columns: tuple[str, ...]) -> list[str]:
-    return ["pricebook_ingestion_run_id", "sheet_name", *spec_columns, "extras"]
+    return ["pricebook_ingestion_run_id", "excel_row_number", *spec_columns, "extras"]
 
 
 def process_file(

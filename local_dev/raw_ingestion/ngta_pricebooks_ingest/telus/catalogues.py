@@ -25,7 +25,7 @@ def stem_to_table_name(file_stem: str) -> str:
     return f"raw_telus_{body}_pricebook"
 
 
-# file_stem, data columns (ingestion adds pricebook_ingestion_run_id, sheet_name, extras)
+# file_stem, data columns (ingestion adds pricebook_ingestion_run_id, excel_row_number, extras)
 _CATALOGUE_ROWS: list[tuple[str, tuple[str, ...]]] = [
     (
         "u_ngta_cellular_additional_fees_catalogue",

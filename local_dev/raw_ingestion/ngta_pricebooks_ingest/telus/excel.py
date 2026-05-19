@@ -69,9 +69,19 @@ def canonical_header(name: Any) -> str:
     return s
 
 
+_ROW_NUM_COL = "_excel_row_number"
+
+
 def clean_frame(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(how="all")
-    if not df.empty:
+    if not df.empty and _ROW_NUM_COL in df.columns:
+        data_cols = [c for c in df.columns if c != _ROW_NUM_COL]
+        mask_header = df.apply(
+            lambda row: list(row[data_cols].values) == list(data_cols),
+            axis=1,
+        )
+        df = df[~mask_header]
+    elif not df.empty:
         mask_header = df.apply(lambda row: list(row.values) == list(df.columns), axis=1)
         df = df[~mask_header]
     return df.loc[:, ~df.columns.duplicated()]
@@ -91,15 +101,19 @@ def parse_workbook(path: Path, spec: CatalogueSpec) -> list[dict[str, Any]]:
 
     for sheet_name in xl.sheet_names:
         df = pd.read_excel(xl, sheet_name=sheet_name, dtype=object)
+        # Excel row 1 is the header row; first data row is row 2.
+        df[_ROW_NUM_COL] = range(2, len(df) + 2)
         df = clean_frame(df)
         if df.empty:
             continue
 
-        colmap = {c: canonical_header(c) for c in df.columns}
+        colmap = {
+            c: canonical_header(c) for c in df.columns if c != _ROW_NUM_COL
+        }
         for _, row in df.iterrows():
             vals: dict[str, Any] = {
                 "pricebook_ingestion_run_id": None,
-                "sheet_name": sheet_name,
+                "excel_row_number": int(row[_ROW_NUM_COL]),
                 "extras": None,
             }
             extras: dict[str, Any] = {}
