@@ -225,6 +225,13 @@ export async function clearSessionCookie(): Promise<void> {
   });
 }
 
+async function invalidateSession(sessionHash: string): Promise<void> {
+  await query("UPDATE auth_sessions SET revoked_at = now(), updated_at = now() WHERE session_hash = $1", [
+    sessionHash,
+  ]);
+  await clearSessionCookie();
+}
+
 export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
   const { cookieName, refreshWindowSeconds } = authEnv();
   const cookieStore = await cookies();
@@ -272,7 +279,10 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
   const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
   if (options.refresh && refreshToken && Date.now() >= refreshAt) {
     const refreshed = await refreshAccessToken(refreshToken);
-    if (!refreshed.access_token) return null;
+    if (!refreshed?.access_token) {
+      await invalidateSession(sessionHash);
+      return null;
+    }
 
     accessToken = refreshed.access_token;
     refreshToken = refreshed.refresh_token ?? refreshToken;
@@ -338,10 +348,9 @@ export async function requireAuthorizedSession(returnTo: string): Promise<Server
 export async function revokeCurrentSession(): Promise<string | null> {
   const session = await getCurrentSession();
   if (session) {
-    await query("UPDATE auth_sessions SET revoked_at = now(), updated_at = now() WHERE session_hash = $1", [
-      session.sessionHash,
-    ]);
+    await invalidateSession(session.sessionHash);
+  } else {
+    await clearSessionCookie();
   }
-  await clearSessionCookie();
   return session?.idToken ?? null;
 }
