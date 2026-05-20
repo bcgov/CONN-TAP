@@ -72,6 +72,36 @@ variable "powerbi_alert_email" {
   description = "Email address to receive alerts when the PowerBI EC2 instance has been running for more than 8 hours. Leave null to disable email alerts."
 }
 
+variable "lambda_subnet_ids" {
+  type        = list(string)
+  description = "Subnet IDs for VPC-attached Lambdas (use data-tier subnets that can reach RDS)."
+  default     = []
+}
+
+variable "rds_security_group_id" {
+  type        = string
+  description = "Security group ID of the RDS instance. Lambda ingress rule is added to this SG."
+  default     = ""
+}
+
+variable "rds_secret_arn" {
+  type        = string
+  description = "ARN of the Secrets Manager secret holding the RDS master password (plain string)."
+  default     = ""
+}
+
+variable "rds_endpoint" {
+  type        = string
+  description = "Hostname of the RDS primary endpoint."
+  default     = ""
+}
+
+variable "rds_db_name" {
+  type        = string
+  description = "Database name on the RDS instance."
+  default     = "app"
+}
+
 variable "glue_job_max_concurrent_runs" {
   type        = number
   default     = 20

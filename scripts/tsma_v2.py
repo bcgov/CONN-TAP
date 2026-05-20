@@ -89,7 +89,7 @@ def load_cellular(conn) -> dict[str, list[float]]:
         conn,
         """
         SELECT lcd_category, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM public.tsma_wireless
+        FROM raw_data.tsma_wireless
         WHERE ccyymm BETWEEN %s AND %s
           AND NULLIF(TRIM(COALESCE(lcd_category, '')), '') IS NOT NULL
         GROUP BY lcd_category, ccyymm
@@ -104,7 +104,7 @@ def load_wireline(conn, service_towers: tuple[str, ...]) -> dict[str, list[float
         conn,
         """
         SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
-        FROM public.tsma_wireline
+        FROM raw_data.tsma_wireline
         WHERE ccyymm BETWEEN %s AND %s
           AND tsma_service_tower = ANY(%s)
           AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
@@ -122,10 +122,10 @@ def load_other_out_of_scope(conn) -> dict[str, list[float]]:
         SELECT entity, ccyymm, COALESCE(SUM(billed_amt), 0)
         FROM (
             SELECT entity, ccyymm, billed_amt
-            FROM public.tsma_other_managed_router
+            FROM raw_data.tsma_other_managed_router
             UNION ALL
             SELECT entity, ccyymm, billed_amt
-            FROM public.tsma_other_managed_security
+            FROM raw_data.tsma_other_managed_security
         ) AS other_out_of_scope
         WHERE ccyymm BETWEEN %s AND %s
           AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
@@ -142,7 +142,7 @@ def load_lite_cellular(conn) -> dict[str, list[float]]:
         cur.execute(
             """
             SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_lite_wireless
+            FROM raw_data.tsma_lite_wireless
             WHERE ccyymm BETWEEN %s AND %s
             GROUP BY ccyymm
             ORDER BY ccyymm
@@ -162,7 +162,7 @@ def load_lite_wireline(conn, service_towers: tuple[str, ...]) -> dict[str, list[
         cur.execute(
             """
             SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_lite_wireline
+            FROM raw_data.tsma_lite_wireline
             WHERE ccyymm BETWEEN %s AND %s
               AND tsma_service_tower = ANY(%s)
             GROUP BY ccyymm
@@ -183,7 +183,7 @@ def load_ivr_totals(conn) -> list[float]:
         cur.execute(
             """
             SELECT ccyymm, COALESCE(SUM(billed_amt), 0)
-            FROM public.tsma_ivr
+            FROM raw_data.tsma_ivr
             WHERE ccyymm BETWEEN %s AND %s
             GROUP BY ccyymm
             ORDER BY ccyymm
@@ -202,7 +202,7 @@ def load_mms(conn) -> dict[str, list[float]]:
         conn,
         """
         SELECT entity_name, ccyymm, COALESCE(SUM(total), 0)
-        FROM public.tsma_mms
+        FROM raw_data.tsma_mms
         WHERE ccyymm BETWEEN %s AND %s
           AND NULLIF(TRIM(COALESCE(entity_name, '')), '') IS NOT NULL
         GROUP BY entity_name, ccyymm

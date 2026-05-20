@@ -18,6 +18,11 @@ output "secret_arn" {
   value = aws_secretsmanager_secret.db.arn
 }
 
+output "db_password" {
+  value     = random_password.master.result
+  sensitive = true
+}
+
 output "security_group_id" {
   value = aws_security_group.rds.id
 }

@@ -1,4 +1,4 @@
--- Telus raw_telus_spend validation helpers (see local_dev/ngta_postgres_ingest/schema.sql).
+-- Telus raw_data.raw_telus_spend validation helpers (see local_dev/ngta_postgres_ingest/schema.sql).
 --
 -- Each routine returns rows where validation fails. Use p_statement_month := NULL to scan
 -- the full table; pass any date within the target month (e.g. date '2026-03-15') to restrict
@@ -26,7 +26,7 @@ AS $$
     EXTRACT(YEAR FROM t.statement_date)::int AS contradiction_year,
     EXTRACT(MONTH FROM t.statement_date)::int AS contradiction_month,
     trim(both FROM t.detail_description) AS detail_description
-  FROM raw_telus_spend AS t
+  FROM raw_data.raw_telus_spend AS t
   WHERE trim(both FROM COALESCE(t.statement_category, '')) <> 'Taxes'
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
@@ -95,7 +95,7 @@ AS $$
     trim(both FROM t.detail_description) AS detail_description,
     COUNT(*)::bigint AS contradiction_row_count,
     SUM(t.amount) AS contradiction_amount_sum
-  FROM raw_telus_spend AS t
+  FROM raw_data.raw_telus_spend AS t
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
@@ -168,7 +168,7 @@ AS $$
     EXTRACT(MONTH FROM t.statement_date)::int AS contradiction_month,
     trim(both FROM t.source_id) AS source_id,
     trim(both FROM t.source) AS source
-  FROM raw_telus_spend AS t
+  FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
         trim(both FROM COALESCE(t.source, '')) = 'Wireless'
@@ -195,7 +195,7 @@ AS $$
     source;
 $$;
 
--- Flags physical columns on raw_telus_spend that have at least one NULL or all-whitespace value
+-- Flags physical columns on raw_data.raw_telus_spend that have at least one NULL or all-whitespace value
 -- within each (sheet_name, statement month). Omitted columns (blanks allowed): bill_section,
 -- service_address, service_description, detail_description, extras.
 
@@ -213,7 +213,7 @@ STABLE
 AS $$
   WITH base AS (
     SELECT *
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE (
       p_statement_month IS NULL
       OR (
@@ -311,7 +311,7 @@ BEGIN
   RETURN QUERY
   WITH base AS (
     SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE t.statement_date IS NOT NULL
       AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
   ),
@@ -407,7 +407,7 @@ AS $$
     EXTRACT(YEAR FROM t.statement_date)::int AS contradiction_year,
     EXTRACT(MONTH FROM t.statement_date)::int AS contradiction_month,
     COUNT(*)::bigint AS contradiction_row_count
-  FROM raw_telus_spend AS t
+  FROM raw_data.raw_telus_spend AS t
   WHERE (
       t.statement_category IS NULL
       OR trim(both FROM t.statement_category) = ''
@@ -446,7 +446,7 @@ AS $$
 $$;
 
 -- Coercibility of values to intended semantic types (see mapping below). Only checks that can
--- fail on raw_telus_spend as ingested: text columns that must be numeric strings, and month.
+-- fail on raw_data.raw_telus_spend as ingested: text columns that must be numeric strings, and month.
 -- month validity matches get_month_non_date_telus: YYYY-MM[-DD], leading month-name prefix,
 -- MM[/\-]YYYY, or YYYY-MM-DD HH:MM:SS; NULL / non-matching values are flagged.
 -- account_description, service_number, statement_section, organization, statement_category,
@@ -469,7 +469,7 @@ STABLE
 AS $$
   WITH base AS (
     SELECT *
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE (
       p_statement_month IS NULL
       OR (
@@ -567,7 +567,7 @@ STABLE
 AS $$
   WITH base AS (
     SELECT *
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
       AND (
@@ -644,7 +644,7 @@ STABLE
 AS $$
   WITH base AS (
     SELECT *
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
       AND (
