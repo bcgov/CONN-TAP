@@ -168,10 +168,11 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      DB_PASSWORD = var.db_password
-      DB_HOST     = var.rds_endpoint
-      DB_NAME     = var.rds_db_name
-      DRY_RUN     = tostring(var.dry_run)
+      DB_PASSWORD    = var.db_password
+      DB_HOST        = var.rds_endpoint
+      DB_NAME        = var.rds_db_name
+      DRY_RUN        = tostring(var.dry_run)
+      AWS_ACCOUNT_ID = var.account_id
     }
   }
 }

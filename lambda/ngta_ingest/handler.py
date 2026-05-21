@@ -37,7 +37,12 @@ def _get_dsn() -> str:
 def _download(bucket: str, key: str) -> Path:
     tmp_path = Path(f"/tmp/{key.split('/')[-1]}")
     logger.info("Downloading s3://%s/%s", bucket, key)
-    s3_client.download_file(bucket, key, str(tmp_path))
+    s3_client.download_file(
+        bucket,
+        key,
+        str(tmp_path),
+        ExtraArgs={"ExpectedBucketOwner": os.environ["AWS_ACCOUNT_ID"]},
+    )
     return tmp_path
 
 
@@ -165,7 +170,7 @@ _ROUTES = [
 # ---------------------------------------------------------------------------
 
 def lambda_handler(event, context):
-    logger.info("Event: %s", json.dumps(event))
+    logger.info("Event received: %d record(s)", len(event.get("Records", [])))
 
     dry_run = os.environ.get("DRY_RUN", "").lower() == "true"
 

@@ -10,8 +10,8 @@ module "ngta_ingest_lambda" {
   rds_db_name           = module.platform_rds.db_name
   rds_security_group_id = module.platform_rds.security_group_id
 
-  vpc_id             = data.aws_vpc.workload.id
-  lambda_subnet_ids  = [data.aws_subnet.data_a.id, data.aws_subnet.data_b.id]
+  vpc_id            = data.aws_vpc.workload.id
+  lambda_subnet_ids = [data.aws_subnet.data_a.id, data.aws_subnet.data_b.id]
 
   dry_run = false
 }
