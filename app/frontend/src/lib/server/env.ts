@@ -4,6 +4,10 @@ const DEFAULT_COOKIE_NAME = "telecom_session";
 const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const DEFAULT_REFRESH_WINDOW_SECONDS = 60;
 
+export function sessionCookieName(): string {
+  return process.env.SESSION_COOKIE_NAME ?? DEFAULT_COOKIE_NAME;
+}
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -22,7 +26,23 @@ function optionalInt(name: string, fallback: number): number {
   return parsed;
 }
 
-export function authEnv() {
+export interface AuthEnv {
+  appBaseUrl: string;
+  backendInternalUrl: string;
+  issuerUrl: string;
+  clientId: string;
+  clientSecret: string;
+  cookieName: string;
+  sessionSecret: string;
+  tokenEncryptionKey: string;
+  sessionTtlSeconds: number;
+  refreshWindowSeconds: number;
+  secureCookies: boolean;
+}
+
+let cachedAuthEnv: AuthEnv | null = null;
+
+function loadAuthEnv(): AuthEnv {
   const appBaseUrl = required("APP_BASE_URL").replace(/\/$/, "");
   const issuerUrl = required("KEYCLOAK_ISSUER_URL").replace(/\/$/, "");
 
@@ -32,13 +52,18 @@ export function authEnv() {
     issuerUrl,
     clientId: required("KEYCLOAK_CLIENT_ID"),
     clientSecret: required("KEYCLOAK_CLIENT_SECRET"),
-    cookieName: process.env.SESSION_COOKIE_NAME ?? DEFAULT_COOKIE_NAME,
+    cookieName: sessionCookieName(),
     sessionSecret: required("SESSION_SECRET"),
     tokenEncryptionKey: required("TOKEN_ENCRYPTION_KEY"),
     sessionTtlSeconds: optionalInt("SESSION_TTL_SECONDS", DEFAULT_SESSION_TTL_SECONDS),
     refreshWindowSeconds: optionalInt("TOKEN_REFRESH_WINDOW_SECONDS", DEFAULT_REFRESH_WINDOW_SECONDS),
     secureCookies: appBaseUrl.startsWith("https://"),
   };
+}
+
+export function authEnv(): AuthEnv {
+  cachedAuthEnv ??= loadAuthEnv();
+  return cachedAuthEnv;
 }
 
 export function postgresEnv() {

@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { authEnv } from "./env";
+import { authEnv, sessionCookieName } from "./env";
 import { createOpaqueToken, decryptToken, encryptToken, hashAccessToken, hashSessionToken } from "./crypto";
 import { ensureAuthSchema, query } from "./db";
 import { refreshAccessToken } from "./oidc";
@@ -233,10 +233,11 @@ async function invalidateSession(sessionHash: string): Promise<void> {
 }
 
 export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
-  const { cookieName, refreshWindowSeconds } = authEnv();
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(cookieName)?.value;
+  const sessionToken = cookieStore.get(sessionCookieName())?.value;
   if (!sessionToken) return null;
+
+  const { refreshWindowSeconds } = authEnv();
 
   await ensureAuthSchema();
   const sessionHash = hashSessionToken(sessionToken);
