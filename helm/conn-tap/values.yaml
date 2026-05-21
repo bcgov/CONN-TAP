@@ -19,6 +19,7 @@ backend:
     POSTGRES_PORT: "5432"
     POSTGRES_USER: "dbadmin"
     POSTGRES_DB: "app"
+    POSTGRES_SSL: "true"
     CORS_ORIGINS: '["http://localhost:3000"]'
     KEYCLOAK_ISSUER_URL: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
     KEYCLOAK_CLIENT_ID: "conn-hub-6434"
@@ -47,6 +48,7 @@ frontend:
     POSTGRES_PORT: "5432"
     POSTGRES_USER: "dbadmin"
     POSTGRES_DB: "app"
+    POSTGRES_SSL: "true"
   existingSecret: ""
   secretEnv: {}
 

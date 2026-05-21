@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Pool, type QueryResult, type QueryResultRow } from "pg";
-import { postgresEnv } from "./env";
+import { postgresEnv, postgresSslEnabled } from "./env";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -12,6 +12,7 @@ const pool =
   globalThis.telecomPgPool ??
   new Pool({
     connectionString: postgresEnv().connectionString,
+    ssl: postgresSslEnabled() ? { rejectUnauthorized: false } : false,
   });
 
 if (process.env.NODE_ENV !== "production") {

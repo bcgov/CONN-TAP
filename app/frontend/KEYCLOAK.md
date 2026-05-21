@@ -23,6 +23,8 @@ POSTGRES_PORT=5432
 POSTGRES_USER=app
 POSTGRES_PASSWORD=app
 POSTGRES_DB=app
+# Omit or true on RDS/EKS (default). Set false for local docker-compose Postgres.
+POSTGRES_SSL=false
 ```
 
 FastAPI needs the same session settings:

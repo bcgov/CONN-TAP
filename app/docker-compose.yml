@@ -42,6 +42,7 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: app
+      POSTGRES_SSL: "false"
       CORS_ORIGINS: '["http://localhost:3001"]'
       KEYCLOAK_ISSUER_URL: https://dev.loginproxy.gov.bc.ca/auth/realms/standard
       KEYCLOAK_CLIENT_ID: conn-hub-6434
@@ -79,6 +80,7 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: app
+      POSTGRES_SSL: "false"
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:

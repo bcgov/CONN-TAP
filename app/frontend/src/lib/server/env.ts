@@ -66,6 +66,15 @@ export function authEnv(): AuthEnv {
   return cachedAuthEnv;
 }
 
+const POSTGRES_SSL_DISABLE_VALUES = new Set(["false", "0", "off", "no", "disable", "disabled"]);
+
+/** RDS and other managed Postgres require TLS; local docker-compose Postgres does not. */
+export function postgresSslEnabled(): boolean {
+  const raw = process.env.POSTGRES_SSL?.trim().toLowerCase();
+  if (!raw) return true;
+  return !POSTGRES_SSL_DISABLE_VALUES.has(raw);
+}
+
 export function postgresEnv() {
   if (process.env.DATABASE_URL) {
     return { connectionString: process.env.DATABASE_URL };

@@ -272,6 +272,7 @@ jobs:
             --set-string backend.env.POSTGRES_PORT="5432" \
             --set-string backend.env.POSTGRES_USER="dbadmin" \
             --set-string backend.env.POSTGRES_DB="app" \
+            --set-string backend.env.POSTGRES_SSL="true" \
             --set-string backend.env.CORS_ORIGINS="${cors_origins}" \
             --set-string backend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
             --set-string backend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
@@ -288,6 +289,7 @@ jobs:
             --set-string frontend.env.POSTGRES_PORT="5432" \
             --set-string frontend.env.POSTGRES_USER="dbadmin" \
             --set-string frontend.env.POSTGRES_DB="app" \
+            --set-string frontend.env.POSTGRES_SSL="true" \
             --set-string frontend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
             --set-string frontend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
             --set-string frontend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
