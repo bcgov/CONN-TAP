@@ -101,7 +101,10 @@ jobs:
           else
             image_tag="${GITHUB_SHA}"
           fi
+          : "${image_tag:?Could not resolve IMAGE_TAG for this event.}"
+
           echo "IMAGE_TAG=${image_tag}" >> "${GITHUB_ENV}"
+          echo "Using image tag: ${image_tag}"
 
           aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
           registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -116,13 +119,13 @@ jobs:
             for attempt in $(seq 1 40); do
               if aws ecr describe-images \
                 --repository-name "${repository}" \
-                --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
+                --image-ids "imageTag=${image_tag}" >/dev/null 2>&1; then
                 return 0
               fi
-              echo "Waiting for ${repository}:${IMAGE_TAG} (attempt ${attempt}/40, app-build may still be running)..."
+              echo "Waiting for ${repository}:${image_tag} (attempt ${attempt}/40, app-build may still be running)..."
               sleep 15
             done
-            echo "::error::Image ${repository}:${IMAGE_TAG} not found in ECR."
+            echo "::error::Image ${repository}:${image_tag} not found in ECR."
             return 1
           }
           wait_for_image_tag "${backend_repository}"
