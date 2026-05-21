@@ -1,0 +1,182 @@
+name: app-deploy-dev
+
+# Deploys dev to EKS with Helm after app-build has pushed images for the build SHA.
+#
+# Required GitHub Environment configuration for dev:
+#   Secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
+#            TOKEN_ENCRYPTION_KEY
+#   Variables: LICENSE_PLATE, APP_BASE_URL
+#   Optional variables: CORS_ORIGINS, KEYCLOAK_ISSUER_URL, KEYCLOAK_CLIENT_ID,
+#                       SESSION_COOKIE_NAME
+on:
+  workflow_run:
+    workflows:
+      - app-build
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: app-deploy-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ca-central-1
+  ENV_NAME: dev
+  HELM_RELEASE: conn-tap
+  HELM_NAMESPACE: conn-tap
+  CHART_PATH: helm/conn-tap
+  IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+  BUILD_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
+
+jobs:
+  deploy:
+    name: Deploy dev
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
+      APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
+      KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
+      KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      SESSION_COOKIE_NAME: ${{ vars.SESSION_COOKIE_NAME }}
+      TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-app-dev-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve AWS and image settings
+        id: settings
+        run: |
+          : "${LICENSE_PLATE:?Set the dev environment variable LICENSE_PLATE.}"
+
+          aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          backend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-backend"
+          frontend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-frontend"
+
+          aws ecr describe-repositories --repository-names "${backend_repository}" "${frontend_repository}" >/dev/null
+          aws ecr describe-images --repository-name "${backend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
+          aws ecr describe-images --repository-name "${frontend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
+
+          {
+            echo "AWS_ACCOUNT_ID=${aws_account_id}"
+            echo "ECR_REGISTRY=${registry}"
+            echo "BACKEND_IMAGE_URI=${registry}/${backend_repository}"
+            echo "FRONTEND_IMAGE_URI=${registry}/${frontend_repository}"
+            echo "EKS_CLUSTER_NAME=${LICENSE_PLATE}-${ENV_NAME}-eks"
+            echo "POSTGRES_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-master"
+            echo "POSTGRES_DB_INSTANCE_ID=${LICENSE_PLATE}-${ENV_NAME}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy with Helm
+        run: |
+          set +x
+
+          : "${APP_BASE_URL:?Set the dev environment variable APP_BASE_URL.}"
+          : "${KEYCLOAK_CLIENT_SECRET:?Set the dev environment secret KEYCLOAK_CLIENT_SECRET.}"
+          : "${SESSION_SECRET:?Set the dev environment secret SESSION_SECRET.}"
+          : "${TOKEN_ENCRYPTION_KEY:?Set the dev environment secret TOKEN_ENCRYPTION_KEY.}"
+
+          keycloak_issuer_url="${KEYCLOAK_ISSUER_URL:-https://dev.loginproxy.gov.bc.ca/auth/realms/standard}"
+          keycloak_client_id="${KEYCLOAK_CLIENT_ID:-conn-hub-6434}"
+          session_cookie_name="${SESSION_COOKIE_NAME:-telecom_session}"
+          cors_origins="${CORS_ORIGINS:-[\"${APP_BASE_URL}\"]}"
+
+          postgres_host="$(aws rds describe-db-instances \
+            --db-instance-identifier "${POSTGRES_DB_INSTANCE_ID}" \
+            --query "DBInstances[0].Endpoint.Address" \
+            --output text)"
+          postgres_password="$(aws secretsmanager get-secret-value \
+            --secret-id "${POSTGRES_SECRET_ID}" \
+            --query SecretString \
+            --output text)"
+
+          aws eks update-kubeconfig \
+            --region "${AWS_REGION}" \
+            --name "${EKS_CLUSTER_NAME}"
+
+          kubectl create namespace "${HELM_NAMESPACE}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          backend_secret="${HELM_RELEASE}-backend-runtime"
+          frontend_secret="${HELM_RELEASE}-frontend-runtime"
+
+          kubectl create secret generic "${backend_secret}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          kubectl create secret generic "${frontend_secret}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET}" \
+            --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
+            --from-literal=TOKEN_ENCRYPTION_KEY="${TOKEN_ENCRYPTION_KEY}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          helm upgrade --install "${HELM_RELEASE}" "${CHART_PATH}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            --timeout 10m \
+            --set-string backend.image.repository="${BACKEND_IMAGE_URI}" \
+            --set-string backend.image.tag="${IMAGE_TAG}" \
+            --set-string backend.image.pullPolicy="Always" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/build-sha'="${IMAGE_TAG}" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/build-run-id'="${BUILD_RUN_ID}" \
+            --set-string backend.env.POSTGRES_HOST="${postgres_host}" \
+            --set-string backend.env.POSTGRES_PORT="5432" \
+            --set-string backend.env.POSTGRES_USER="dbadmin" \
+            --set-string backend.env.POSTGRES_DB="app" \
+            --set-string backend.env.CORS_ORIGINS="${cors_origins}" \
+            --set-string backend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
+            --set-string backend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
+            --set-string backend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
+            --set-string backend.existingSecret="${backend_secret}" \
+            --set-string frontend.image.repository="${FRONTEND_IMAGE_URI}" \
+            --set-string frontend.image.tag="${IMAGE_TAG}" \
+            --set-string frontend.image.pullPolicy="Always" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/build-sha'="${IMAGE_TAG}" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/build-run-id'="${BUILD_RUN_ID}" \
+            --set-string frontend.env.APP_BASE_URL="${APP_BASE_URL}" \
+            --set-string frontend.env.BACKEND_INTERNAL_URL="http://${HELM_RELEASE}-backend:8000" \
+            --set-string frontend.env.POSTGRES_HOST="${postgres_host}" \
+            --set-string frontend.env.POSTGRES_PORT="5432" \
+            --set-string frontend.env.POSTGRES_USER="dbadmin" \
+            --set-string frontend.env.POSTGRES_DB="app" \
+            --set-string frontend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
+            --set-string frontend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
+            --set-string frontend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
+            --set-string frontend.existingSecret="${frontend_secret}"

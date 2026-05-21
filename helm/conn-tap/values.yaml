@@ -1,0 +1,62 @@
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources: {}
+  podAnnotations: {}
+  env:
+    POSTGRES_HOST: ""
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: "dbadmin"
+    POSTGRES_DB: "app"
+    CORS_ORIGINS: '["http://localhost:3000"]'
+    KEYCLOAK_ISSUER_URL: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
+    KEYCLOAK_CLIENT_ID: "conn-hub-6434"
+    SESSION_COOKIE_NAME: "telecom_session"
+  existingSecret: ""
+  secretEnv: {}
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources: {}
+  podAnnotations: {}
+  env:
+    APP_BASE_URL: ""
+    BACKEND_INTERNAL_URL: "http://conn-tap-backend:8000"
+    KEYCLOAK_ISSUER_URL: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
+    KEYCLOAK_CLIENT_ID: "conn-hub-6434"
+    SESSION_COOKIE_NAME: "telecom_session"
+    POSTGRES_HOST: ""
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: "dbadmin"
+    POSTGRES_DB: "app"
+  existingSecret: ""
+  secretEnv: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: conn-tap.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

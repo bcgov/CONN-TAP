@@ -28,6 +28,11 @@ output "github_actions_role_arn" {
   value       = module.github_actions_oidc.role_arn
 }
 
+output "app_ecr_repository_urls" {
+  description = "ECR repository URLs for application images."
+  value       = module.app_ecr.repository_urls
+}
+
 output "postgres_bastion_instance_id" {
   description = "Use with: aws ssm start-session --target <id> --document-name AWS-StartPortForwardingSessionToRemoteHost"
   value       = module.postgres_bastion.instance_id
