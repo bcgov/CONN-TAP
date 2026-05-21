@@ -115,3 +115,4 @@ app/**/*.log
 !app/**/next.config.json
 !app/**/*.sh
 
+/.pnpm-store
