@@ -1,7 +1,9 @@
 name: app-build
 
-# Pull requests build both app images and push untagged digest-only images to
-# the dev ECR repos. Main pushes the built images to the dev ECR repos with both
+# TEMP: PR builds also tag images with the PR head SHA so app-deploy-dev can deploy
+# from pull requests. Revert pr-build to digest-only pushes before merging to main.
+#
+# Pull requests build both app images and push to the dev ECR repos. Main pushes
 # the mutable dev tag and the git SHA tag. Test/prod promotion will use versioned
 # tags once the release versioning strategy is finalized.
 #
@@ -16,7 +18,9 @@ on:
     paths:
       - "app/backend/**"
       - "app/frontend/**"
+      - "helm/**"
       - ".github/workflows/app-build.yaml"
+      - ".github/workflows/app-deploy-dev.yml"
   push:
     branches:
       - main
@@ -42,7 +46,7 @@ env:
 
 jobs:
   pr-build:
-    name: Build and push untagged dev images
+    name: Build and push PR dev images
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: dev
@@ -84,19 +88,23 @@ jobs:
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push untagged backend image
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: app/backend
           file: app/backend/Dockerfile
-          outputs: type=image,name=${{ steps.settings.outputs.backend_image_uri }},push-by-digest=true,name-canonical=true,push=true
+          push: true
+          tags: |
+            ${{ steps.settings.outputs.backend_image_uri }}:${{ github.event.pull_request.head.sha }}
 
-      - name: Build and push untagged frontend image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: app/frontend
           file: app/frontend/Dockerfile
-          outputs: type=image,name=${{ steps.settings.outputs.frontend_image_uri }},push-by-digest=true,name-canonical=true,push=true
+          push: true
+          tags: |
+            ${{ steps.settings.outputs.frontend_image_uri }}:${{ github.event.pull_request.head.sha }}
 
   build-push-dev:
     name: Build and push dev images

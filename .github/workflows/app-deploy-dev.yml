@@ -19,14 +19,25 @@ name: app-deploy-dev
 #   Variables: LICENSE_PLATE
 #   Optional variables: CORS_ORIGINS, KEYCLOAK_ISSUER_URL, KEYCLOAK_CLIENT_ID,
 #                       SESSION_COOKIE_NAME
+#
+# TEMP: PR deploy — (1) workflow_run after app-build on any branch; (2) pull_request
+#       so this workflow file from the PR branch is used (workflow_run always runs
+#       the default-branch copy). Revert before merge: workflow_run branches: [main],
+#       remove pull_request, revert app-build pr-build tagging.
 on:
   workflow_run:
     workflows:
       - app-build
-    branches:
-      - main
     types:
       - completed
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "helm/**"
+      - ".github/workflows/app-build.yaml"
+      - ".github/workflows/app-deploy-dev.yml"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +45,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: app-deploy-dev
+  group: app-deploy-dev-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || 'main' }}
   cancel-in-progress: false
 
 env:
@@ -43,13 +54,15 @@ env:
   HELM_RELEASE: conn-tap
   HELM_NAMESPACE: conn-tap
   CHART_PATH: helm/conn-tap
-  IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
   BUILD_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
 
 jobs:
   deploy:
     name: Deploy dev
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     environment: dev
 
@@ -67,7 +80,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -81,14 +94,39 @@ jobs:
         run: |
           : "${LICENSE_PLATE:?Set the dev environment variable LICENSE_PLATE.}"
 
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+            image_tag="${{ github.event.workflow_run.head_sha }}"
+          elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            image_tag="${{ github.event.pull_request.head.sha }}"
+          else
+            image_tag="${GITHUB_SHA}"
+          fi
+          echo "IMAGE_TAG=${image_tag}" >> "${GITHUB_ENV}"
+
           aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
           registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           backend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-backend"
           frontend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-frontend"
 
           aws ecr describe-repositories --repository-names "${backend_repository}" "${frontend_repository}" >/dev/null
-          aws ecr describe-images --repository-name "${backend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
-          aws ecr describe-images --repository-name "${frontend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
+
+          wait_for_image_tag() {
+            local repository="$1"
+            local attempt
+            for attempt in $(seq 1 40); do
+              if aws ecr describe-images \
+                --repository-name "${repository}" \
+                --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
+                return 0
+              fi
+              echo "Waiting for ${repository}:${IMAGE_TAG} (attempt ${attempt}/40, app-build may still be running)..."
+              sleep 15
+            done
+            echo "::error::Image ${repository}:${IMAGE_TAG} not found in ECR."
+            return 1
+          }
+          wait_for_image_tag "${backend_repository}"
+          wait_for_image_tag "${frontend_repository}"
 
           ingress_host="tap.${LICENSE_PLATE}-${ENV_NAME}.stratus.cloud.gov.bc.ca"
           app_base_url="https://${ingress_host}"
