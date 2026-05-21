@@ -142,6 +142,7 @@ Per environment:
 | Setting                               | Recommended                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Environment secret `AWS_DEPLOY_ROLE_ARN` | The role ARN from `terraform output github_actions_role_arn` for that env's AWS account.    |
+| Environment variable `INTERNAL_ACM_CERTIFICATE_ARN` | Platform internal/Stratus ACM certificate ARN for the LZA internal ALB (`TF_VAR_internal_acm_certificate_arn`). Same value per account if the cert is shared; set on each of dev, test, prod. |
 | Required reviewers                    | _(prod only)_ at least one approver from the platform team.                                  |
 | Deployment branches                   | _(prod only)_ "Selected branches" → `main`.                                                  |
 | Wait timer                            | _(prod only, optional)_ 5–15 minutes for cancel windows.                                     |
@@ -212,6 +213,11 @@ environment as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and
 | `TF_VAR_aws_region`     | Hard-coded `ca-central-1`       |
 | `TF_VAR_env`            | The job's target environment    |
 | `TF_VAR_license`        | Repository variable `LICENSE_PLATE` |
+| `TF_VAR_internal_acm_certificate_arn` | Environment variable `INTERNAL_ACM_CERTIFICATE_ARN` |
+
+The app deploy workflow (`app-deploy-dev`) reads ALB subnet IDs, certificate ARN,
+and ingress group from the Terraform-managed `bcgovhealthcheck` Ingress; it does
+not use `INTERNAL_ACM_CERTIFICATE_ARN` directly.
 
 Other inputs use the defaults declared in
 `infra/envs/<env>/eks_variables.tf` and `github_oidc_variables.tf`. Override

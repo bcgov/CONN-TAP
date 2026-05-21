@@ -10,10 +10,13 @@ name: app-deploy-dev
 #     terraform apply -target=module.eks -target=module.eks_alb_controller_identity
 #     terraform apply
 #
+# ALB subnets, certificate ARN, and ingress group are read from the Terraform-
+# managed bcgovhealthcheck Ingress in kube-system (not from GitHub variables).
+#
 # Required GitHub Environment configuration for dev:
 #   Secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
 #            TOKEN_ENCRYPTION_KEY
-#   Variables: LICENSE_PLATE, INTERNAL_ACM_CERTIFICATE_ARN
+#   Variables: LICENSE_PLATE
 #   Optional variables: CORS_ORIGINS, KEYCLOAK_ISSUER_URL, KEYCLOAK_CLIENT_ID,
 #                       SESSION_COOKIE_NAME
 on:
@@ -52,7 +55,6 @@ jobs:
 
     env:
       LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
-      INTERNAL_ACM_CERTIFICATE_ARN: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
       KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
       KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
@@ -78,7 +80,6 @@ jobs:
         id: settings
         run: |
           : "${LICENSE_PLATE:?Set the dev environment variable LICENSE_PLATE.}"
-          : "${INTERNAL_ACM_CERTIFICATE_ARN:?Set the dev environment variable INTERNAL_ACM_CERTIFICATE_ARN.}"
 
           aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
           registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -89,24 +90,8 @@ jobs:
           aws ecr describe-images --repository-name "${backend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
           aws ecr describe-images --repository-name "${frontend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
 
-          env_title="$(echo "${ENV_NAME}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
-          vpc_id="$(aws ec2 describe-vpcs \
-            --filters "Name=tag:Name,Values=${env_title}" \
-            --query 'Vpcs[0].VpcId' \
-            --output text)"
-          web_subnet_a="$(aws ec2 describe-subnets \
-            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${env_title}-Web-MainTgwAttach-A" \
-            --query 'Subnets[0].SubnetId' \
-            --output text)"
-          web_subnet_b="$(aws ec2 describe-subnets \
-            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${env_title}-Web-MainTgwAttach-B" \
-            --query 'Subnets[0].SubnetId' \
-            --output text)"
-          web_subnet_ids="${web_subnet_a},${web_subnet_b}"
-
           ingress_host="tap.${LICENSE_PLATE}-${ENV_NAME}.stratus.cloud.gov.bc.ca"
           app_base_url="https://${ingress_host}"
-          ingress_group="${LICENSE_PLATE}-${ENV_NAME}-internal"
 
           {
             echo "AWS_ACCOUNT_ID=${aws_account_id}"
@@ -118,8 +103,6 @@ jobs:
             echo "POSTGRES_DB_INSTANCE_ID=${LICENSE_PLATE}-${ENV_NAME}"
             echo "APP_BASE_URL=${app_base_url}"
             echo "INGRESS_HOST=${ingress_host}"
-            echo "INGRESS_GROUP=${ingress_group}"
-            echo "WEB_SUBNET_IDS=${web_subnet_ids}"
           } >> "${GITHUB_ENV}"
 
       - name: Set up kubectl
@@ -128,7 +111,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Verify ALB controller prerequisites
+      - name: Verify ALB controller and load ingress config
         run: |
           aws eks update-kubeconfig \
             --region "${AWS_REGION}" \
@@ -150,6 +133,25 @@ jobs:
             echo "Run a full Terraform apply so alb_controller.tf creates the shared internal ALB group."
             exit 1
           fi
+
+          alb_ann="$(kubectl get ingress bcgovhealthcheck -n kube-system -o json \
+            | jq -r '.metadata.annotations')"
+          web_subnet_ids="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/subnets" // empty')"
+          alb_certificate_arn="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/certificate-arn" // empty')"
+          ingress_group="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/group.name" // empty')"
+
+          if [ -z "${web_subnet_ids}" ] || [ -z "${alb_certificate_arn}" ] || [ -z "${ingress_group}" ]; then
+            echo "::error::bcgovhealthcheck Ingress is missing required ALB annotations."
+            echo "Expected: subnets, certificate-arn, group.name (from Terraform alb_controller.tf)."
+            kubectl get ingress bcgovhealthcheck -n kube-system -o yaml
+            exit 1
+          fi
+
+          {
+            echo "WEB_SUBNET_IDS=${web_subnet_ids}"
+            echo "ALB_CERTIFICATE_ARN=${alb_certificate_arn}"
+            echo "INGRESS_GROUP=${ingress_group}"
+          } >> "${GITHUB_ENV}"
 
       - name: Deploy with Helm
         run: |
@@ -202,7 +204,7 @@ jobs:
 
           ingress_annotations="$(jq -nc \
             --arg subnets "${WEB_SUBNET_IDS}" \
-            --arg cert "${INTERNAL_ACM_CERTIFICATE_ARN}" \
+            --arg cert "${ALB_CERTIFICATE_ARN}" \
             --arg group "${INGRESS_GROUP}" \
             '{
               "alb.ingress.kubernetes.io/scheme": "internal",
