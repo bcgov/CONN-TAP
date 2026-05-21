@@ -1,11 +1,13 @@
 name: app-deploy-dev
 
 # Deploys dev to EKS with Helm after app-build has pushed images for the build SHA.
+# Frontend is exposed on the LZA internal ALB at:
+#   https://tap.<license>-dev.stratus.cloud.gov.bc.ca
 #
 # Required GitHub Environment configuration for dev:
 #   Secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
 #            TOKEN_ENCRYPTION_KEY
-#   Variables: LICENSE_PLATE, APP_BASE_URL
+#   Variables: LICENSE_PLATE, INTERNAL_ACM_CERTIFICATE_ARN
 #   Optional variables: CORS_ORIGINS, KEYCLOAK_ISSUER_URL, KEYCLOAK_CLIENT_ID,
 #                       SESSION_COOKIE_NAME
 on:
@@ -44,7 +46,7 @@ jobs:
 
     env:
       LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
-      APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+      INTERNAL_ACM_CERTIFICATE_ARN: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
       KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
       KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
@@ -70,6 +72,7 @@ jobs:
         id: settings
         run: |
           : "${LICENSE_PLATE:?Set the dev environment variable LICENSE_PLATE.}"
+          : "${INTERNAL_ACM_CERTIFICATE_ARN:?Set the dev environment variable INTERNAL_ACM_CERTIFICATE_ARN.}"
 
           aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
           registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -80,6 +83,25 @@ jobs:
           aws ecr describe-images --repository-name "${backend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
           aws ecr describe-images --repository-name "${frontend_repository}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null
 
+          env_title="$(echo "${ENV_NAME}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+          vpc_id="$(aws ec2 describe-vpcs \
+            --filters "Name=tag:Name,Values=${env_title}" \
+            --query 'Vpcs[0].VpcId' \
+            --output text)"
+          web_subnet_a="$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${env_title}-Web-MainTgwAttach-A" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)"
+          web_subnet_b="$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${env_title}-Web-MainTgwAttach-B" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)"
+          web_subnet_ids="${web_subnet_a},${web_subnet_b}"
+
+          ingress_host="tap.${LICENSE_PLATE}-${ENV_NAME}.stratus.cloud.gov.bc.ca"
+          app_base_url="https://${ingress_host}"
+          ingress_group="${LICENSE_PLATE}-${ENV_NAME}-internal"
+
           {
             echo "AWS_ACCOUNT_ID=${aws_account_id}"
             echo "ECR_REGISTRY=${registry}"
@@ -88,6 +110,10 @@ jobs:
             echo "EKS_CLUSTER_NAME=${LICENSE_PLATE}-${ENV_NAME}-eks"
             echo "POSTGRES_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-master"
             echo "POSTGRES_DB_INSTANCE_ID=${LICENSE_PLATE}-${ENV_NAME}"
+            echo "APP_BASE_URL=${app_base_url}"
+            echo "INGRESS_HOST=${ingress_host}"
+            echo "INGRESS_GROUP=${ingress_group}"
+            echo "WEB_SUBNET_IDS=${web_subnet_ids}"
           } >> "${GITHUB_ENV}"
 
       - name: Set up kubectl
@@ -100,7 +126,6 @@ jobs:
         run: |
           set +x
 
-          : "${APP_BASE_URL:?Set the dev environment variable APP_BASE_URL.}"
           : "${KEYCLOAK_CLIENT_SECRET:?Set the dev environment secret KEYCLOAK_CLIENT_SECRET.}"
           : "${SESSION_SECRET:?Set the dev environment secret SESSION_SECRET.}"
           : "${TOKEN_ENCRYPTION_KEY:?Set the dev environment secret TOKEN_ENCRYPTION_KEY.}"
@@ -146,6 +171,20 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
+          ingress_annotations="$(jq -nc \
+            --arg subnets "${WEB_SUBNET_IDS}" \
+            --arg cert "${INTERNAL_ACM_CERTIFICATE_ARN}" \
+            --arg group "${INGRESS_GROUP}" \
+            '{
+              "alb.ingress.kubernetes.io/scheme": "internal",
+              "alb.ingress.kubernetes.io/target-type": "ip",
+              "alb.ingress.kubernetes.io/subnets": $subnets,
+              "alb.ingress.kubernetes.io/certificate-arn": $cert,
+              "alb.ingress.kubernetes.io/group.name": $group,
+              "alb.ingress.kubernetes.io/tags": "Public=True",
+              "alb.ingress.kubernetes.io/listen-ports": "[{\"HTTPS\":443}]"
+            }')"
+
           helm upgrade --install "${HELM_RELEASE}" "${CHART_PATH}" \
             --namespace "${HELM_NAMESPACE}" \
             --create-namespace \
@@ -179,4 +218,8 @@ jobs:
             --set-string frontend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
             --set-string frontend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
             --set-string frontend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
-            --set-string frontend.existingSecret="${frontend_secret}"
+            --set-string frontend.existingSecret="${frontend_secret}" \
+            --set ingress.enabled=true \
+            --set ingress.className=alb \
+            --set-string ingress.host="${INGRESS_HOST}" \
+            --set-json ingress.annotations="${INGRESS_ANNOTATIONS}"

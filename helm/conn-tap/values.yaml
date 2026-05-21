@@ -50,13 +50,13 @@ frontend:
   existingSecret: ""
   secretEnv: {}
 
+# LZA Pattern A: internal ALB via AWS Load Balancer Controller. Deploy workflow sets
+# host and annotations; must share ingress group with bcgovhealthcheck (Terraform).
 ingress:
   enabled: false
-  className: ""
+  className: alb
+  host: ""
+  path: /
+  pathType: Prefix
   annotations: {}
-  hosts:
-    - host: conn-tap.local
-      paths:
-        - path: /
-          pathType: Prefix
   tls: []
