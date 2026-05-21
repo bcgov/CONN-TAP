@@ -34,16 +34,6 @@ resource "aws_lambda_permission" "allow_s3_invoke_tsma_qsr" {
   source_account = var.account_id
 }
 
-resource "aws_lambda_permission" "allow_s3_invoke_ngta_ingest" {
-  statement_id   = "${var.account_id}_event_permissions_from_${var.ngta_raw_bucket_name}_for_lambda-ngta-ingest"
-  action         = "lambda:InvokeFunction"
-  function_name  = aws_lambda_function.lambda_ngta_ingest.function_name
-  principal      = "s3.amazonaws.com"
-  source_arn     = "arn:aws:s3:::${var.ngta_raw_bucket_name}"
-  source_account = var.account_id
-}
-
-
 resource "aws_s3_bucket_notification" "ngta_raw_data_notifications" {
   bucket = var.ngta_raw_bucket_name
 
@@ -71,51 +61,10 @@ resource "aws_s3_bucket_notification" "ngta_raw_data_notifications" {
     filter_suffix       = ".xlsx"
   }
 
-  lambda_function {
-    id                  = "tsma-ingest"
-    lambda_function_arn = aws_lambda_function.lambda_ngta_ingest.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "tsma/"
-    filter_suffix       = ".xlsx"
-  }
-
-  lambda_function {
-    id                  = "tsma-lite-ingest"
-    lambda_function_arn = aws_lambda_function.lambda_ngta_ingest.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "tsma_lite/"
-    filter_suffix       = ".xlsx"
-  }
-
-  lambda_function {
-    id                  = "tsma-other-ingest"
-    lambda_function_arn = aws_lambda_function.lambda_ngta_ingest.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "tsma_other/"
-    filter_suffix       = ".xlsx"
-  }
-
-  lambda_function {
-    id                  = "ngta-telus-ingest"
-    lambda_function_arn = aws_lambda_function.lambda_ngta_ingest.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "ngta/telus/"
-    filter_suffix       = ".xlsx"
-  }
-
-  lambda_function {
-    id                  = "ngta-rogers-ingest"
-    lambda_function_arn = aws_lambda_function.lambda_ngta_ingest.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "ngta/rogers/"
-    filter_suffix       = ".xlsx"
-  }
-
   depends_on = [
     aws_lambda_permission.allow_s3_invoke_rogers,
     aws_lambda_permission.allow_s3_invoke_telus,
     aws_lambda_permission.allow_s3_invoke_telus_quantities,
-    aws_lambda_permission.allow_s3_invoke_ngta_ingest,
   ]
 }
 

@@ -197,63 +197,6 @@ resource "aws_iam_role_policy_attachment" "lambda_tsma_fact_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role" "lambda_ngta_ingest_role" {
-  name = "lambda-ngta-ingest-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_ngta_ingest_inline" {
-  name = "tsma-ingest-s3-secretsmanager"
-  role = aws_iam_role.lambda_ngta_ingest_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = ["s3:GetObject"]
-        Resource = [
-          "arn:aws:s3:::${var.ngta_raw_bucket_name}/tsma/*",
-          "arn:aws:s3:::${var.ngta_raw_bucket_name}/tsma_lite/*",
-          "arn:aws:s3:::${var.ngta_raw_bucket_name}/tsma_other/*",
-          "arn:aws:s3:::${var.ngta_raw_bucket_name}/ngta/*",
-        ]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = [var.rds_secret_arn]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ec2:CreateNetworkInterface",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DeleteNetworkInterface",
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_ngta_ingest_basic" {
-  role       = aws_iam_role.lambda_ngta_ingest_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 resource "aws_iam_role" "to_ec2_powerbi_athena_role" {
   name = "TO-EC2-PowerBI-Athena-Role"
 
