@@ -151,6 +151,9 @@ Also create a repository **variable** named `LICENSE_PLATE` (Settings →
 Secrets and variables → Actions → Variables tab) set to your license plate
 prefix (e.g. `dd5a29`). The workflow passes this as `TF_VAR_license`.
 
+For optional PR deploys to shared dev, see [app-deploy-dev.md](./app-deploy-dev.md)
+(`ALLOW_PR_DEV_DEPLOY` and the `deploy-dev` PR label).
+
 ### 4. Confirm the workflow runs
 
 - Open a pull request that touches `infra/**`. The `plan` job runs against

@@ -1,9 +1,7 @@
 name: app-build
 
-# TEMP: PR builds also tag images with the PR head SHA so app-deploy-dev can deploy
-# from pull requests. Revert pr-build to digest-only pushes before merging to main.
-#
-# Pull requests build both app images and push to the dev ECR repos. Main pushes
+# Pull requests build and push images tagged with the PR head SHA (for optional
+# deploy-dev PR deploys when ALLOW_PR_DEV_DEPLOY=true). Main pushes
 # the mutable dev tag and the git SHA tag. Test/prod promotion will use versioned
 # tags once the release versioning strategy is finalized.
 #

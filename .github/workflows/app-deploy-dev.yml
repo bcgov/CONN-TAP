@@ -1,29 +1,24 @@
 name: app-deploy-dev
 
-# Deploys dev to EKS with Helm after app-build has pushed images for the build SHA.
-# Frontend is exposed on the LZA internal ALB at:
-#   https://tap.<license>-dev.stratus.cloud.gov.bc.ca
+# Deploys the conn-tap app to the shared dev EKS cluster (Helm).
+# Public URL: https://tap.<license>-dev.stratus.cloud.gov.bc.ca
 #
-# Prerequisites (Terraform in infra/envs/dev — alb_controller.tf):
-#   Apply the AWS Load Balancer Controller and bcgovhealthcheck Ingress before
-#   the first app deploy. On a new cluster, use a targeted apply if needed:
-#     terraform apply -target=module.eks -target=module.eks_alb_controller_identity
-#     terraform apply
+# Deploy triggers:
+#   - Push to main (via app-build → workflow_run): always deploys.
+#   - Pull request: only when ALLOW_PR_DEV_DEPLOY=true AND the PR has the deploy-dev label.
+#   - workflow_dispatch: always deploys (manual).
 #
-# ALB subnets, certificate ARN, and ingress group are read from the Terraform-
-# managed bcgovhealthcheck Ingress in kube-system (not from GitHub variables).
+# Prerequisites: Terraform alb_controller.tf applied in infra/envs/dev.
 #
-# Required GitHub Environment configuration for dev:
-#   Secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
-#            TOKEN_ENCRYPTION_KEY
-#   Variables: LICENSE_PLATE
-#   Optional variables: CORS_ORIGINS, KEYCLOAK_ISSUER_URL, KEYCLOAK_CLIENT_ID,
-#                       SESSION_COOKIE_NAME
+# Repository / dev environment variables:
+#   LICENSE_PLATE (required)
+#   ALLOW_PR_DEV_DEPLOY — set to true to allow PR opt-in deploys (default off if unset).
 #
-# TEMP: PR deploy — (1) workflow_run after app-build on any branch; (2) pull_request
-#       so this workflow file from the PR branch is used (workflow_run always runs
-#       the default-branch copy). Revert before merge: workflow_run branches: [main],
-#       remove pull_request, revert app-build pr-build tagging.
+# PR opt-in: add the deploy-dev label to your PR (create the label in GitHub if missing).
+#
+# Dev environment secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
+# TOKEN_ENCRYPTION_KEY
+
 on:
   workflow_run:
     workflows:
@@ -33,6 +28,11 @@ on:
   pull_request:
     branches:
       - main
+    types:
+      - labeled
+      - synchronize
+      - opened
+      - reopened
     paths:
       - "app/**"
       - "helm/**"
@@ -43,9 +43,10 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: read
 
 concurrency:
-  group: app-deploy-dev-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || 'main' }}
+  group: app-deploy-dev-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -54,15 +55,114 @@ env:
   HELM_RELEASE: conn-tap
   HELM_NAMESPACE: conn-tap
   CHART_PATH: helm/conn-tap
-  BUILD_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
+  PR_DEPLOY_LABEL: deploy-dev
 
 jobs:
+  gate:
+    name: Decide whether to deploy
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      should_deploy: ${{ steps.gate.outputs.should_deploy }}
+      image_tag: ${{ steps.gate.outputs.image_tag }}
+      checkout_ref: ${{ steps.gate.outputs.checkout_ref }}
+      deploy_reason: ${{ steps.gate.outputs.deploy_reason }}
+    steps:
+      - name: Evaluate deploy gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLOW_PR_DEV_DEPLOY: ${{ vars.ALLOW_PR_DEV_DEPLOY }}
+          PR_DEPLOY_LABEL: ${{ env.PR_DEPLOY_LABEL }}
+        run: |
+          set -euo pipefail
+
+          should_deploy=false
+          image_tag=""
+          checkout_ref=""
+          deploy_reason=""
+
+          pr_has_deploy_label() {
+            local branch="$1"
+            local labels
+            labels="$(gh pr list \
+              --repo "${GITHUB_REPOSITORY}" \
+              --head "${branch}" \
+              --state open \
+              --json labels \
+              --jq '.[0].labels[].name' 2>/dev/null || true)"
+            echo "${labels}" | grep -qx "${PR_DEPLOY_LABEL}"
+          }
+
+          skip() {
+            echo "should_deploy=false" >> "${GITHUB_OUTPUT}"
+            echo "image_tag=" >> "${GITHUB_OUTPUT}"
+            echo "checkout_ref=" >> "${GITHUB_OUTPUT}"
+            echo "deploy_reason=${1}" >> "${GITHUB_OUTPUT}"
+            echo "::notice::${1}"
+          }
+
+          allow_deploy() {
+            should_deploy=true
+            image_tag="$1"
+            checkout_ref="$2"
+            deploy_reason="$3"
+          }
+
+          case "${GITHUB_EVENT_NAME}" in
+            workflow_dispatch)
+              allow_deploy "${GITHUB_SHA}" "${GITHUB_SHA}" "manual workflow_dispatch"
+              ;;
+            workflow_run)
+              if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+                skip "Skipping deploy: app-build concluded with ${{ github.event.workflow_run.conclusion }}."
+                exit 0
+              fi
+              branch="${{ github.event.workflow_run.head_branch }}"
+              sha="${{ github.event.workflow_run.head_sha }}"
+              if [ "${branch}" = "main" ]; then
+                allow_deploy "${sha}" "${sha}" "main branch app-build"
+              elif [ "${ALLOW_PR_DEV_DEPLOY}" = "true" ] && pr_has_deploy_label "${branch}"; then
+                allow_deploy "${sha}" "${sha}" "PR opt-in (label ${PR_DEPLOY_LABEL}) after app-build"
+              else
+                if [ "${ALLOW_PR_DEV_DEPLOY}" != "true" ]; then
+                  skip "Skipping deploy for branch ${branch}: ALLOW_PR_DEV_DEPLOY is not true."
+                else
+                  skip "Skipping deploy for branch ${branch}: no open PR with label ${PR_DEPLOY_LABEL}."
+                fi
+                exit 0
+              fi
+              ;;
+            pull_request)
+              if [ "${ALLOW_PR_DEV_DEPLOY}" != "true" ]; then
+                skip "Skipping deploy: ALLOW_PR_DEV_DEPLOY is not true (PR label alone is not enough)."
+                exit 0
+              fi
+              if [ "${{ contains(github.event.pull_request.labels.*.name, 'deploy-dev') }}" != "true" ]; then
+                skip "Skipping deploy: PR #${{ github.event.pull_request.number }} does not have label ${PR_DEPLOY_LABEL}."
+                exit 0
+              fi
+              allow_deploy \
+                "${{ github.event.pull_request.head.sha }}" \
+                "${{ github.event.pull_request.head.sha }}" \
+                "PR #${{ github.event.pull_request.number }} (${{ github.event.action }})"
+              ;;
+            *)
+              skip "Skipping deploy: unsupported event ${GITHUB_EVENT_NAME}."
+              exit 0
+              ;;
+          esac
+
+          echo "should_deploy=true" >> "${GITHUB_OUTPUT}"
+          echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
+          echo "checkout_ref=${checkout_ref}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_reason=${deploy_reason}" >> "${GITHUB_OUTPUT}"
+          echo "::notice::Deploy approved (${deploy_reason}) with image tag ${image_tag}."
+
   deploy:
     name: Deploy dev
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    needs: gate
+    if: needs.gate.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment: dev
 
@@ -75,12 +175,14 @@ jobs:
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       SESSION_COOKIE_NAME: ${{ vars.SESSION_COOKIE_NAME }}
       TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+      IMAGE_TAG: ${{ needs.gate.outputs.image_tag }}
+      BUILD_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.gate.outputs.checkout_ref }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -93,18 +195,10 @@ jobs:
         id: settings
         run: |
           : "${LICENSE_PLATE:?Set the dev environment variable LICENSE_PLATE.}"
+          : "${IMAGE_TAG:?IMAGE_TAG was not set by the gate job.}"
 
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
-            image_tag="${{ github.event.workflow_run.head_sha }}"
-          elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            image_tag="${{ github.event.pull_request.head.sha }}"
-          else
-            image_tag="${GITHUB_SHA}"
-          fi
-          : "${image_tag:?Could not resolve IMAGE_TAG for this event.}"
-
-          echo "IMAGE_TAG=${image_tag}" >> "${GITHUB_ENV}"
-          echo "Using image tag: ${image_tag}"
+          echo "Deploy reason: ${{ needs.gate.outputs.deploy_reason }}"
+          echo "Using image tag: ${IMAGE_TAG}"
 
           aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
           registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -119,13 +213,13 @@ jobs:
             for attempt in $(seq 1 40); do
               if aws ecr describe-images \
                 --repository-name "${repository}" \
-                --image-ids "imageTag=${image_tag}" >/dev/null 2>&1; then
+                --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
                 return 0
               fi
-              echo "Waiting for ${repository}:${image_tag} (attempt ${attempt}/40, app-build may still be running)..."
+              echo "Waiting for ${repository}:${IMAGE_TAG} (attempt ${attempt}/40, app-build may still be running)..."
               sleep 15
             done
-            echo "::error::Image ${repository}:${image_tag} not found in ECR."
+            echo "::error::Image ${repository}:${IMAGE_TAG} not found in ECR."
             return 1
           }
           wait_for_image_tag "${backend_repository}"
