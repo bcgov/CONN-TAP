@@ -1,0 +1,41 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "conn-tap.fullname" . }}-db-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "conn-tap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: db-migrate
+  annotations:
+    # pre-install: first helm upgrade --install; pre-upgrade: subsequent releases
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "conn-tap.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: db-migrate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: "{{ required "backend.image.repository is required" .Values.backend.image.repository }}:{{ required "backend.image.tag is required" .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          workingDir: /app
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "conn-tap.backendName" . }}
+            {{- if or .Values.backend.existingSecret .Values.backend.secretEnv }}
+            - secretRef:
+                name: {{ include "conn-tap.backendSecretName" . }}
+            {{- end }}
+{{- end }}

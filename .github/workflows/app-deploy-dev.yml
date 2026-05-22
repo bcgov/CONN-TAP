@@ -391,4 +391,5 @@ jobs:
             --set ingress.enabled=true \
             --set ingress.className=alb \
             --set-string ingress.host="${INGRESS_HOST}" \
-            --set-json ingress.annotations="${ingress_annotations}"
+            --set-json ingress.annotations="${ingress_annotations}" \
+            --set migrate.enabled=true

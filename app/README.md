@@ -14,6 +14,26 @@ cd app
 docker compose up --build
 ```
 
+### Database migrations (app schema)
+
+Auth and user tables live in the Postgres schema `app` on database `app`. DDL is managed by **Alembic** in `backend/` (not created at runtime by the frontend or API).
+
+After Postgres is up:
+
+```bash
+cd app/backend
+# match POSTGRES_* to docker-compose (host localhost, user app, password app, POSTGRES_SSL=false)
+POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=app POSTGRES_PASSWORD=app POSTGRES_DB=app POSTGRES_SSL=false \
+  alembic upgrade head
+```
+
+Or via the backend container:
+
+```bash
+cd app
+docker compose run --rm backend alembic upgrade head
+```
+
 Run the frontend locally in a separate terminal:
 
 ```bash
@@ -109,6 +129,8 @@ The frontend image uses Next.js [`output: "standalone"`](https://nextjs.org/docs
 ```
 app/
 ├── backend/
+│   ├── alembic/             # migrations for Postgres schema `app`
+│   ├── alembic.ini
 │   ├── app/                 # FastAPI source
 │   │   ├── api/endpoints/
 │   │   ├── core/

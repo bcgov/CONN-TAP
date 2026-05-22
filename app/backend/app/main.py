@@ -7,14 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.core.config import settings
 from app.db.session import engine
-from app.db.base import Base
-from app.models import auth, dataset  # noqa: F401  -- ensure models are registered on Base.metadata
+from app.models import auth, dataset, user  # noqa: F401
+from app.models.dataset import Dataset
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Create tables on startup (use Alembic in production)
-    Base.metadata.create_all(bind=engine)
+    # App auth tables are managed by Alembic (schema `app`). Datasets registry stays in public for now.
+    Dataset.__table__.create(bind=engine, checkfirst=True)
     yield
 
 

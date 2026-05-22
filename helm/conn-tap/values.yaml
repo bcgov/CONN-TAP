@@ -3,6 +3,9 @@ fullnameOverride: ""
 
 imagePullSecrets: []
 
+migrate:
+  enabled: false
+
 backend:
   replicaCount: 1
   image:

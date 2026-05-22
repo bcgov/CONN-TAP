@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authEnv, sessionCookieName } from "./env";
 import { createOpaqueToken, decryptToken, encryptToken, hashAccessToken, hashSessionToken } from "./crypto";
-import { ensureAuthSchema, query } from "./db";
+import { query } from "./db";
 import { refreshAccessToken } from "./oidc";
 
 export const ALLOWED_ROLES = ["global_admin", "global_analyst"] as const;
@@ -99,7 +99,6 @@ export async function saveOauthState(
   nonce: string,
   returnTo: string
 ): Promise<void> {
-  await ensureAuthSchema();
   await query("DELETE FROM auth_oauth_states WHERE expires_at < now()");
   await query(
     `INSERT INTO auth_oauth_states (state_hash, pkce_verifier, nonce, return_to, expires_at)
@@ -113,7 +112,6 @@ export async function consumeOauthState(state: string): Promise<{
   nonce: string;
   returnTo: string;
 } | null> {
-  await ensureAuthSchema();
   const stateHash = hashSessionToken(state);
   const result = await query<{
     pkce_verifier: string;
@@ -162,11 +160,38 @@ export async function createSessionFromTokens(tokens: {
 
   const sessionToken = createOpaqueToken();
   const sessionHash = hashSessionToken(sessionToken);
+  const username = claimString(claims, "preferred_username") ?? claimString(claims, "username");
+  const givenName = claimString(claims, "given_name");
+  const familyName = claimString(claims, "family_name");
+  const email = claimString(claims, "email");
+  const displayName = claimString(claims, "name");
+  const sessionName =
+    displayName ?? ([givenName, familyName].filter(Boolean).join(" ") || null);
 
-  await ensureAuthSchema();
+  const userResult = await query<{ id: string }>(
+    `INSERT INTO users (keycloak_subject, username, given_name, family_name, email, display_name, last_login_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+     ON CONFLICT (keycloak_subject) DO UPDATE
+       SET username = COALESCE(EXCLUDED.username, users.username),
+           given_name = COALESCE(EXCLUDED.given_name, users.given_name),
+           family_name = COALESCE(EXCLUDED.family_name, users.family_name),
+           email = COALESCE(EXCLUDED.email, users.email),
+           display_name = COALESCE(EXCLUDED.display_name, users.display_name),
+           last_login_at = now(),
+           updated_at = now()
+     RETURNING id`,
+    [subject, username, givenName, familyName, email, displayName]
+  );
+
+  const userId = userResult.rows[0]?.id;
+  if (!userId) {
+    throw new Error("Failed to upsert application user");
+  }
+
   await query(
     `INSERT INTO auth_sessions (
        id,
+       user_id,
        session_hash,
        subject,
        username,
@@ -180,14 +205,15 @@ export async function createSessionFromTokens(tokens: {
        access_token_expires_at,
        session_expires_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)`,
     [
       randomUUID(),
+      userId,
       sessionHash,
       subject,
-      claimString(claims, "preferred_username") ?? claimString(claims, "username"),
-      claimString(claims, "email"),
-      claimString(claims, "name"),
+      username,
+      email,
+      sessionName,
       JSON.stringify(claims),
       encryptToken(tokens.access_token),
       encryptToken(tokens.refresh_token),
@@ -239,7 +265,6 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
 
   const { refreshWindowSeconds } = authEnv();
 
-  await ensureAuthSchema();
   const sessionHash = hashSessionToken(sessionToken);
   const result = await query<SessionRow>(
     `SELECT session_hash,
