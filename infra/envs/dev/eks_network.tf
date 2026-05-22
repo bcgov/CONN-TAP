@@ -1,10 +1,10 @@
 locals {
   vpc_name = title(var.env)
 
-  lza_subnet_name_app_a  = coalesce(var.lza_subnet_name_app_a, "${title(var.env)}-App-A")
-  lza_subnet_name_app_b  = coalesce(var.lza_subnet_name_app_b, "${title(var.env)}-App-B")
-  lza_subnet_name_data_a = coalesce(var.lza_subnet_name_data_a, "${title(var.env)}-Data-A")
-  lza_subnet_name_data_b = coalesce(var.lza_subnet_name_data_b, "${title(var.env)}-Data-B")
+  lza_subnet_name_app_a        = coalesce(var.lza_subnet_name_app_a, "${title(var.env)}-App-A")
+  lza_subnet_name_app_b        = coalesce(var.lza_subnet_name_app_b, "${title(var.env)}-App-B")
+  lza_subnet_name_data_a       = coalesce(var.lza_subnet_name_data_a, "${title(var.env)}-Data-A")
+  lza_subnet_name_data_b       = coalesce(var.lza_subnet_name_data_b, "${title(var.env)}-Data-B")
   lza_subnet_name_management_a = coalesce(var.lza_subnet_name_management_a, "${title(var.env)}-Mgmt-A")
   lza_subnet_name_management_b = coalesce(var.lza_subnet_name_management_b, "${title(var.env)}-Mgmt-B")
 
