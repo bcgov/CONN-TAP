@@ -251,10 +251,15 @@ export async function clearSessionCookie(): Promise<void> {
   });
 }
 
-async function invalidateSession(sessionHash: string): Promise<void> {
+async function revokeSessionInDatabase(sessionHash: string): Promise<void> {
   await query("UPDATE auth_sessions SET revoked_at = now(), updated_at = now() WHERE session_hash = $1", [
     sessionHash,
   ]);
+}
+
+/** Revoke DB session and clear cookie. Call only from Route Handlers or Server Actions. */
+async function invalidateSession(sessionHash: string): Promise<void> {
+  await revokeSessionInDatabase(sessionHash);
   await clearSessionCookie();
 }
 
@@ -306,7 +311,8 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
   if (options.refresh && refreshToken && Date.now() >= refreshAt) {
     const refreshed = await refreshAccessToken(refreshToken);
     if (!refreshed?.access_token) {
-      await invalidateSession(sessionHash);
+      // Server Components cannot modify cookies; logout route clears the cookie.
+      await revokeSessionInDatabase(sessionHash);
       return null;
     }
 
