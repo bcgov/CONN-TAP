@@ -47,6 +47,9 @@ infra/test/
 
 **/.env
 
+# Python bytecode caches (any directory named __pycache__)
+**/__pycache__/
+
 check_and_generate_fix_commands.py
 
 # spend sheet source data (contributor CSV files — not committed)
@@ -63,8 +66,6 @@ scripts/~$*.xlsx
 # ---------------------------------------------------------------------------
 
 # Python / FastAPI
-app/backend/__pycache__/
-app/backend/**/__pycache__/
 app/backend/**/*.pyc
 app/backend/**/*.pyo
 app/backend/.venv/
@@ -116,3 +117,4 @@ app/**/*.log
 !app/**/*.sh
 
 /.pnpm-store
+/.venv
