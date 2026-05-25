@@ -1,4 +1,4 @@
-"""Alembic environment for the Postgres `app` schema (database `app`)."""
+"""Alembic environment for Postgres database `app` (schemas `app`, `raw_data`)."""
 from logging.config import fileConfig
 
 from alembic import context

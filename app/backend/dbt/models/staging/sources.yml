@@ -5,3 +5,20 @@ sources:
     schema: public
     tables:
       - name: datasets
+  - name: raw_data
+    schema: raw_data
+    tables:
+      - name: ingestion_run
+      - name: raw_telus_spend
+      - name: raw_rogers_spend_cellular
+      - name: raw_rogers_spend_data_voice
+      - name: tsma_ingestion_run
+      - name: tsma_wireless
+      - name: tsma_lite_wireless
+      - name: tsma_wireline
+      - name: tsma_lite_wireline
+      - name: tsma_ivr
+      - name: tsma_mms
+      - name: tsma_other_ingestion_run
+      - name: tsma_other_managed_security
+      - name: tsma_other_managed_router

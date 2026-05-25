@@ -211,6 +211,105 @@ body.telecom-landing {
   background: var(--surface-color-background-light-gray, #faf9f8);
 }
 
+.dashboard-main__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-main__intro {
+  color: var(--typography-color-primary, #313131);
+  margin: 0.5rem 0 0;
+  max-width: 62rem;
+}
+
+.dashboard-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  border-radius: 0.25rem;
+}
+
+.dashboard-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 12rem;
+  color: var(--typography-color-primary, #313131);
+  font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
+}
+
+.dashboard-control span {
+  font: var(--typography-bold-small-body, 700 0.875rem / 1.4 system-ui);
+}
+
+.dashboard-control select {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  color: var(--typography-color-primary, #313131);
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-medium, #898785);
+  border-radius: 0.25rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+.dashboard-alert {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: var(--typography-color-primary, #313131);
+  background: #fef1f2;
+  border-left: 4px solid var(--support-color-danger, #ce3e39);
+}
+
+.dashboard-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard-card {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-card__header {
+  padding: 1rem 1rem 0;
+}
+
+.dashboard-card__header h2 {
+  margin: 0;
+  color: var(--typography-color-primary, #313131);
+  font: var(--typography-bold-h4, 700 1.25rem / 1.3 system-ui);
+}
+
+.dashboard-card__header p {
+  margin: 0.35rem 0 0;
+  color: var(--typography-color-secondary, #474543);
+}
+
+.dashboard-card__chart {
+  min-height: 420px;
+  padding: 1rem;
+}
+
+.dashboard-card__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  margin: 0;
+  color: var(--typography-color-secondary, #474543);
+}
+
 /* Minimal Footer */
 .minimal-footer {
   border-top: 1px solid var(--surface-color-border-medium, #898785);

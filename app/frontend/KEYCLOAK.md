@@ -27,14 +27,8 @@ POSTGRES_DB=app
 POSTGRES_SSL=false
 ```
 
-FastAPI needs the same session settings:
-
-```bash
-KEYCLOAK_ISSUER_URL=https://dev.loginproxy.gov.bc.ca/auth/realms/standard
-KEYCLOAK_CLIENT_ID=conn-hub-6434
-SESSION_COOKIE_NAME=telecom_session
-SESSION_SECRET=replace-with-the-same-secret-used-by-next
-```
+FastAPI needs the same session settings as Next.js (`KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_NAME`, `SESSION_SECRET`).
+For local `docker compose`, those values are loaded from `frontend/.env.local.example` and, when present, `frontend/.env.local` — no separate backend env file is required.
 
 Generate local secrets with:
 
