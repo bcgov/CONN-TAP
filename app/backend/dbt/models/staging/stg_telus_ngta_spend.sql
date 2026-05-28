@@ -5,10 +5,10 @@ with normalized as (
         t.raw_id,
         t.ingestion_run_id,
         date_trunc('month', t.statement_date)::date as month_start,
-        nullif(trim(t.sheet_name), '') as organization_name,
-        lower(nullif(trim(t.source), '')) as source_service_family,
-        nullif(trim(t.statement_category), '') as statement_category,
-        nullif(trim(t.detail_description), '') as source_service_description,
+        nullif(trim(regexp_replace(t.sheet_name, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+        lower(nullif(trim(regexp_replace(t.source, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_family,
+        lower(nullif(trim(regexp_replace(t.statement_category, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_category,
+        lower(nullif(trim(regexp_replace(t.detail_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
         case
             when nullif(trim(t.source_id::text), '') ~ '^-?[0-9]+(\.[0-9]+)?$'
                 then (trim(t.source_id::text)::numeric)::bigint::text

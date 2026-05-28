@@ -2,50 +2,49 @@
 
 with telus_excluded_categories as (
     select unnest(array[
-        'Payment',
-        'Payments',
-        'Amount due from last bill',
-        'Amount Due from last bill',
-        'Taxes'
+        'payment',
+        'payments',
+        'amount due from last bill',
+        'taxes'
     ]::text[]) as statement_category
 ),
 
 telus_excluded_details as (
     select unnest(array[
-        'BC PST',
-        'B.C. PST Adjustment',
-        'BUS. SERVICES GST',
-        'CPS GST 100652692',
-        'CPS GST ADJUSTMENT 362037',
-        'CPS PST BRITISH COLUMBIA 7%',
-        'FP GST Credit',
-        'FP PST Credit',
-        'GST',
-        'GST adj',
-        'GST ADJUSTMENT',
-        'GST/HST',
-        'GST/HST ADJUSTMENT',
-        'GST Tax Adjustment',
-        'PQ PST',
-        'PST',
-        'PST ADJUSTMENT',
-        'PST-BC',
-        'PST-BC adj',
-        'PST-MB',
-        'PST-QC'
+        'bc pst',
+        'b.c. pst adjustment',
+        'bus. services gst',
+        'cps gst 100652692',
+        'cps gst adjustment 362037',
+        'cps pst british columbia 7%',
+        'fp gst credit',
+        'fp pst credit',
+        'gst',
+        'gst adj',
+        'gst adjustment',
+        'gst/hst',
+        'gst/hst adjustment',
+        'gst tax adjustment',
+        'pq pst',
+        'pst',
+        'pst adjustment',
+        'pst-bc',
+        'pst-bc adj',
+        'pst-mb',
+        'pst-qc'
     ]::text[]) as detail_description
 ),
 
 telus_hardware_details as (
     select unnest(array[
-        'Hardware Purchase Charge',
-        'Device Discount Repayment',
-        'Monthly TELUS Easy Payment',
-        'Device discount repay. canc.',
-        'Device discount repay. - CR',
-        'Monthly Easy Payment',
-        'TELUS Easy Payment Balance',
-        'Equipment Adjustment'
+        'hardware purchase charge',
+        'device discount repayment',
+        'monthly telus easy payment',
+        'device discount repay. canc.',
+        'device discount repay. - cr',
+        'monthly easy payment',
+        'telus easy payment balance',
+        'equipment adjustment'
     ]::text[]) as detail_description
 ),
 
@@ -104,9 +103,9 @@ tsma as (
         month_start,
         case
             when source_service_family = 'wireless' then 'Cellular'
-            when tsma_service_tower in ('Business Internet', 'Data - WAN') then 'Data'
-            when tsma_service_tower in ('Conferencing', 'Long Distance', 'Voice') then 'Voice'
-            when tsma_service_tower = 'Managed WLAN' then 'Other Professional Services'
+            when tsma_service_tower in ('business internet', 'data - wan') then 'Data'
+            when tsma_service_tower in ('conferencing', 'long distance', 'voice') then 'Voice'
+            when tsma_service_tower = 'managed wlan' then 'Other Professional Services'
             when source_service_family in ('ivr', 'mms') then 'Temporary Services'
         end as service_category,
         spend_amount
