@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "app"
     POSTGRES_PASSWORD: str = "app"
     POSTGRES_DB: str = "app"
+    # True by default. Set POSTGRES_SSL=false for local Postgres without TLS.
+    POSTGRES_SSL: bool = True
 
     CORS_ORIGINS: list[str] = ["http://localhost:3001"]
 
@@ -26,10 +28,13 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        return (
+        base = (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+        if self.POSTGRES_SSL:
+            return f"{base}?sslmode=require"
+        return base
 
 
 @lru_cache

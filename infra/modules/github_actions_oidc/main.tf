@@ -13,7 +13,7 @@ locals {
 
   # Default subject pattern when none is supplied: allow any workflow in the listed repos.
   # Tighten in callers to specific branches/environments — see variable description.
-  default_subjects = [for r in var.github_repositories : "repo:${r}:*"]
+  default_subjects   = [for r in var.github_repositories : "repo:${r}:*"]
   effective_subjects = length(var.allowed_subjects) > 0 ? var.allowed_subjects : local.default_subjects
 }
 

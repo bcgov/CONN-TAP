@@ -13,6 +13,8 @@ name: terraform-deploy
 # Secrets / variables required (per GitHub Environment):
 #   AWS_DEPLOY_ROLE_ARN  — ARN of the github_actions role from infra/envs/<env>.
 #                          Set as an Environment secret on each of: dev, test, prod.
+#   INTERNAL_ACM_CERTIFICATE_ARN — Platform Stratus/internal ACM cert ARN
+#                          (passed as TF_VAR_internal_acm_certificate_arn).
 
 on:
   pull_request:
@@ -103,6 +105,7 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_env: ${{ matrix.env }}
           TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+          TF_VAR_internal_acm_certificate_arn: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
 
       - name: Show plan summary
         run: terraform show -no-color tfplan | tee plan.txt | tail -200
@@ -143,6 +146,7 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_env: dev
           TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+          TF_VAR_internal_acm_certificate_arn: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
 
   apply-test:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -170,6 +174,7 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_env: test
           TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+          TF_VAR_internal_acm_certificate_arn: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
 
   apply-prod:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -197,6 +202,7 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_env: prod
           TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+          TF_VAR_internal_acm_certificate_arn: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}
 
   # -------------------------------------------------------------------------
   # Manual dispatch: run plan/apply/destroy against a single env on demand.
@@ -242,3 +248,4 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_env: ${{ github.event.inputs.env }}
           TF_VAR_license: ${{ vars.LICENSE_PLATE }}
+          TF_VAR_internal_acm_certificate_arn: ${{ vars.INTERNAL_ACM_CERTIFICATE_ARN }}

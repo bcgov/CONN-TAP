@@ -28,6 +28,11 @@ output "github_actions_role_arn" {
   value       = module.github_actions_oidc.role_arn
 }
 
+output "app_ecr_repository_urls" {
+  description = "ECR repository URLs for application images."
+  value       = module.app_ecr.repository_urls
+}
+
 output "postgres_bastion_instance_id" {
   description = "Use with: aws ssm start-session --target <id> --document-name AWS-StartPortForwardingSessionToRemoteHost"
   value       = module.postgres_bastion.instance_id
@@ -35,4 +40,24 @@ output "postgres_bastion_instance_id" {
 
 output "postgres_bastion_private_ip" {
   value = module.postgres_bastion.private_ip
+}
+
+output "internal_ingress_group" {
+  description = "Shared ALB ingress group for LZA internal load balancers."
+  value       = local.internal_ingress_group
+}
+
+output "conn_tap_ingress_host" {
+  description = "Frontend Ingress hostname on the internal ALB."
+  value       = local.conn_tap_ingress_host
+}
+
+output "conn_tap_app_base_url" {
+  description = "Public Stratus URL for the conn-tap frontend (APP_BASE_URL)."
+  value       = local.conn_tap_app_base_url
+}
+
+output "web_subnet_ids_csv" {
+  description = "Web-tier subnet IDs for ALB Ingress annotations."
+  value       = local.web_subnet_ids_csv
 }

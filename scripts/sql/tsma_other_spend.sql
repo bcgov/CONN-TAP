@@ -6,13 +6,13 @@ SELECT
   SUM(s.billed_amt) AS total_billed_amt
 FROM (
   SELECT 'managed_security'::text AS feed, rcid_cust_nm, month_start_dt, billed_amt
-  FROM tsma_other_managed_security
+  FROM raw_data.tsma_other_managed_security
   UNION ALL
   SELECT 'managed_router'::text, rcid_cust_nm, month_start_dt, billed_amt
-  FROM tsma_other_managed_router
+  FROM raw_data.tsma_other_managed_router
   UNION ALL
   SELECT 'managed_wlan_wifi'::text AS feed, rcid_cust_nm, month_start_dt, billed_amt
-  FROM tsma_wireline
+  FROM raw_data.tsma_wireline
   WHERE tsma_service_tower = 'Managed WLAN'
 ) AS s
 WHERE s.month_start_dt IS NOT NULL

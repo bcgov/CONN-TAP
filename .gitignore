@@ -39,6 +39,7 @@ override.tf.json
 **.sh
 *.sh
 **.zip
+*.xlsx
 
 *.tgz
 
@@ -46,6 +47,9 @@ infra/test/
 **.DS_Store
 
 **/.env
+
+# Python bytecode caches (any directory named __pycache__)
+**/__pycache__/
 
 check_and_generate_fix_commands.py
 
@@ -63,8 +67,6 @@ scripts/~$*.xlsx
 # ---------------------------------------------------------------------------
 
 # Python / FastAPI
-app/backend/__pycache__/
-app/backend/**/__pycache__/
 app/backend/**/*.pyc
 app/backend/**/*.pyo
 app/backend/.venv/
@@ -114,4 +116,7 @@ app/**/*.log
 !app/**/tsconfig.*.json
 !app/**/next.config.json
 !app/**/*.sh
+!lambda/**/*.sh
 
+/.pnpm-store
+/.venv

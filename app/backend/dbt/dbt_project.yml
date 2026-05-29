@@ -19,5 +19,9 @@ clean-targets:
 models:
   app:
     +materialized: view
+    staging:
+      +schema: staging
+      +materialized: view
     marts:
+      +schema: core
       +materialized: table

@@ -1,21 +1,23 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- deps ----------
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # ---------- builder ----------
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
+RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN pnpm run build
 
 # ---------- runner (production) ----------
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

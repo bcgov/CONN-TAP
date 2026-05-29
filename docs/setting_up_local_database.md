@@ -1,6 +1,6 @@
 # Setting up a local PostgreSQL database and raw ingestion
 
-This guide walks through running PostgreSQL locally, creating the **`raw_data`** schema and tables defined under `local_dev/raw_ingestion/`, then loading Excel source files using the ingestion scripts.
+This guide walks through running PostgreSQL locally, applying **`raw_data`** DDL via **Alembic** (`app/backend`), then loading Excel source files using the ingestion scripts under `local_dev/raw_ingestion/`.
 
 The examples use database name **`app`**, user **`postgres`**, and password **`mysecretpassword`** (change these if you prefer; keep the password out of git and shell history where possible).
 
@@ -109,25 +109,27 @@ pip install -r local_dev/raw_ingestion/tsma_other_postgres_ingest/requirements.t
 
 ### Deploy database objects (`raw_data` schema)
 
-Run each `schema.sql` against the target database (`DATABASE_URL`). They are idempotent for `CREATE SCHEMA IF NOT EXISTS` and table/index creation.
+Raw landing DDL lives in `app/backend/alembic/raw_data/` and is applied by Alembic revision `002_raw_data_schema`. Use the same database name as `DATABASE_URL` below.
+
+**Docker Compose stack** (user `app`, database `app`):
 
 ```bash
-psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
-psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_pricebooks_ingest/schema.sql
-psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
-psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
+cd app
+docker compose run --rm backend alembic upgrade head
 ```
 
-**Windows PowerShell** (quoted variable):
+**Standalone Postgres** (from repo root; align `POSTGRES_*` with your instance):
 
-```powershell
-psql $env:DATABASE_URL -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
-psql $env:DATABASE_URL -f local_dev/raw_ingestion/ngta_pricebooks_ingest/schema.sql
-psql $env:DATABASE_URL -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
-psql $env:DATABASE_URL -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
+```bash
+cd app/backend
+export POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=postgres \
+  POSTGRES_PASSWORD=mysecretpassword POSTGRES_DB=app POSTGRES_SSL=false
+alembic upgrade head
 ```
 
-Order does not matter for a fresh database; rerun safely when scripts add new definitions.
+This creates schema **`app`** (auth) and **`raw_data`** (ingestion tables). Re-running `upgrade head` is safe when revisions use `IF NOT EXISTS` DDL.
+
+To change raw table definitions, edit the SQL files under `app/backend/alembic/raw_data/` and add a new Alembic revision (do not reintroduce manual `psql -f` steps).
 
 ---
 
@@ -212,4 +214,5 @@ Either tool connects to **the same** database referenced by **`DATABASE_URL`**; 
 | User | `postgres` |
 | Password (Docker example) | `mysecretpassword` |
 | JDBC/URI pattern | `postgresql://postgres:mysecretpassword@localhost:5432/app` |
-| Schema created by ingestion SQL | `raw_data` |
+| Raw landing schema (Alembic) | `raw_data` |
+| Migration entrypoint | `cd app/backend && alembic upgrade head` |

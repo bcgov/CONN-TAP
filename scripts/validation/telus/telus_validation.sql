@@ -1,4 +1,4 @@
--- Telus raw_data.raw_telus_spend validation helpers (see local_dev/ngta_postgres_ingest/schema.sql).
+-- Telus raw_data.raw_telus_spend validation helpers (see app/backend/alembic/raw_data/ngta_postgres.sql).
 --
 -- Each routine returns rows where validation fails. Use p_statement_month := NULL to scan
 -- the full table; pass any date within the target month (e.g. date '2026-03-15') to restrict
