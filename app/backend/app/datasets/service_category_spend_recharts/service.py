@@ -12,7 +12,7 @@ from app.datasets.service_category_spend_common import Filters, build_recharts_r
 class Service(DatasetService):
     id = "service-category-spend-recharts"
     name = "Service Category Spend - Recharts"
-    description = "Stacked spend by service category and vendor formatted for Recharts."
+    description = "Stacked spend by service category and provider formatted for Recharts."
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

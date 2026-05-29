@@ -12,7 +12,7 @@ from app.datasets.service_category_spend_common import Filters, build_plotly_res
 class Service(DatasetService):
     id = "service-category-spend-plotly"
     name = "Service Category Spend - Plotly"
-    description = "Stacked spend by service category and vendor formatted for Plotly."
+    description = "Stacked spend by service category and provider formatted for Plotly."
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

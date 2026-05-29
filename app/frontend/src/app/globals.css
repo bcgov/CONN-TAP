@@ -259,6 +259,100 @@ body.telecom-landing {
   font-family: "BC Sans", system-ui, -apple-system, sans-serif;
 }
 
+.msd {
+  position: relative;
+}
+
+.msd__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-medium, #898785);
+  border-radius: 0.25rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  color: var(--typography-color-primary, #313131);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms ease;
+}
+
+.msd__trigger:hover,
+.msd__trigger--open {
+  border-color: var(--surface-color-border-dark, #353433);
+}
+
+.msd__trigger:focus-visible {
+  outline: 2px solid #1a5276;
+  outline-offset: 1px;
+}
+
+.msd__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msd__chevron {
+  width: 10px;
+  height: 6px;
+  flex-shrink: 0;
+  color: var(--typography-color-secondary, #474543);
+  transition: transform 150ms ease;
+}
+
+.msd__trigger--open .msd__chevron {
+  transform: rotate(180deg);
+}
+
+.msd__panel {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 200;
+  min-width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-medium, #898785);
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  padding: 0.25rem 0;
+}
+
+.msd__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  color: var(--typography-color-primary, #313131);
+  user-select: none;
+}
+
+.msd__option:hover {
+  background: var(--surface-color-secondary-hover, #edebe9);
+}
+
+.msd__checkbox {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  accent-color: var(--surface-color-background-dark-blue, #053662);
+  cursor: pointer;
+}
+
+.msd__divider {
+  margin: 0.25rem 0;
+  border-top: 1px solid var(--surface-color-border-light, #d8d8d8);
+}
+
 .dashboard-alert {
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
@@ -269,7 +363,7 @@ body.telecom-landing {
 
 .dashboard-chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
 
@@ -294,6 +388,52 @@ body.telecom-landing {
 .dashboard-card__header p {
   margin: 0.35rem 0 0;
   color: var(--typography-color-secondary, #474543);
+}
+
+.dashboard-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-legend__label {
+  font-size: 0.8125rem;
+  color: var(--typography-color-secondary, #474543);
+}
+
+.dashboard-legend__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--typography-color-primary, #313131);
+  cursor: pointer;
+  transition: opacity 150ms ease, box-shadow 150ms ease;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+.dashboard-legend__btn:hover {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18);
+}
+
+.dashboard-legend__btn--off {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+.dashboard-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .dashboard-card__chart {

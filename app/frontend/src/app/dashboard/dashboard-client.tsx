@@ -5,7 +5,16 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
-import type { Data, Layout } from "plotly.js";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { MinimalFooter } from "@/components/minimal-footer";
+import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
+import { ProviderLegend, type ProviderItem } from "@/components/provider-legend";
+import {
+  applyOutsideLabels,
+  isPlotlyChart,
+  isRechartsChart,
+  type RechartsChart,
+} from "@/lib/chart-utils";
 import {
   Bar,
   BarChart,
@@ -16,118 +25,31 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
-import { MinimalFooter } from "@/components/minimal-footer";
-import { useMemo, useState } from "react";
+import { fetchDataset } from "@/lib/dataset-api";
+import { buildYearOptions, currentFiscalYear, type YearType } from "@/lib/date-utils";
+import { useProviderToggle } from "@/lib/use-provider-toggle";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
-type YearType = "fiscal" | "calendar";
-
-type DatasetEnvelope = {
-  metadata: {
-    chart?: unknown;
-  };
-};
-
-type PlotlyChart = {
-  data: Data[];
-  layout: Partial<Layout>;
-};
-
-type RechartsBar = {
-  dataKey: "Rogers" | "Telus";
-  stackId: string;
-  fill: string;
-  name: string;
-};
-
-type RechartsRow = {
-  serviceCategory: string;
-  Rogers: number;
-  Telus: number;
-  total: number;
-};
-
-type RechartsChart = {
-  data: RechartsRow[];
-  bars: RechartsBar[];
-  xAxisKey: "serviceCategory";
-  yAxisLabel: string;
-};
-
-function currentFiscalYear(date = new Date()) {
-  return date.getMonth() >= 3 ? date.getFullYear() + 1 : date.getFullYear();
-}
-
-function buildYearOptions(yearType: YearType) {
-  const currentYear = yearType === "fiscal" ? currentFiscalYear() : new Date().getFullYear();
-  const endYear = Math.max(currentYear, 2027);
-  const years = [];
-
-  for (let year = 2024; year <= endYear; year += 1) {
-    years.push(year);
-  }
-
-  return years;
-}
-
-function isPlotlyChart(chart: unknown): chart is PlotlyChart {
-  return Boolean(
-    chart &&
-      typeof chart === "object" &&
-      "data" in chart &&
-      "layout" in chart &&
-      Array.isArray((chart as PlotlyChart).data)
-  );
-}
-
-function isRechartsChart(chart: unknown): chart is RechartsChart {
-  return Boolean(
-    chart &&
-      typeof chart === "object" &&
-      "data" in chart &&
-      "bars" in chart &&
-      Array.isArray((chart as RechartsChart).data) &&
-      Array.isArray((chart as RechartsChart).bars)
-  );
-}
-
-async function fetchDataset(datasetId: string, yearType: YearType, year: number, quarter: string) {
-  const params = new URLSearchParams({
-    year_type: yearType,
-    year: String(year),
-  });
-
-  if (quarter !== "all") {
-    params.set("quarter", quarter);
-  }
-
-  const response = await fetch(`/api/v1/datasets/${datasetId}/data?${params.toString()}`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Dataset request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as DatasetEnvelope;
-}
-
 export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
-  const [year, setYear] = useState(currentFiscalYear());
-  const [quarter, setQuarter] = useState("all");
+  const [years, setYears] = useState<string[]>([String(currentFiscalYear())]);
+  const [quarters, setQuarters] = useState<string[]>([]);
+  const PROVIDERS: ProviderItem[] = [
+    { label: "Telus", traceName: "TELUS", color: "#b6f396" },
+    { label: "Rogers", traceName: "Rogers", color: "#e02b24" },
+  ];
+  const { activeProviders, toggleProvider } = useProviderToggle(PROVIDERS.map((p) => p.traceName));
 
   const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, year, quarter],
+    queryKey: ["service-category-spend", yearType, years, quarters],
     queryFn: async () => {
       const [plotly, recharts] = await Promise.all([
-        fetchDataset("service-category-spend-plotly", yearType, year, quarter),
-        fetchDataset("service-category-spend-recharts", yearType, year, quarter),
+        fetchDataset("service-category-spend-plotly", yearType, years, quarters),
+        fetchDataset("service-category-spend-recharts", yearType, years, quarters),
       ]);
-
       return {
         plotly: isPlotlyChart(plotly.metadata.chart) ? plotly.metadata.chart : null,
         recharts: isRechartsChart(recharts.metadata.chart) ? recharts.metadata.chart : null,
@@ -136,6 +58,15 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   });
 
   const yearLabel = yearType === "fiscal" ? "Fiscal year" : "Calendar year";
+
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => window.dispatchEvent(new Event("resize")));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div className="dashboard-shell">
@@ -184,12 +115,13 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                   value={yearType}
                   onChange={(event) => {
                     const nextYearType = event.target.value as YearType;
-                    const nextYears = buildYearOptions(nextYearType);
+                    const nextYearOptions = buildYearOptions(nextYearType);
                     setYearType(nextYearType);
-                    setYear((currentYear) =>
-                      nextYears.includes(currentYear) ? currentYear : nextYears[nextYears.length - 1]
-                    );
-                    setQuarter("all");
+                    setYears((prev) => {
+                      const valid = prev.filter((y) => nextYearOptions.includes(Number(y)));
+                      return valid.length > 0 ? valid : [String(nextYearOptions[nextYearOptions.length - 1])];
+                    });
+                    setQuarters([]);
                   }}
                 >
                   <option value="fiscal">Fiscal</option>
@@ -197,27 +129,34 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 </select>
               </label>
 
-              <label className="dashboard-control">
+              <div className="dashboard-control">
                 <span>{yearLabel}</span>
-                <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
-                  {yearOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {yearType === "fiscal" ? `FY ${option}` : option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <MultiSelectDropdown
+                  options={yearOptions.map((y) => ({
+                    label: yearType === "fiscal" ? `FY ${y}` : String(y),
+                    value: String(y),
+                  }))}
+                  selected={years}
+                  onChange={setYears}
+                  placeholder="All years"
+                />
+              </div>
 
-              <label className="dashboard-control">
+              <div className="dashboard-control">
                 <span>Quarter</span>
-                <select value={quarter} onChange={(event) => setQuarter(event.target.value)}>
-                  <option value="all">All quarters</option>
-                  <option value="1">Q1</option>
-                  <option value="2">Q2</option>
-                  <option value="3">Q3</option>
-                  <option value="4">Q4</option>
-                </select>
-              </label>
+                <MultiSelectDropdown
+                  options={[
+                    { label: "Q1", value: "1" },
+                    { label: "Q2", value: "2" },
+                    { label: "Q3", value: "3" },
+                    { label: "Q4", value: "4" },
+                  ]}
+                  selected={quarters}
+                  onChange={setQuarters}
+                  allLabel="All quarters"
+                  placeholder="All quarters"
+                />
+              </div>
             </section>
 
             {chartQuery.isError ? (
@@ -227,20 +166,25 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             ) : null}
 
             <section className="dashboard-chart-grid" aria-live="polite">
-              <article className="dashboard-card">
+              <article className="dashboard-card" ref={chartContainerRef}>
                 <div className="dashboard-card__header">
-                  <h2>Plotly.js stacked bar</h2>
-                  <p>Total spend by service category and vendor.</p>
+                  <h2>Spend by service category</h2>
+                  <p>
+                    The chart shows the breakdown of Telecom spend by service category and
+                    highlighting how much is spent with each provider.
+                  </p>
+                  <ProviderLegend providers={PROVIDERS} activeProviders={activeProviders} onToggle={toggleProvider} />
                 </div>
                 <div className="dashboard-card__chart">
                   {chartQuery.isLoading ? (
                     <p className="dashboard-card__empty">Loading Plotly chart...</p>
                   ) : chartQuery.data?.plotly ? (
                     <Plot
-                      data={chartQuery.data.plotly.data}
+                      data={applyOutsideLabels(chartQuery.data.plotly.data, activeProviders)}
                       layout={{
                         ...chartQuery.data.plotly.layout,
                         autosize: true,
+                        showlegend: false,
                         paper_bgcolor: "rgba(0,0,0,0)",
                         plot_bgcolor: "rgba(0,0,0,0)",
                       }}
@@ -256,7 +200,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
 
               <article className="dashboard-card">
                 <div className="dashboard-card__header">
-                  <h2>Recharts stacked bar</h2>
+                  <h2>Spend by service category</h2>
                   <p>The same dataset, shaped for Recharts.</p>
                 </div>
                 <div className="dashboard-card__chart">
@@ -301,6 +245,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                   )}
                 </div>
               </article>
+
             </section>
           </main>
           <MinimalFooter />
