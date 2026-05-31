@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1.7
+FROM node:20-alpine
+WORKDIR /app
+
+# Install deps based on package.json; bind mount in compose overrides /app
+# but node_modules is preserved via anonymous volume.
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+EXPOSE 3000
+CMD ["pnpm", "dev"]

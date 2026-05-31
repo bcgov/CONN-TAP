@@ -1,0 +1,93 @@
+name: app
+
+services:
+  postgres:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    image: app-postgres:16
+    container_name: app-postgres
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_partman_bgw
+      -c pg_partman_bgw.interval=3600
+      -c pg_partman_bgw.role=app
+      -c pg_partman_bgw.dbname=app
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - app-pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: app-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      CORS_ORIGINS: '["http://localhost:3001"]'
+      KEYCLOAK_ISSUER_URL: https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+      KEYCLOAK_CLIENT_ID: conn-hub-6434
+      SESSION_COOKIE_NAME: telecom_session
+      SESSION_SECRET: local-dev-session-secret-32-bytes-min
+      WATCHFILES_FORCE_POLLING: "true"
+      WATCHFILES_POLL_DELAY_MS: "300"
+    ports:
+      - "8000:8000"
+    # Mount source for hot-reload during local development.
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+
+  frontend:
+    profiles:
+      - frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: app-frontend
+    depends_on:
+      - backend
+    environment:
+      APP_BASE_URL: http://localhost:3001
+      BACKEND_INTERNAL_URL: http://backend:8000
+      KEYCLOAK_ISSUER_URL: https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+      KEYCLOAK_CLIENT_ID: conn-hub-6434
+      KEYCLOAK_CLIENT_SECRET: replace-with-confidential-client-secret
+      SESSION_COOKIE_NAME: telecom_session
+      SESSION_SECRET: local-dev-session-secret-32-bytes-min
+      TOKEN_ENCRYPTION_KEY: local-dev-token-encryption-key-32-b
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: pnpm dev
+
+volumes:
+  app-pgdata:
