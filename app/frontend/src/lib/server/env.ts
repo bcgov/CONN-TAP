@@ -1,0 +1,60 @@
+import "server-only";
+
+const DEFAULT_COOKIE_NAME = "telecom_session";
+const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const DEFAULT_REFRESH_WINDOW_SECONDS = 60;
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+function optionalInt(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Environment variable ${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+export function authEnv() {
+  const appBaseUrl = required("APP_BASE_URL").replace(/\/$/, "");
+  const issuerUrl = required("KEYCLOAK_ISSUER_URL").replace(/\/$/, "");
+
+  return {
+    appBaseUrl,
+    backendInternalUrl: (process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000").replace(/\/$/, ""),
+    issuerUrl,
+    clientId: required("KEYCLOAK_CLIENT_ID"),
+    clientSecret: required("KEYCLOAK_CLIENT_SECRET"),
+    cookieName: process.env.SESSION_COOKIE_NAME ?? DEFAULT_COOKIE_NAME,
+    sessionSecret: required("SESSION_SECRET"),
+    tokenEncryptionKey: required("TOKEN_ENCRYPTION_KEY"),
+    sessionTtlSeconds: optionalInt("SESSION_TTL_SECONDS", DEFAULT_SESSION_TTL_SECONDS),
+    refreshWindowSeconds: optionalInt("TOKEN_REFRESH_WINDOW_SECONDS", DEFAULT_REFRESH_WINDOW_SECONDS),
+    secureCookies: appBaseUrl.startsWith("https://"),
+  };
+}
+
+export function postgresEnv() {
+  if (process.env.DATABASE_URL) {
+    return { connectionString: process.env.DATABASE_URL };
+  }
+
+  const host = process.env.POSTGRES_HOST ?? "localhost";
+  const port = process.env.POSTGRES_PORT ?? "5432";
+  const user = process.env.POSTGRES_USER ?? "app";
+  const password = process.env.POSTGRES_PASSWORD ?? "app";
+  const database = process.env.POSTGRES_DB ?? "app";
+
+  return {
+    connectionString: `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(
+      password
+    )}@${host}:${port}/${database}`,
+  };
+}
