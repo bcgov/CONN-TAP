@@ -9,6 +9,7 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
 import {
+  applyOutsideLabels,
   isPlotlyChart,
   isRechartsChart,
   type RechartsChart,
@@ -171,7 +172,10 @@ const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
                     <p className="dashboard-card__empty">Loading Plotly chart...</p>
                   ) : chartQuery.data?.plotly ? (
                     <Plot
-                      data={chartQuery.data.plotly.data}
+                      data={applyOutsideLabels(
+                        chartQuery.data.plotly.data,
+                        new Set(chartQuery.data.plotly.data.map((t) => (t as { name?: string }).name ?? ""))
+                      )}
                       layout={{
                         ...chartQuery.data.plotly.layout,
                         autosize: true,
