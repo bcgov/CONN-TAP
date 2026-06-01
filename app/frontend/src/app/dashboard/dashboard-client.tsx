@@ -133,7 +133,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 <span>{yearLabel}</span>
                 <MultiSelectDropdown
                   options={yearOptions.map((y) => ({
-                    label: yearType === "fiscal" ? `FY ${y}` : String(y),
+                    label: yearType === "fiscal" ? `FY ${y - 1}-${y}` : String(y),
                     value: String(y),
                   }))}
                   selected={years}
