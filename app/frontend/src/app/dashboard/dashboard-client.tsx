@@ -8,9 +8,7 @@ import { UserCircle2 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
-import { ProviderLegend, type ProviderItem } from "@/components/provider-legend";
 import {
-  applyOutsideLabels,
   isPlotlyChart,
   isRechartsChart,
   type RechartsChart,
@@ -27,7 +25,7 @@ import {
 } from "recharts";
 import { fetchDataset } from "@/lib/dataset-api";
 import { buildYearOptions, currentFiscalYear, type YearType } from "@/lib/date-utils";
-import { useProviderToggle } from "@/lib/use-provider-toggle";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -36,13 +34,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
   const [years, setYears] = useState<string[]>([String(currentFiscalYear())]);
   const [quarters, setQuarters] = useState<string[]>([]);
-  const PROVIDERS: ProviderItem[] = [
-    { label: "Telus", traceName: "TELUS", color: "#b6f396" },
-    { label: "Rogers", traceName: "Rogers", color: "#e02b24" },
-  ];
-  const { activeProviders, toggleProvider } = useProviderToggle(PROVIDERS.map((p) => p.traceName));
-
-  const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
+const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, years, quarters],
     queryFn: async () => {
@@ -173,18 +165,18 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                     The chart shows the breakdown of Telecom spend by service category and
                     highlighting how much is spent with each provider.
                   </p>
-                  <ProviderLegend providers={PROVIDERS} activeProviders={activeProviders} onToggle={toggleProvider} />
                 </div>
                 <div className="dashboard-card__chart">
                   {chartQuery.isLoading ? (
                     <p className="dashboard-card__empty">Loading Plotly chart...</p>
                   ) : chartQuery.data?.plotly ? (
                     <Plot
-                      data={applyOutsideLabels(chartQuery.data.plotly.data, activeProviders)}
+                      data={chartQuery.data.plotly.data}
                       layout={{
                         ...chartQuery.data.plotly.layout,
                         autosize: true,
-                        showlegend: false,
+                        showlegend: true,
+                        legend: { ...chartQuery.data.plotly.layout.legend, itemclick: false, itemdoubleclick: false },
                         paper_bgcolor: "rgba(0,0,0,0)",
                         plot_bgcolor: "rgba(0,0,0,0)",
                       }}

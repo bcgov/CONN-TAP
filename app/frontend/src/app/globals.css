@@ -390,51 +390,6 @@ body.telecom-landing {
   color: var(--typography-color-secondary, #474543);
 }
 
-.dashboard-legend {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.dashboard-legend__label {
-  font-size: 0.8125rem;
-  color: var(--typography-color-secondary, #474543);
-}
-
-.dashboard-legend__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid var(--surface-color-border-light, #d8d8d8);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--typography-color-primary, #313131);
-  cursor: pointer;
-  transition: opacity 150ms ease, box-shadow 150ms ease;
-  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
-}
-
-.dashboard-legend__btn:hover {
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18);
-}
-
-.dashboard-legend__btn--off {
-  opacity: 0.4;
-  box-shadow: none;
-}
-
-.dashboard-legend__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
 
 .dashboard-card__chart {
   min-height: 420px;

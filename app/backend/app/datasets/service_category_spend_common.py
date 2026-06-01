@@ -136,13 +136,13 @@ def build_plotly_result(dataset_id: str, df: pd.DataFrame, filters: Filters) -> 
                 "layout": {
                     "barmode": "stack",
                     "xaxis": {
-                        "title": "Service category",
+                        "title": {"text": "Service category", "font": {"size": 11}},
                         "categoryorder": "array",
                         "categoryarray": categories,
                     },
-                    "yaxis": {"title": "Spend ($M)", "range": [0, max_stack * 1.25]},
+                    "yaxis": {"title": {"text": "Spend ($M)", "font": {"size": 11}}, "range": [0, max_stack * 1.25]},
                     "margin": {"l": 72, "r": 24, "t": 24, "b": 96},
-                    "legend": {"orientation": "h", "x": 0, "y": 1.12},
+                    "legend": {"orientation": "h", "x": 0, "y": 1.12, "font": {"size": 11}},
                 },
             },
         },
