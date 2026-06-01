@@ -7,13 +7,18 @@ import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
-import { applyOutsideLabels, isPlotlyChart } from "@/lib/chart-utils";
+import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
 import {
+  applyOutsideLabels,
+  isIndicatorChart,
+  isPlotlyChart,
+} from "@/lib/chart-utils";
+import {
+  buildDateRangeLabel,
   buildYearOptions,
   currentFiscalYear,
   type YearType,
 } from "@/lib/date-utils";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type DatasetEnvelope = {
@@ -62,10 +67,31 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, year, quarter],
     queryFn: async () => {
-      const plotly = await fetchDataset("service-category-spend-plotly", yearType, year, quarter);
+      const plotly = await fetchDataset(
+        "service-category-spend-plotly",
+        yearType,
+        year,
+        quarter,
+      );
       return {
-        plotly: isPlotlyChart(plotly.metadata.chart) ? plotly.metadata.chart : null,
+        plotly: isPlotlyChart(plotly.metadata.chart)
+          ? plotly.metadata.chart
+          : null,
       };
+    },
+  });
+  const indicatorQuery = useQuery({
+    queryKey: ["isp-spend-indicators", yearType, year, quarter],
+    queryFn: async () => {
+      const result = await fetchDataset(
+        "isp-spend-indicators",
+        yearType,
+        year,
+        quarter,
+      );
+      return isIndicatorChart(result.metadata.chart)
+        ? result.metadata.chart
+        : null;
     },
   });
 
@@ -75,7 +101,9 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   useEffect(() => {
     const el = chartContainerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => window.dispatchEvent(new Event("resize")));
+    const ro = new ResizeObserver(() =>
+      window.dispatchEvent(new Event("resize")),
+    );
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -92,7 +120,13 @@ export function DashboardClient({ displayName }: { displayName: string }) {
               Skip to main content
             </a>,
           ]}
-          logoLinkElement={<Link href="/" title="Government of British Columbia" prefetch={false} />}
+          logoLinkElement={
+            <Link
+              href="/"
+              title="Government of British Columbia"
+              prefetch={false}
+            />
+          }
         >
           <div className="dashboard-header__user">
             <UserCircle2 size={20} aria-hidden="true" />
@@ -114,13 +148,16 @@ export function DashboardClient({ displayName }: { displayName: string }) {
               <div>
                 <Heading level={1}>Telecom Spend Dashboard</Heading>
                 <p className="dashboard-main__intro">
-                  You are signed in as {displayName}. Spend is shown in millions of dollars and
-                  sorted by highest total service category spend.
+                  You are signed in as {displayName}. Spend is shown in millions
+                  of dollars and sorted by highest total service category spend.
                 </p>
               </div>
             </div>
 
-            <section className="dashboard-controls" aria-label="Spend chart filters">
+            <section
+              className="dashboard-controls"
+              aria-label="Spend chart filters"
+            >
               <label className="dashboard-control">
                 <span>Year type</span>
                 <select
@@ -130,7 +167,9 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                     const nextYears = buildYearOptions(nextYearType);
                     setYearType(nextYearType);
                     setYear((currentYear) =>
-                      nextYears.includes(currentYear) ? currentYear : nextYears[nextYears.length - 1]
+                      nextYears.includes(currentYear)
+                        ? currentYear
+                        : nextYears[nextYears.length - 1],
                     );
                     setQuarter("all");
                   }}
@@ -142,7 +181,10 @@ export function DashboardClient({ displayName }: { displayName: string }) {
 
               <label className="dashboard-control">
                 <span>{yearLabel}</span>
-                <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
+                <select
+                  value={year}
+                  onChange={(event) => setYear(Number(event.target.value))}
+                >
                   {yearOptions.map((option) => (
                     <option key={option} value={option}>
                       {yearType === "fiscal" ? `FY ${option}` : option}
@@ -153,7 +195,10 @@ export function DashboardClient({ displayName }: { displayName: string }) {
 
               <label className="dashboard-control">
                 <span>Quarter</span>
-                <select value={quarter} onChange={(event) => setQuarter(event.target.value)}>
+                <select
+                  value={quarter}
+                  onChange={(event) => setQuarter(event.target.value)}
+                >
                   <option value="all">All quarters</option>
                   <option value="1">Q1</option>
                   <option value="2">Q2</option>
@@ -162,6 +207,12 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 </select>
               </label>
             </section>
+
+            <SpendIndicatorCards
+              indicators={indicatorQuery.data?.indicators ?? []}
+              dateRangeLabel={buildDateRangeLabel(yearType, [year], [quarter])}
+              isLoading={indicatorQuery.isLoading}
+            />
 
             {chartQuery.isError ? (
               <div className="dashboard-alert" role="alert">
@@ -174,24 +225,35 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 <div className="dashboard-card__header">
                   <h2>Spend by service category</h2>
                   <p>
-                    The chart shows the breakdown of Telecom spend by service category and
-                    highlighting how much is spent with each provider.
+                    The chart shows the breakdown of Telecom spend by service
+                    category and highlighting how much is spent with each
+                    provider.
                   </p>
                 </div>
                 <div className="dashboard-card__chart">
                   {chartQuery.isLoading ? (
-                    <p className="dashboard-card__empty">Loading Plotly chart...</p>
+                    <p className="dashboard-card__empty">
+                      Loading Plotly chart...
+                    </p>
                   ) : chartQuery.data?.plotly ? (
                     <Plot
                       data={applyOutsideLabels(
                         chartQuery.data.plotly.data,
-                        new Set(chartQuery.data.plotly.data.map((t) => (t as { name?: string }).name ?? ""))
+                        new Set(
+                          chartQuery.data.plotly.data.map(
+                            (t) => (t as { name?: string }).name ?? "",
+                          ),
+                        ),
                       )}
                       layout={{
                         ...chartQuery.data.plotly.layout,
                         autosize: true,
                         showlegend: true,
-                        legend: { ...chartQuery.data.plotly.layout.legend, itemclick: false, itemdoubleclick: false },
+                        legend: {
+                          ...chartQuery.data.plotly.layout.legend,
+                          itemclick: false,
+                          itemdoubleclick: false,
+                        },
                         paper_bgcolor: "rgba(0,0,0,0)",
                         plot_bgcolor: "rgba(0,0,0,0)",
                       }}
@@ -200,11 +262,12 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                       useResizeHandler
                     />
                   ) : (
-                    <p className="dashboard-card__empty">No Plotly data for this period.</p>
+                    <p className="dashboard-card__empty">
+                      No Plotly data for this period.
+                    </p>
                   )}
                 </div>
               </article>
-
             </section>
           </main>
           <MinimalFooter />

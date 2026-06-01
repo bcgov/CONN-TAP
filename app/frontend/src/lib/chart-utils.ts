@@ -17,6 +17,24 @@ export function isPlotlyChart(chart: unknown): chart is PlotlyChart {
   );
 }
 
+export type IndicatorItem = {
+  label: string;
+  value_millions: number;
+};
+
+export type IndicatorChart = {
+  indicators: IndicatorItem[];
+};
+
+export function isIndicatorChart(chart: unknown): chart is IndicatorChart {
+  return Boolean(
+    chart &&
+      typeof chart === "object" &&
+      "indicators" in chart &&
+      Array.isArray((chart as IndicatorChart).indicators)
+  );
+}
+
 export function applyOutsideLabels(traces: Data[], activeProviders: Set<string>): Data[] {
   const active = traces.filter((t) => activeProviders.has((t as PlotlyTrace).name ?? ""));
   return active.map((trace, idx) => {
