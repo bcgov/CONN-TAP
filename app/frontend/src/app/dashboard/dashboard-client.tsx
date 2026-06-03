@@ -210,7 +210,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
 
             <SpendIndicatorCards
               indicators={indicatorQuery.data?.indicators ?? []}
-              dateRangeLabel={buildDateRangeLabel(yearType, [year], [quarter])}
+              dateRangeLabel={buildDateRangeLabel(yearType, year, quarter)}
               isLoading={indicatorQuery.isLoading}
             />
 

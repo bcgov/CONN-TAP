@@ -6,7 +6,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
-from app.datasets.service_category_spend_common import Filters, build_plotly_result, run_query
+from .helpers import build_plotly_result, run_query
+from .schema import Filters
 
 
 class Service(DatasetService):

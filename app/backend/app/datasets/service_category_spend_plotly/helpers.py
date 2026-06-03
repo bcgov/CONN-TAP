@@ -1,27 +1,14 @@
-"""Shared formatting for service category spend chart datasets."""
+"""Query and chart-building helpers for the service category spend dataset."""
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import Any
 
 import pandas as pd
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import fmt_spend, to_float
-
-
-class YearType(StrEnum):
-    calendar = "calendar"
-    fiscal = "fiscal"
-
-
-class Filters(BaseModel):
-    year_type: YearType = YearType.fiscal
-    year: int | None = None
-    quarter: int | None = None
-
+from app.datasets.spend_common import Filters
 
 PROVIDER_ORDER = ("TELUS", "Rogers")
 PROVIDER_COLOURS = {
@@ -35,6 +22,7 @@ RESULT_COLUMNS = [
     "spend_millions",
     "total_spend_millions",
 ]
+
 
 def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.DataFrame:
     df = service.execute_sql(

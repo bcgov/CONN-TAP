@@ -263,9 +263,14 @@ async function invalidateSession(sessionHash: string): Promise<void> {
   await clearSessionCookie();
 }
 
-const pendingRefreshes = new Map<string, Promise<ServerSession | null>>();
+export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(sessionCookieName())?.value;
+  if (!sessionToken) return null;
 
-async function loadSession(sessionHash: string, refreshWindowSeconds: number, refresh: boolean): Promise<ServerSession | null> {
+  const { refreshWindowSeconds } = authEnv();
+
+  const sessionHash = hashSessionToken(sessionToken);
   const result = await query<SessionRow>(
     `SELECT session_hash,
             subject,
@@ -303,7 +308,7 @@ async function loadSession(sessionHash: string, refreshWindowSeconds: number, re
   if (!accessToken) return null;
 
   const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
-  if (refresh && refreshToken && Date.now() >= refreshAt) {
+  if (options.refresh && refreshToken && Date.now() >= refreshAt) {
     const refreshed = await refreshAccessToken(refreshToken);
     if (!refreshed?.access_token) {
       // Server Components cannot modify cookies; logout route clears the cookie.
@@ -354,29 +359,6 @@ async function loadSession(sessionHash: string, refreshWindowSeconds: number, re
     accessTokenExpiresAt: row.access_token_expires_at,
     expiresAt: row.session_expires_at.toISOString(),
   };
-}
-
-export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(sessionCookieName())?.value;
-  if (!sessionToken) return null;
-
-  const { refreshWindowSeconds } = authEnv();
-  const sessionHash = hashSessionToken(sessionToken);
-
-  if (!options.refresh) {
-    return loadSession(sessionHash, refreshWindowSeconds, false);
-  }
-
-  // Deduplicate concurrent refresh attempts for the same session — only one
-  // Keycloak call is made, all other concurrent requests share its result.
-  let pending = pendingRefreshes.get(sessionHash);
-  if (!pending) {
-    pending = loadSession(sessionHash, refreshWindowSeconds, true)
-      .finally(() => pendingRefreshes.delete(sessionHash));
-    pendingRefreshes.set(sessionHash, pending);
-  }
-  return pending;
 }
 
 export async function requireSession(returnTo: string): Promise<ServerSession> {

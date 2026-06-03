@@ -7,35 +7,24 @@ export function currentFiscalYear(date = new Date()) {
 const FISCAL_Q_START = ["Apr", "Jul", "Oct", "Jan"];
 const FISCAL_Q_END = ["Jun", "Sep", "Dec", "Mar"];
 
-export function buildDateRangeLabel(yearType: YearType, years: string[], quarters: string[]): string {
-  if (years.length === 0) return "";
-  const nums = years.map(Number).sort((a, b) => a - b);
-  const first = nums[0];
-  const last = nums[nums.length - 1];
-
+export function buildDateRangeLabel(
+  yearType: YearType,
+  year: number,
+  quarter: string,
+): string {
   if (yearType === "fiscal") {
-    if (quarters.length === 0) {
-      if (first === last) return `(Apr ${first - 1} – Mar ${first})`;
-      return `(Apr ${first - 1} – Mar ${last})`;
-    }
-    const qs = quarters.map(Number).sort((a, b) => a - b);
-    const startLabel = `${FISCAL_Q_START[qs[0] - 1]} ${qs[0] === 4 ? first : first - 1}`;
-    const endLabel = `${FISCAL_Q_END[qs[qs.length - 1] - 1]} ${last}`;
-    return `(${startLabel} – ${endLabel})`;
+    if (quarter === "all") return `(Apr ${year - 1} – Mar ${year})`;
+    const q = Number(quarter);
+    return `(${FISCAL_Q_START[q - 1]} ${q === 4 ? year : year - 1} – ${FISCAL_Q_END[q - 1]} ${year})`;
   }
 
-  if (quarters.length === 0) {
-    if (first === last) return `(Jan ${first} – Dec ${first})`;
-    return `(Jan ${first} – Dec ${last})`;
-  }
-  const qs = quarters.map(Number).sort((a, b) => a - b);
-  const qLabels = qs.map((q) => `Q${q}`).join(", ");
-  if (first === last) return `(${first} ${qLabels})`;
-  return `(${first}–${last} ${qLabels})`;
+  if (quarter === "all") return `(Jan ${year} – Dec ${year})`;
+  return `(${year} Q${quarter})`;
 }
 
 export function buildYearOptions(yearType: YearType) {
-  const currentYear = yearType === "fiscal" ? currentFiscalYear() : new Date().getFullYear();
+  const currentYear =
+    yearType === "fiscal" ? currentFiscalYear() : new Date().getFullYear();
   const endYear = Math.max(currentYear, 2027);
   const years = [];
   for (let year = 2024; year <= endYear; year += 1) {
