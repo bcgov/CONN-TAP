@@ -15,6 +15,7 @@ import {
   isIndicatorChart,
   isPlotlyChart,
   isSectorChart,
+  isTimelineChart,
 } from "@/lib/chart-utils";
 import {
   buildPeriodRangeLabel,
@@ -31,24 +32,14 @@ type DatasetEnvelope = {
 
 async function fetchDataset(
   datasetId: string,
-  yearType: YearType,
-  year: number,
-  quarter: string,
+  filters: { yearType: YearType; period?: string[] },
 ) {
-  const params = new URLSearchParams({
-    year_type: yearType,
-    year: String(year),
-  });
-
-  if (quarter !== "all") {
-    params.set("quarter", quarter);
-  }
+  const params = new URLSearchParams({ year_type: filters.yearType });
+  for (const p of filters.period ?? []) params.append("period", p);
 
   const response = await fetch(
     `/api/v1/datasets/${datasetId}/data?${params.toString()}`,
-    {
-      cache: "no-store",
-    },
+    { cache: "no-store" },
   );
 
   if (!response.ok) {
@@ -62,14 +53,14 @@ const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
-  const [periods, setPeriods] = useState<string[]>([]);
+  const [period, setPeriods] = useState<string[]>([]);
 
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, periods],
+    queryKey: ["service-category-spend", yearType, period],
     queryFn: async () => {
       const plotly = await fetchDataset("service-category-spend-plotly", {
         yearType,
-        periods,
+        period,
       });
       return {
         plotly: isPlotlyChart(plotly.metadata.chart)
@@ -77,33 +68,41 @@ export function DashboardClient({ displayName }: { displayName: string }) {
           : null,
       };
     },
-    enabled: periods.length > 0,
+    enabled: period.length > 0,
   });
   const indicatorQuery = useQuery({
-    queryKey: ["isp-spend-indicators", yearType, year, quarter],
+    queryKey: ["isp-spend-indicators", yearType, period],
     queryFn: async () => {
-      const result = await fetchDataset(
-        "isp-spend-indicators",
-        yearType,
-        year,
-        quarter,
-      );
+      const result = await fetchDataset("isp-spend-indicators", { yearType, period });
       return isIndicatorChart(result.metadata.chart)
         ? result.metadata.chart
         : null;
     },
   });
 
+  const timelineQuery = useQuery({
+    queryKey: ["total-spend-over-time", yearType],
+    queryFn: async () => {
+      const result = await fetchDataset("total-spend-over-time", { yearType });
+      if (!isTimelineChart(result.metadata.chart)) return null;
+      const chart = result.metadata.chart;
+      return {
+        ...chart,
+        data: chart.data.filter((p) => parseInt(p.period.split("_")[0]) >= 2024),
+      };
+    },
+  });
+
   const sectorQuery = useQuery({
-    queryKey: ["spend-by-sector", yearType, periods],
+    queryKey: ["spend-by-sector", yearType, period],
     queryFn: async () => {
       const result = await fetchDataset("spend-by-sector", {
         yearType,
-        periods,
+        period,
       });
       return isSectorChart(result.metadata.chart) ? result.metadata.chart : null;
     },
-    enabled: periods.length > 0,
+    enabled: period.length > 0,
   });
   const sectorTotalLabel = sectorQuery.data?.total_millions?.toFixed(1) ?? "—";
 
@@ -184,13 +183,17 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             </section>
 
             <SpendTimelineBrush
-              yearType={yearType}
+              key={yearType}
+              chart={timelineQuery.data ?? null}
+              isLoading={timelineQuery.isLoading}
               onPeriodsChange={setPeriods}
+              yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
+              tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
             />
 
             <SpendIndicatorCards
               indicators={indicatorQuery.data?.indicators ?? []}
-              dateRangeLabel={buildPeriodRangeLabel(periods, yearType)}
+              dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
               isLoading={indicatorQuery.isLoading}
             />
 
@@ -204,6 +207,11 @@ export function DashboardClient({ displayName }: { displayName: string }) {
               <article className="dashboard-card" ref={chartContainerRef}>
                 <div className="dashboard-card__header">
                   <h2>Spend by service category</h2>
+                  {buildPeriodRangeLabel(period, yearType) && (
+                    <p className="dashboard-card__date-range">
+                      {buildPeriodRangeLabel(period, yearType)}
+                    </p>
+                  )}
                   <p>
                     The chart shows the breakdown of Telecom spend by service
                     category and highlighting how much is spent with each
@@ -265,7 +273,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                   ) : sectorQuery.data ? (
                     <SpendBySectorChart
                       chart={sectorQuery.data}
-                      dateRangeLabel={buildPeriodRangeLabel(periods, yearType)}
+                      dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
                     />
                   ) : (
                     <p className="dashboard-card__empty">

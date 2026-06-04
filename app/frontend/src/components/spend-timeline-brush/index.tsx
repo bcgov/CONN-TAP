@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   CartesianGrid,
   Line,
@@ -11,40 +10,38 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchDataset } from "@/lib/dataset-api";
-import { isTimelineChart, type TimelinePoint } from "@/lib/chart-utils";
+import { type TimelineChart, type TimelinePoint } from "@/lib/chart-utils";
 import type { MouseHandlerDataParam } from "recharts/types/synchronisation/types";
-import type { YearType } from "@/lib/date-utils";
 import styles from "./spend-timeline-brush.module.css";
 
 interface Props {
-  yearType: YearType;
+  chart: TimelineChart | null;
+  isLoading: boolean;
   onPeriodsChange: (periods: string[]) => void;
+  yAxisFormatter?: (v: number) => string;
+  tooltipFormatter?: (v: number) => string;
 }
 
-type DisplayPoint = TimelinePoint & { base_spend: number | null; selected_spend: number | null };
+type DisplayPoint = TimelinePoint & { base_value: number | null; selected_value: number | null };
 
-export function SpendTimelineBrush({ yearType, onPeriodsChange }: Props) {
+export function SpendTimelineBrush({
+  chart,
+  isLoading,
+  onPeriodsChange,
+  yAxisFormatter = (v) => String(Number(v).toFixed(0)),
+  tooltipFormatter = (v) => String(Number(v).toFixed(1)),
+}: Props) {
   const initialized = useRef(false);
+  const points = chart?.data ?? [];
 
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const [drag, setDrag] = useState<{ start: string; end: string } | null>(null);
-
-  const { data: points = [], isLoading } = useQuery({
-    queryKey: ["total-spend-over-time", yearType],
-    queryFn: async () => {
-      const result = await fetchDataset("total-spend-over-time", { yearType });
-      const chart = result.metadata.chart;
-      const all = isTimelineChart(chart) ? chart.data : ([] as TimelinePoint[]);
-      return all.filter((p) => parseInt(p.period.split("_")[0]) >= 2024);
-    },
-  });
 
   useEffect(() => {
     initialized.current = false;
     setSelection(null);
     setDrag(null);
-  }, [yearType]);
+  }, [chart]);
 
   useEffect(() => {
     if (!points.length || initialized.current) return;
@@ -97,27 +94,28 @@ export function SpendTimelineBrush({ yearType, onPeriodsChange }: Props) {
   const [lo, hi] = visible ? getRange(visible.start, visible.end) : [-1, -1];
   const displayData: DisplayPoint[] = points.map((p, i) => ({
     ...p,
-    // Base line: null for interior of selection so the two lines never overlap
-    base_spend: visible && i > lo && i < hi ? null : p.total_spend_millions,
-    // Highlight line: full selected segment (shares boundary points with base)
-    selected_spend: visible && i >= lo && i <= hi ? p.total_spend_millions : null,
+    base_value: visible && i > lo && i < hi ? null : p.value,
+    selected_value: visible && i >= lo && i <= hi ? p.value : null,
   }));
 
   const selStartLabel = visible?.start ?? "";
   const selEndLabel = visible?.end ?? "";
+  const valueLabel = chart?.valueLabel ?? "Value";
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span className={styles.title}>Filter by period</span>
-        {selStartLabel && selEndLabel && (
-          <span className={styles.range}>
-            {selStartLabel === selEndLabel
-              ? selStartLabel
-              : `${selStartLabel} – ${selEndLabel}`}
-            <span className={styles.hint}> — click and drag to select a range</span>
-          </span>
-        )}
+        <div className={styles.headerLeft}>
+          <span className={styles.title}>Filter by period</span>
+          {selStartLabel && selEndLabel && (
+            <span className={styles.range}>
+              {selStartLabel === selEndLabel
+                ? selStartLabel
+                : `${selStartLabel} – ${selEndLabel}`}
+            </span>
+          )}
+        </div>
+        <span className={styles.hint}>drag to select a range</span>
       </div>
       {isLoading ? (
         <p className="dashboard-card__empty">Loading timeline...</p>
@@ -140,7 +138,7 @@ export function SpendTimelineBrush({ yearType, onPeriodsChange }: Props) {
                 tickLine={false}
               />
               <YAxis
-                tickFormatter={(v) => `$${Number(v).toFixed(0)}M`}
+                tickFormatter={yAxisFormatter}
                 width={52}
                 tick={{ fontSize: 11, fill: "#474543" }}
                 axisLine={false}
@@ -148,26 +146,24 @@ export function SpendTimelineBrush({ yearType, onPeriodsChange }: Props) {
               />
               {!drag && (
                 <Tooltip
-                  formatter={(value) => [`$${Number(value).toFixed(1)}M`, "Total spend"]}
+                  formatter={(value) => [tooltipFormatter(Number(value)), valueLabel]}
                   contentStyle={{ fontSize: 12 }}
                 />
               )}
-              {/* Base line — unselected range only (null in selection interior) */}
               <Line
                 type="monotone"
-                dataKey="base_spend"
+                dataKey="base_value"
                 stroke="#b0bec5"
                 strokeWidth={1.5}
                 dot={false}
                 activeDot={false}
-                name="Total Spend"
+                name={valueLabel}
                 isAnimationActive={false}
                 legendType="none"
               />
-              {/* Highlight line — selected segment only */}
               <Line
                 type="monotone"
-                dataKey="selected_spend"
+                dataKey="selected_value"
                 stroke="#607d8b"
                 strokeWidth={2.5}
                 dot={{ r: 3.5, fill: "#607d8b", strokeWidth: 0 }}

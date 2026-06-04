@@ -27,7 +27,7 @@ class Service(DatasetService):
             "isp_spend_indicators",
             params={
                 "year_type": parsed.year_type.value,
-                "periods": _pg_text_array(parsed.periods),
+                "period": _pg_text_array(parsed.period),
             },
         )
 

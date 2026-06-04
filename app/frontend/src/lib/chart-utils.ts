@@ -38,11 +38,12 @@ export function isIndicatorChart(chart: unknown): chart is IndicatorChart {
 export type TimelinePoint = {
   period: string;
   label: string;
-  total_spend_millions: number;
+  value: number;
 };
 
 export type TimelineChart = {
   data: TimelinePoint[];
+  valueLabel: string;
 };
 
 export function isTimelineChart(chart: unknown): chart is TimelineChart {

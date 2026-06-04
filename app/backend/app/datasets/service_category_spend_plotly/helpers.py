@@ -8,13 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import fmt_spend, to_float
-from app.datasets.spend_common import Filters
-
-PROVIDER_ORDER = ("TELUS", "Rogers")
-PROVIDER_COLOURS = {
-    "Rogers": "#e02b24",
-    "TELUS": "#b6f396",
-}
+from app.datasets.colors import PROVIDER_COLOURS, TEXT_SECONDARY
+from app.datasets.spend_common import Filters, PROVIDER_ORDER
 RESULT_COLUMNS = [
     "service_category",
     "vendor",
@@ -33,7 +28,7 @@ def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.Data
         "service_category_vendor_spend",
         params={
             "year_type": filters.year_type.value,
-            "periods": _pg_text_array(filters.periods),
+            "period": _pg_text_array(filters.period),
         },
     )
 
@@ -85,7 +80,7 @@ def build_plotly_result(dataset_id: str, df: pd.DataFrame, filters: Filters) -> 
                 "y": values,
                 "text": [f"{provider} - {fmt_spend(v)}" if v else "" for v in values],
                 "textposition": "none",
-                "textfont": {"size": 10, "color": "#474543"},
+                "textfont": {"size": 10, "color": TEXT_SECONDARY},
                 "marker": {"color": PROVIDER_COLOURS[provider]},
                 "hovertemplate": "%{x}<br>%{fullData.name}: $%{y:.2f}M<extra></extra>",
             }

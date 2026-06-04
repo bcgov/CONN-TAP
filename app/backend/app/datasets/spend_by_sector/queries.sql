@@ -6,8 +6,8 @@ SELECT
     (SUM(spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
 FROM staging.sector_vendor_spend
 WHERE (
-        CAST(:periods AS text) IS NULL
-        OR (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:periods AS text[]))
+        CAST(:period AS text) IS NULL
+        OR (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:period AS text[]))
     )
 GROUP BY sector, vendor
 ORDER BY SUM(spend_amount) DESC
@@ -20,8 +20,8 @@ SELECT
     (SUM(spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
 FROM staging.sector_vendor_spend
 WHERE (
-        CAST(:periods AS text) IS NULL
-        OR (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:periods AS text[]))
+        CAST(:period AS text) IS NULL
+        OR (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:period AS text[]))
     )
 GROUP BY sector, vendor
 ORDER BY SUM(spend_amount) DESC

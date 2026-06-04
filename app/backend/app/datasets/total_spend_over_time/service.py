@@ -20,10 +20,10 @@ class Service(DatasetService):
 
         if df.empty:
             return DatasetResult(
-                columns=["period", "label", "total_spend_millions"],
+                columns=["period", "label", "value"],
                 rows=[],
                 row_count=0,
-                metadata={"dataset": self.id, "chart": {"data": []}},
+                metadata={"dataset": self.id, "chart": {"data": [], "valueLabel": "Total Spend"}},
             )
 
         points = []
@@ -34,12 +34,12 @@ class Service(DatasetService):
             points.append({
                 "period": f"{year}_{quarter}",
                 "label": label,
-                "total_spend_millions": round(float(row.total_spend_millions or 0), 6),
+                "value": round(float(row.total_spend_millions or 0), 6),
             })
 
         return DatasetResult(
-            columns=["period", "label", "total_spend_millions"],
-            rows=[[p["period"], p["label"], p["total_spend_millions"]] for p in points],
+            columns=["period", "label", "value"],
+            rows=[[p["period"], p["label"], p["value"]] for p in points],
             row_count=len(points),
-            metadata={"dataset": self.id, "chart": {"data": points}},
+            metadata={"dataset": self.id, "chart": {"data": points, "valueLabel": "Total Spend"}},
         )

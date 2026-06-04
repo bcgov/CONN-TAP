@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 html,
 body {
   margin: 0;
@@ -29,7 +31,7 @@ body.telecom-landing {
 
 .telecom-main__intro {
   font: var(--typography-regular-body, 1rem / 1.5 system-ui);
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   margin: 0 0 var(--layout-padding-large, 1.5rem);
   max-width: 52rem;
 }
@@ -40,14 +42,14 @@ body.telecom-landing {
 
 .telecom-main__login-hint {
   font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
-  color: var(--typography-color-secondary, #474543);
+  color: var(--typography-color-secondary, var(--color-text-secondary));
   margin: var(--layout-padding-small, 0.75rem) 0 0;
 }
 
 .telecom-main__access {
   margin-bottom: var(--layout-padding-xlarge, 2rem);
   font: var(--typography-regular-body, 1rem / 1.5 system-ui);
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   max-width: 52rem;
 }
 
@@ -64,7 +66,7 @@ body.telecom-landing {
   padding-left: 1.25rem;
   max-width: 52rem;
   font: var(--typography-regular-body, 1rem / 1.5 system-ui);
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
 }
 
 .telecom-main__list li {
@@ -110,7 +112,7 @@ body.telecom-landing {
 /* Sidebar */
 .dashboard-sidebar {
   width: 52px;
-  background: var(--surface-color-background-dark-blue, #053662);
+  background: var(--surface-color-background-dark-blue, var(--color-bg-dark-blue));
   transition: width 220ms ease;
   overflow: hidden;
   flex-shrink: 0;
@@ -142,13 +144,13 @@ body.telecom-landing {
 }
 
 .dashboard-sidebar__item:hover {
-  background: var(--surface-color-primary-hover, #1e5189);
-  color: #ffffff;
+  background: var(--surface-color-primary-hover, var(--color-primary-hover));
+  color: var(--color-surface-white);
 }
 
 .dashboard-sidebar__item--active {
-  border-left-color: #fcba19;
-  color: #ffffff;
+  border-left-color: var(--color-bc-gold);
+  color: var(--color-surface-white);
 }
 
 .dashboard-sidebar__icon {
@@ -180,7 +182,7 @@ body.telecom-landing {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   font-size: 0.875rem;
   font-family: "BC Sans", system-ui, -apple-system, sans-serif;
   margin-left: auto;
@@ -190,8 +192,8 @@ body.telecom-landing {
 .dashboard-header__logout {
   padding: 0.25rem 0.75rem;
   background: transparent;
-  color: var(--typography-color-primary, #313131);
-  border: 1px solid var(--surface-color-border-medium, #898785);
+  color: var(--typography-color-primary, var(--color-text-primary));
+  border: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
   border-radius: 0.25rem;
   cursor: pointer;
   font-size: 0.875rem;
@@ -200,15 +202,15 @@ body.telecom-landing {
 }
 
 .dashboard-header__logout:hover {
-  background: var(--surface-color-secondary-hover, #edebe9);
-  border-color: var(--surface-color-border-dark, #353433);
+  background: var(--surface-color-secondary-hover, var(--color-secondary-hover));
+  border-color: var(--surface-color-border-dark, var(--color-border-dark));
 }
 
 /* Dashboard main content */
 .dashboard-main {
   flex: 1;
   padding: 2rem;
-  background: var(--surface-color-background-light-gray, #faf9f8);
+  background: var(--surface-color-background-light-gray, var(--color-bg-light-gray));
 }
 
 .dashboard-main__header {
@@ -219,7 +221,7 @@ body.telecom-landing {
 }
 
 .dashboard-main__intro {
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   margin: 0.5rem 0 0;
   max-width: 62rem;
 }
@@ -231,8 +233,8 @@ body.telecom-landing {
   align-items: end;
   padding: 1rem;
   margin-bottom: 1.5rem;
-  background: #ffffff;
-  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  background: var(--color-surface-white);
+  border: 1px solid var(--surface-color-border-light, var(--color-border-light));
   border-radius: 0.25rem;
 }
 
@@ -241,7 +243,7 @@ body.telecom-landing {
   flex-direction: column;
   gap: 0.35rem;
   min-width: 12rem;
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
 }
 
@@ -252,9 +254,9 @@ body.telecom-landing {
 .dashboard-control select {
   min-height: 2.5rem;
   padding: 0.4rem 0.65rem;
-  color: var(--typography-color-primary, #313131);
-  background: #ffffff;
-  border: 1px solid var(--surface-color-border-medium, #898785);
+  color: var(--typography-color-primary, var(--color-text-primary));
+  background: var(--color-surface-white);
+  border: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
   border-radius: 0.25rem;
   font-family: "BC Sans", system-ui, -apple-system, sans-serif;
 }
@@ -262,9 +264,9 @@ body.telecom-landing {
 .dashboard-alert {
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
-  color: var(--typography-color-primary, #313131);
-  background: #fef1f2;
-  border-left: 4px solid var(--support-color-danger, #ce3e39);
+  color: var(--typography-color-primary, var(--color-text-primary));
+  background: var(--color-surface-danger-bg);
+  border-left: 4px solid var(--support-color-danger, var(--color-danger));
 }
 
 .dashboard-chart-grid {
@@ -275,8 +277,8 @@ body.telecom-landing {
 
 .dashboard-card {
   min-width: 0;
-  background: #ffffff;
-  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  background: var(--color-surface-white);
+  border: 1px solid var(--surface-color-border-light, var(--color-border-light));
   border-radius: 0.25rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
@@ -287,15 +289,25 @@ body.telecom-landing {
 
 .dashboard-card__header h2 {
   margin: 0;
-  color: var(--typography-color-primary, #313131);
+  color: var(--typography-color-primary, var(--color-text-primary));
   font: var(--typography-bold-h4, 700 1.25rem / 1.3 system-ui);
 }
 
 .dashboard-card__header p {
   margin: 0.35rem 0 0;
-  color: var(--typography-color-secondary, #474543);
+  color: var(--typography-color-secondary, var(--color-text-secondary));
 }
 
+.dashboard-card__date-range {
+  display: inline-block;
+  margin: 0.35rem 0 0 !important;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-pill-text) !important;
+  background: var(--color-pill-bg);
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.75rem;
+}
 
 .dashboard-card__chart {
   min-height: 420px;
@@ -308,14 +320,14 @@ body.telecom-landing {
   justify-content: center;
   min-height: 360px;
   margin: 0;
-  color: var(--typography-color-secondary, #474543);
+  color: var(--typography-color-secondary, var(--color-text-secondary));
 }
 
 /* Minimal Footer */
 .minimal-footer {
-  border-top: 1px solid var(--surface-color-border-medium, #898785);
+  border-top: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
   padding: 1rem 2rem;
-  background: #ffffff;
+  background: var(--color-surface-white);
 }
 
 .minimal-footer__nav {
@@ -334,14 +346,14 @@ body.telecom-landing {
 }
 
 .minimal-footer__links a {
-  color: var(--typography-color-link, #255a90);
+  color: var(--typography-color-link, var(--color-link));
   text-decoration: underline;
   font-size: 0.875rem;
   font-family: "BC Sans", system-ui, -apple-system, sans-serif;
 }
 
 .minimal-footer__links a:hover {
-  color: var(--typography-color-link-hover, #1e4d7b);
+  color: var(--typography-color-link-hover, var(--color-link-hover));
 }
 
 /* Unauthorized page */
@@ -349,7 +361,7 @@ body.telecom-landing {
   display: flex;
   justify-content: center;
   margin-bottom: 1rem;
-  color: var(--support-color-danger, #ce3e39);
+  color: var(--support-color-danger, var(--color-danger));
 }
 
 .unauthorized-actions {

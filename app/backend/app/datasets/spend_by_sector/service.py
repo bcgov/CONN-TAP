@@ -7,14 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import to_float
-from app.datasets.service_category_spend_common import Filters
-
-SECTOR_COLOURS = {
-    "Health Authorities": "#4e79a7",
-    "Crown Corporations": "#c03b27",
-    "Gov & ECC": "#76b041",
-    "School Districts": "#7b5ea7",
-}
+from app.datasets.colors import FILL_UNKNOWN, SECTOR_COLOURS
+from app.datasets.spend_common import Filters
 SECTOR_ORDER = ("Health Authorities", "Crown Corporations", "Gov & ECC", "School Districts")
 
 RESULT_COLUMNS = ["sector", "vendor", "spend_amount", "spend_millions"]
@@ -36,7 +30,7 @@ class Service(DatasetService):
             db,
             query_name,
             params={
-                "periods": _pg_text_array(parsed.periods),
+                "period": _pg_text_array(parsed.period),
             },
         )
 
@@ -68,7 +62,7 @@ class Service(DatasetService):
                 "sector": sector,
                 "spend_millions": spend,
                 "percentage": round(spend / grand_total * 100, 1) if grand_total else 0.0,
-                "fill": SECTOR_COLOURS.get(sector, "#888888"),
+                "fill": SECTOR_COLOURS.get(sector, FILL_UNKNOWN),
             })
         for sector, spend in sector_totals.items():
             if sector not in SECTOR_ORDER:
@@ -76,7 +70,7 @@ class Service(DatasetService):
                     "sector": sector,
                     "spend_millions": round(spend, 6),
                     "percentage": round(spend / grand_total * 100, 1) if grand_total else 0.0,
-                    "fill": "#aaaaaa",
+                    "fill": FILL_UNKNOWN,
                 })
 
         tabular_rows = [
