@@ -67,13 +67,10 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, periods],
     queryFn: async () => {
-      const { years, quarters } = periodsToYearsQuarters(periods);
-      const plotly = await fetchDataset(
-        "service-category-spend-plotly",
+      const plotly = await fetchDataset("service-category-spend-plotly", {
         yearType,
-        years,
-        quarters,
-      );
+        periods,
+      });
       return {
         plotly: isPlotlyChart(plotly.metadata.chart)
           ? plotly.metadata.chart
@@ -100,13 +97,10 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   const sectorQuery = useQuery({
     queryKey: ["spend-by-sector", yearType, periods],
     queryFn: async () => {
-      const { years, quarters } = periodsToYearsQuarters(periods);
-      const result = await fetchDataset(
-        "spend-by-sector",
+      const result = await fetchDataset("spend-by-sector", {
         yearType,
-        years,
-        quarters,
-      );
+        periods,
+      });
       return isSectorChart(result.metadata.chart) ? result.metadata.chart : null;
     },
     enabled: periods.length > 0,

@@ -28,16 +28,15 @@ class Service(DatasetService):
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
 
-        def _pg_array(values: list[int] | None) -> str | None:
-            return "{" + ",".join(str(v) for v in values) + "}" if values else None
+        def _pg_text_array(values: list[str] | None) -> str | None:
+            return "{" + ",".join(values) + "}" if values else None
 
         query_name = "calendar" if parsed.year_type == "calendar" else "fiscal"
         df = self.execute_sql(
             db,
             query_name,
             params={
-                "years": _pg_array(parsed.years),
-                "quarters": _pg_array(parsed.quarters),
+                "periods": _pg_text_array(parsed.periods),
             },
         )
 

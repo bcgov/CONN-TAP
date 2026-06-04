@@ -5,12 +5,7 @@ SELECT
     SUM(CASE WHEN vendor = 'rogers' THEN spend_amount ELSE 0 END)::numeric(19, 4)  AS rogers_spend
 FROM staging.period_vendor_spend
 WHERE (
-        CAST(:year AS integer) IS NULL
-        OR (CAST(:year_type AS text) = 'calendar' AND calendar_year    = CAST(:year AS integer))
-        OR (CAST(:year_type AS text) = 'fiscal'   AND fiscal_year      = CAST(:year AS integer))
-    )
-    AND (
-        CAST(:quarter AS integer) IS NULL
-        OR (CAST(:year_type AS text) = 'calendar' AND calendar_quarter = CAST(:quarter AS integer))
-        OR (CAST(:year_type AS text) = 'fiscal'   AND fiscal_quarter   = CAST(:quarter AS integer))
+        CAST(:periods AS text) IS NULL
+        OR (CAST(:year_type AS text) = 'calendar' AND (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:periods AS text[])))
+        OR (CAST(:year_type AS text) = 'fiscal' AND (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:periods AS text[])))
     )

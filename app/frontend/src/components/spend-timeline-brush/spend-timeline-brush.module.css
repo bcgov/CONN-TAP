@@ -33,3 +33,8 @@
   cursor: crosshair;
   user-select: none;
 }
+
+.chart :global(.recharts-wrapper),
+.chart :global(.recharts-surface) {
+  outline: none;
+}

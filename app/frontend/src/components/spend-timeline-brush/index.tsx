@@ -33,7 +33,7 @@ export function SpendTimelineBrush({ yearType, onPeriodsChange }: Props) {
   const { data: points = [], isLoading } = useQuery({
     queryKey: ["total-spend-over-time", yearType],
     queryFn: async () => {
-      const result = await fetchDataset("total-spend-over-time", yearType, [], []);
+      const result = await fetchDataset("total-spend-over-time", { yearType });
       const chart = result.metadata.chart;
       const all = isTimelineChart(chart) ? chart.data : ([] as TimelinePoint[]);
       return all.filter((p) => parseInt(p.period.split("_")[0]) >= 2024);

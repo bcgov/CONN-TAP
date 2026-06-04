@@ -25,13 +25,15 @@ RESULT_COLUMNS = [
 
 
 def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.DataFrame:
+    def _pg_text_array(values: list[str] | None) -> str | None:
+        return "{" + ",".join(values) + "}" if values else None
+
     df = service.execute_sql(
         db,
         "service_category_vendor_spend",
         params={
             "year_type": filters.year_type.value,
-            "year": filters.year,
-            "quarter": filters.quarter,
+            "periods": _pg_text_array(filters.periods),
         },
     )
 

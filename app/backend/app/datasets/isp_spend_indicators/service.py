@@ -19,13 +19,15 @@ class Service(DatasetService):
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
 
+        def _pg_text_array(values: list[str] | None) -> str | None:
+            return "{" + ",".join(values) + "}" if values else None
+
         df = self.execute_sql(
             db,
             "isp_spend_indicators",
             params={
                 "year_type": parsed.year_type.value,
-                "year": parsed.year,
-                "quarter": parsed.quarter,
+                "periods": _pg_text_array(parsed.periods),
             },
         )
 
