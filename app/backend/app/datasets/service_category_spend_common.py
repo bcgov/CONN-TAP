@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 
 import pandas as pd
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
@@ -19,18 +19,8 @@ class YearType(StrEnum):
 
 class Filters(BaseModel):
     year_type: YearType = YearType.fiscal
-    years: list[int] | None = None
-    quarters: list[int] | None = None
-
-    @field_validator("years", "quarters", mode="before")
-    @classmethod
-    def parse_int_list(cls, value: Any) -> list[int] | None:
-        if value is None or value == "" or value == []:
-            return None
-        if isinstance(value, list):
-            parsed = [int(v) for v in value if v != ""]
-            return parsed or None
-        return [int(value)]
+    year: int | None = None
+    quarter: int | None = None
 
 
 PROVIDER_ORDER = ("TELUS", "Rogers")
@@ -47,16 +37,13 @@ RESULT_COLUMNS = [
 ]
 
 def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.DataFrame:
-    def _pg_array(values: list[int] | None) -> str | None:
-        return "{" + ",".join(str(v) for v in values) + "}" if values else None
-
     df = service.execute_sql(
         db,
         "service_category_vendor_spend",
         params={
             "year_type": filters.year_type.value,
-            "years": _pg_array(filters.years),
-            "quarters": _pg_array(filters.quarters),
+            "year": filters.year,
+            "quarter": filters.quarter,
         },
     )
 

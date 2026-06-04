@@ -7,27 +7,62 @@ import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
-import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
+import { applyOutsideLabels, isPlotlyChart } from "@/lib/chart-utils";
 import {
-  applyOutsideLabels,
-  isPlotlyChart,
-} from "@/lib/chart-utils";
-import { fetchDataset } from "@/lib/dataset-api";
-import { buildYearOptions, currentFiscalYear, type YearType } from "@/lib/date-utils";
+  buildYearOptions,
+  currentFiscalYear,
+  type YearType,
+} from "@/lib/date-utils";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+
+type DatasetEnvelope = {
+  metadata: {
+    chart?: unknown;
+  };
+};
+
+async function fetchDataset(
+  datasetId: string,
+  yearType: YearType,
+  year: number,
+  quarter: string,
+) {
+  const params = new URLSearchParams({
+    year_type: yearType,
+    year: String(year),
+  });
+
+  if (quarter !== "all") {
+    params.set("quarter", quarter);
+  }
+
+  const response = await fetch(
+    `/api/v1/datasets/${datasetId}/data?${params.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Dataset request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as DatasetEnvelope;
+}
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
-  const [years, setYears] = useState<string[]>([String(currentFiscalYear())]);
-  const [quarters, setQuarters] = useState<string[]>([]);
-const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
+  const [year, setYear] = useState(currentFiscalYear());
+  const [quarter, setQuarter] = useState("all");
+
+  const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, years, quarters],
+    queryKey: ["service-category-spend", yearType, year, quarter],
     queryFn: async () => {
-      const plotly = await fetchDataset("service-category-spend-plotly", yearType, years, quarters);
+      const plotly = await fetchDataset("service-category-spend-plotly", yearType, year, quarter);
       return {
         plotly: isPlotlyChart(plotly.metadata.chart) ? plotly.metadata.chart : null,
       };
@@ -92,13 +127,12 @@ const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
                   value={yearType}
                   onChange={(event) => {
                     const nextYearType = event.target.value as YearType;
-                    const nextYearOptions = buildYearOptions(nextYearType);
+                    const nextYears = buildYearOptions(nextYearType);
                     setYearType(nextYearType);
-                    setYears((prev) => {
-                      const valid = prev.filter((y) => nextYearOptions.includes(Number(y)));
-                      return valid.length > 0 ? valid : [String(nextYearOptions[nextYearOptions.length - 1])];
-                    });
-                    setQuarters([]);
+                    setYear((currentYear) =>
+                      nextYears.includes(currentYear) ? currentYear : nextYears[nextYears.length - 1]
+                    );
+                    setQuarter("all");
                   }}
                 >
                   <option value="fiscal">Fiscal</option>
@@ -106,34 +140,27 @@ const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
                 </select>
               </label>
 
-              <div className="dashboard-control">
+              <label className="dashboard-control">
                 <span>{yearLabel}</span>
-                <MultiSelectDropdown
-                  options={yearOptions.map((y) => ({
-                    label: yearType === "fiscal" ? `FY ${y - 1}-${y}` : String(y),
-                    value: String(y),
-                  }))}
-                  selected={years}
-                  onChange={setYears}
-                  placeholder="All years"
-                />
-              </div>
+                <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
+                  {yearOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {yearType === "fiscal" ? `FY ${option}` : option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-              <div className="dashboard-control">
+              <label className="dashboard-control">
                 <span>Quarter</span>
-                <MultiSelectDropdown
-                  options={[
-                    { label: "Q1", value: "1" },
-                    { label: "Q2", value: "2" },
-                    { label: "Q3", value: "3" },
-                    { label: "Q4", value: "4" },
-                  ]}
-                  selected={quarters}
-                  onChange={setQuarters}
-                  allLabel="All quarters"
-                  placeholder="All quarters"
-                />
-              </div>
+                <select value={quarter} onChange={(event) => setQuarter(event.target.value)}>
+                  <option value="all">All quarters</option>
+                  <option value="1">Q1</option>
+                  <option value="2">Q2</option>
+                  <option value="3">Q3</option>
+                  <option value="4">Q4</option>
+                </select>
+              </label>
             </section>
 
             {chartQuery.isError ? (
