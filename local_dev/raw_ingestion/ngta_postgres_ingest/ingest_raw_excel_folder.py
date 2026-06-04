@@ -4,7 +4,7 @@ Load NGTA Telus / Rogers spend Excel workbooks from a folder into Postgres raw t
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/ngta_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
+  cd app/backend && alembic upgrade head   # creates raw_data (see alembic/raw_data/ngta_postgres.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
@@ -48,7 +48,7 @@ def _fq(ident: str) -> str:
     return f"{PG_SCHEMA}.{ident}"
 
 
-# --- Column lists (must match schema.sql) ---
+# --- Column lists (must match app/backend/alembic/raw_data/ngta_postgres.sql) ---
 
 TELUS_COLS = [
     "ingestion_run_id",

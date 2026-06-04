@@ -23,22 +23,30 @@ POSTGRES_PORT=5432
 POSTGRES_USER=app
 POSTGRES_PASSWORD=app
 POSTGRES_DB=app
+# Omit or true on RDS/EKS (default). Set false for local docker-compose Postgres.
+POSTGRES_SSL=false
 ```
 
-FastAPI needs the same session settings:
-
-```bash
-KEYCLOAK_ISSUER_URL=https://dev.loginproxy.gov.bc.ca/auth/realms/standard
-KEYCLOAK_CLIENT_ID=conn-hub-6434
-SESSION_COOKIE_NAME=telecom_session
-SESSION_SECRET=replace-with-the-same-secret-used-by-next
-```
+FastAPI needs the same session settings as Next.js (`KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_NAME`, `SESSION_SECRET`).
+For local `docker compose`, those values are loaded from `frontend/.env.local.example` and, when present, `frontend/.env.local` — no separate backend env file is required.
 
 Generate local secrets with:
 
 ```bash
 openssl rand -base64 32
 ```
+
+## Database (schema `app`)
+
+Session and user data are stored in Postgres schema **`app`** (database `app`). Tables are created by Alembic, not at request time.
+
+Before first login locally, run migrations from [`app/README.md`](../README.md#database-migrations-app-schema) (`alembic upgrade head` in `app/backend`).
+
+Tables:
+
+- `app.users` — stable identity keyed by Keycloak `sub` (upserted on login)
+- `app.auth_sessions` — opaque session + encrypted tokens
+- `app.auth_oauth_states` — short-lived PKCE/state for `/auth/login`
 
 ## Keycloak Client
 
@@ -55,7 +63,7 @@ Use the matching environment URL for test/prod, for example `https://test.loginp
 ## Flow
 
 1. `/auth/login` creates a short-lived server-side state/PKCE transaction and redirects to Keycloak.
-2. `/auth/callback` exchanges the code using the confidential client secret, encrypts tokens, creates an `auth_sessions` row, and sets `telecom_session`.
+2. `/auth/callback` exchanges the code using the confidential client secret, upserts `app.users`, creates an `app.auth_sessions` row, and sets `telecom_session`.
 3. `/dashboard` is gated server-side and redirects unauthenticated users to `/auth/login`.
 4. Browser API calls go to same-origin `/api/...`; Next validates the session, refreshes tokens when needed, and forwards to FastAPI.
 5. FastAPI validates the session cookie, bearer token signature, issuer/audience, subject match, and token hash on each `/api/v1/*` request.

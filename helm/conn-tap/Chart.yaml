@@ -1,0 +1,6 @@
+apiVersion: v2
+name: conn-tap
+description: Helm chart for the CONN-TAP frontend and backend application.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

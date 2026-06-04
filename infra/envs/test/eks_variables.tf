@@ -1,6 +1,12 @@
 # =============================================================================
-# EKS + RDS only. Superset, ALB controller, SSM bastion, and DMP shared
-# resources have been removed from this environment.
+# EKS + RDS + LZA internal ALB (AWS Load Balancer Controller).
+#
+# Bootstrap: on a fresh account the Kubernetes/Helm providers may not work until
+# the cluster exists; run a targeted apply first if needed:
+#   terraform apply -target=module.eks -target=module.eks_alb_controller_identity
+# then run a full apply for in-cluster resources.
+#
+# ACM: set internal_acm_certificate_arn (platform Stratus wildcard or custom).
 # =============================================================================
 
 variable "eks_cluster_version" {
@@ -70,4 +76,27 @@ variable "lza_subnet_name_management_b" {
   type        = string
   default     = null
   description = "Override Management subnet B Name tag."
+}
+
+variable "lza_subnet_name_web_a" {
+  type        = string
+  default     = null
+  description = "Override Web-MainTgwAttach subnet A Name tag."
+}
+
+variable "lza_subnet_name_web_b" {
+  type        = string
+  default     = null
+  description = "Override Web-MainTgwAttach subnet B Name tag."
+}
+
+variable "internal_acm_certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for the internal ALB HTTPS listener (platform Stratus wildcard or custom)."
+}
+
+variable "alb_controller_chart_version" {
+  type        = string
+  default     = "1.9.2"
+  description = "Pin aws-load-balancer-controller chart version (eks-charts)."
 }

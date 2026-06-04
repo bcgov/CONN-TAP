@@ -4,7 +4,7 @@ SELECT
     lcd_category AS entity_key,
     to_date(ccyymm || '01', 'YYYYMMDD') AS month_start,
     SUM(COALESCE(billed_amt, 0)) AS amount
-FROM public.tsma_wireless
+FROM raw_data.tsma_wireless
 WHERE ccyymm BETWEEN '202401' AND '202612'
   AND NULLIF(TRIM(COALESCE(lcd_category, '')), '') IS NOT NULL
 GROUP BY lcd_category, ccyymm
@@ -16,7 +16,7 @@ SELECT
     entity AS entity_key,
     to_date(ccyymm || '01', 'YYYYMMDD') AS month_start,
     SUM(COALESCE(billed_amt, 0)) AS amount
-FROM public.tsma_wireline
+FROM raw_data.tsma_wireline
 WHERE ccyymm BETWEEN '202401' AND '202612'
   AND tsma_service_tower IN ('Business Internet', 'Data - WAN')
   AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
@@ -31,7 +31,7 @@ SELECT
     entity AS entity_key,
     to_date(ccyymm || '01', 'YYYYMMDD') AS month_start,
     SUM(COALESCE(billed_amt, 0)) AS amount
-FROM public.tsma_wireline
+FROM raw_data.tsma_wireline
 WHERE ccyymm BETWEEN '202401' AND '202612'
   AND tsma_service_tower IN ('Conferencing', 'Long Distance', 'Voice')
   AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
@@ -46,7 +46,7 @@ SELECT
     entity_name AS entity_key,
     to_date(ccyymm || '01', 'YYYYMMDD') AS month_start,
     SUM(COALESCE(total, 0)) AS amount
-FROM public.tsma_mms
+FROM raw_data.tsma_mms
 WHERE ccyymm BETWEEN '202401' AND '202612'
   AND NULLIF(TRIM(COALESCE(entity_name, '')), '') IS NOT NULL
 GROUP BY entity_name, ccyymm
@@ -59,7 +59,7 @@ SELECT
     'Gov BC' AS entity_key,
     to_date(ccyymm || '01', 'YYYYMMDD') AS month_start,
     SUM(COALESCE(billed_amt, 0)) AS amount
-FROM public.tsma_ivr
+FROM raw_data.tsma_ivr
 WHERE ccyymm BETWEEN '202401' AND '202612'
 GROUP BY ccyymm
 ORDER BY month_start;

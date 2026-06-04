@@ -57,8 +57,8 @@ src AS (
     date_trunc('month', COALESCE(c.invoice_date, r.source_period))::date AS month_start,
     COALESCE(c.hardware, 0)::numeric AS amount,
     'cellular_hardware'::text AS bucket
-  FROM raw_rogers_spend_cellular c
-  JOIN ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
+  FROM raw_data.raw_rogers_spend_cellular c
+  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
   WHERE r.provider = 'rogers'
 
   UNION ALL
@@ -70,8 +70,8 @@ src AS (
     COALESCE(c.billed_amount_pre_tax, 0)::numeric
       - COALESCE(c.hardware, 0)::numeric AS amount,
     'cellular_plans'::text AS bucket
-  FROM raw_rogers_spend_cellular c
-  JOIN ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
+  FROM raw_data.raw_rogers_spend_cellular c
+  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
   WHERE r.provider = 'rogers'
 
   UNION ALL
@@ -86,8 +86,8 @@ src AS (
       WHEN upper(trim(COALESCE(v.productline, ''))) = 'VOICE' THEN 'voice'
       ELSE 'other'
     END AS bucket
-  FROM raw_rogers_spend_data_voice v
-  JOIN ingestion_run r ON r.ingestion_run_id = v.ingestion_run_id
+  FROM raw_data.raw_rogers_spend_data_voice v
+  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = v.ingestion_run_id
   WHERE r.provider = 'rogers'
 ),
 normalized AS (

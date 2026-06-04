@@ -54,7 +54,7 @@ src AS (
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
     EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = TRIM(r.detail_description)) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
-  FROM raw_telus_spend AS r
+  FROM raw_data.raw_telus_spend AS r
   WHERE (TRIM(r.detail_description) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
      OR r.detail_description IS NULL)
     AND COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'

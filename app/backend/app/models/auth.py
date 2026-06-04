@@ -1,15 +1,15 @@
-"""Shared server-side authentication tables."""
+"""Shared server-side authentication tables (Postgres schema `app`)."""
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Text, func, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import AppBase
 
 
-class AuthSession(Base):
+class AuthSession(AppBase):
     __tablename__ = "auth_sessions"
     __table_args__ = (
         Index("auth_sessions_session_hash_idx", "session_hash"),
@@ -18,6 +18,7 @@ class AuthSession(Base):
     )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     session_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     subject: Mapped[str] = mapped_column(Text, nullable=False)
     username: Mapped[str | None] = mapped_column(Text)
@@ -36,7 +37,7 @@ class AuthSession(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class AuthOauthState(Base):
+class AuthOauthState(AppBase):
     __tablename__ = "auth_oauth_states"
     __table_args__ = (Index("auth_oauth_states_expires_idx", "expires_at"),)
 

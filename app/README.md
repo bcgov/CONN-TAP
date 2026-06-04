@@ -14,6 +14,33 @@ cd app
 docker compose up --build
 ```
 
+### Database migrations (Alembic)
+
+Postgres database `app` DDL is managed by **Alembic** in `backend/`:
+
+| Schema | Contents |
+|--------|----------|
+| `app` | Auth and user tables |
+| `raw_data` | NGTA / TSMA raw landing tables (SQL under `alembic/raw_data/`) |
+
+After Postgres is up:
+
+```bash
+cd app/backend
+# match POSTGRES_* to docker-compose (host localhost, user app, password app, POSTGRES_SSL=false)
+POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=app POSTGRES_PASSWORD=app POSTGRES_DB=app POSTGRES_SSL=false \
+  alembic upgrade head
+```
+
+Or via the backend container:
+
+```bash
+cd app
+docker compose run --rm backend alembic upgrade head
+```
+
+Then load spreadsheets with the scripts in [`docs/setting_up_local_database.md`](../docs/setting_up_local_database.md) (optional for local dev) and run **dbt** (see [Running dbt](#running-dbt)).
+
 Run the frontend locally in a separate terminal:
 
 ```bash
@@ -61,18 +88,12 @@ For detailed Keycloak setup, environment variables, and authentication flow docu
 
 ### Quick Start - Authentication
 
-1. Configure Keycloak and session environment variables in `frontend/.env.local`:
-   ```bash
-   APP_BASE_URL=http://localhost:3001
-   BACKEND_INTERNAL_URL=http://localhost:8000
-   KEYCLOAK_ISSUER_URL=https://dev.loginproxy.gov.bc.ca/auth/realms/standard
-   KEYCLOAK_CLIENT_ID=conn-hub-6434
-   KEYCLOAK_CLIENT_SECRET=your-secret-here
-   SESSION_SECRET=<same 32+ byte secret as backend>
-   TOKEN_ENCRYPTION_KEY=<32+ byte token encryption key>
-   ```
+1. Copy `frontend/.env.local.example` to `frontend/.env.local` and set `KEYCLOAK_CLIENT_SECRET` (and any other overrides).
+   `pnpm dev` and Docker Compose both use the same auth-related variables from these files.
 
-2. Configure the same `KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_NAME`, and `SESSION_SECRET` for FastAPI.
+2. `docker compose` loads `frontend/.env.local.example`, then merges `frontend/.env.local` when it exists.
+   Compose overrides host-only values inside the stack (`POSTGRES_HOST=postgres`, `BACKEND_INTERNAL_URL=http://backend:8000`).
+   You do not need a separate backend `.env` for local session secrets as long as `.env.local` matches what Next.js uses.
 
 3. Users log in via the landing page and are redirected to a secure dashboard after authentication. The browser receives only an opaque `HttpOnly` session cookie.
 
@@ -109,6 +130,9 @@ The frontend image uses Next.js [`output: "standalone"`](https://nextjs.org/docs
 ```
 app/
 ├── backend/
+│   ├── alembic/             # migrations: schemas `app`, `raw_data`
+│   │   └── raw_data/        # raw landing DDL (NGTA / TSMA)
+│   ├── alembic.ini
 │   ├── app/                 # FastAPI source
 │   │   ├── api/endpoints/
 │   │   ├── core/
