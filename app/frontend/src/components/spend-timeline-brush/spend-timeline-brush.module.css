@@ -1,0 +1,35 @@
+.container {
+  padding: 1rem 1rem 0.5rem;
+  margin-bottom: 1.5rem;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-light, #d8d8d8);
+  border-radius: 0.25rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.title {
+  font: var(--typography-bold-small-body, 700 0.875rem / 1.4 system-ui);
+  color: var(--typography-color-primary, #313131);
+}
+
+.range {
+  font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
+  color: var(--typography-color-secondary, #474543);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--typography-color-secondary, #898785);
+}
+
+.chart {
+  cursor: crosshair;
+  user-select: none;
+}

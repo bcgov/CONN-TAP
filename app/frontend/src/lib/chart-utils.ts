@@ -35,6 +35,49 @@ export function isIndicatorChart(chart: unknown): chart is IndicatorChart {
   );
 }
 
+export type TimelinePoint = {
+  period: string;
+  label: string;
+  total_spend_millions: number;
+};
+
+export type TimelineChart = {
+  data: TimelinePoint[];
+};
+
+export function isTimelineChart(chart: unknown): chart is TimelineChart {
+  return Boolean(
+    chart &&
+      typeof chart === "object" &&
+      "data" in chart &&
+      Array.isArray((chart as TimelineChart).data)
+  );
+}
+
+export type SectorSlice = {
+  sector: string;
+  spend_millions: number;
+  percentage: number;
+  fill: string;
+};
+
+export type SectorChart = {
+  data: SectorSlice[];
+  total_millions: number;
+  dataKey: "spend_millions";
+  nameKey: "sector";
+};
+
+export function isSectorChart(chart: unknown): chart is SectorChart {
+  return Boolean(
+    chart &&
+      typeof chart === "object" &&
+      "data" in chart &&
+      "total_millions" in chart &&
+      Array.isArray((chart as SectorChart).data)
+  );
+}
+
 export function applyOutsideLabels(traces: Data[], activeProviders: Set<string>): Data[] {
   const active = traces.filter((t) => activeProviders.has((t as PlotlyTrace).name ?? ""));
   return active.map((trace, idx) => {

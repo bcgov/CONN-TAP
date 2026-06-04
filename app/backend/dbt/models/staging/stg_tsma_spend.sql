@@ -8,7 +8,10 @@ select
     ingestion_run_id,
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
-    nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+    coalesce(
+        nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), ''),
+        nullif(trim(regexp_replace(lcd_cust_cd,  '[\x00-\x1f\x7f]', '', 'g')), '')
+    ) as organization_name,
     null::text as sub_organization_name,
     'wireless'::text as source_service_family,
     lower(nullif(trim(regexp_replace(charge_type, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
@@ -29,7 +32,10 @@ select
     ingestion_run_id,
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
-    nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+    coalesce(
+        nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), ''),
+        nullif(trim(regexp_replace(lcd_cust_cd,  '[\x00-\x1f\x7f]', '', 'g')), '')
+    ) as organization_name,
     null::text as sub_organization_name,
     'wireless'::text as source_service_family,
     lower(nullif(trim(regexp_replace(charge_type, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
@@ -50,7 +56,10 @@ select
     ingestion_run_id,
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
-    nullif(trim(regexp_replace(entity, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+    coalesce(
+        nullif(trim(regexp_replace(entity,      '[\x00-\x1f\x7f]', '', 'g')), ''),
+        nullif(trim(regexp_replace(lcd_cust_cd, '[\x00-\x1f\x7f]', '', 'g')), '')
+    ) as organization_name,
     null::text as sub_organization_name,
     'wireline'::text as source_service_family,
     lower(nullif(trim(regexp_replace(coalesce(bpi_prod_desc, prod_family_desc, epp3_desc), '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,

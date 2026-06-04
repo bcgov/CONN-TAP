@@ -8,18 +8,20 @@ import { UserCircle2 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
+import { SpendTimelineBrush } from "@/components/spend-timeline-brush";
+import { SpendBySectorChart } from "@/components/spend-by-sector-chart";
 import {
   applyOutsideLabels,
   isIndicatorChart,
   isPlotlyChart,
+  isSectorChart,
 } from "@/lib/chart-utils";
 import {
-  buildDateRangeLabel,
-  buildYearOptions,
-  currentFiscalYear,
+  buildPeriodRangeLabel,
+  periodsToYearsQuarters,
   type YearType,
 } from "@/lib/date-utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type DatasetEnvelope = {
   metadata: {
@@ -60,18 +62,17 @@ const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
-  const [year, setYear] = useState(currentFiscalYear());
-  const [quarter, setQuarter] = useState("all");
+  const [periods, setPeriods] = useState<string[]>([]);
 
-  const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, year, quarter],
+    queryKey: ["service-category-spend", yearType, periods],
     queryFn: async () => {
+      const { years, quarters } = periodsToYearsQuarters(periods);
       const plotly = await fetchDataset(
         "service-category-spend-plotly",
         yearType,
-        year,
-        quarter,
+        years,
+        quarters,
       );
       return {
         plotly: isPlotlyChart(plotly.metadata.chart)
@@ -79,6 +80,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
           : null,
       };
     },
+    enabled: periods.length > 0,
   });
   const indicatorQuery = useQuery({
     queryKey: ["isp-spend-indicators", yearType, year, quarter],
@@ -95,7 +97,21 @@ export function DashboardClient({ displayName }: { displayName: string }) {
     },
   });
 
-  const yearLabel = yearType === "fiscal" ? "Fiscal year" : "Calendar year";
+  const sectorQuery = useQuery({
+    queryKey: ["spend-by-sector", yearType, periods],
+    queryFn: async () => {
+      const { years, quarters } = periodsToYearsQuarters(periods);
+      const result = await fetchDataset(
+        "spend-by-sector",
+        yearType,
+        years,
+        quarters,
+      );
+      return isSectorChart(result.metadata.chart) ? result.metadata.chart : null;
+    },
+    enabled: periods.length > 0,
+  });
+  const sectorTotalLabel = sectorQuery.data?.total_millions?.toFixed(1) ?? "—";
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -162,55 +178,25 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 <span>Year type</span>
                 <select
                   value={yearType}
-                  onChange={(event) => {
-                    const nextYearType = event.target.value as YearType;
-                    const nextYears = buildYearOptions(nextYearType);
-                    setYearType(nextYearType);
-                    setYear((currentYear) =>
-                      nextYears.includes(currentYear)
-                        ? currentYear
-                        : nextYears[nextYears.length - 1],
-                    );
-                    setQuarter("all");
+                  onChange={(e) => {
+                    setYearType(e.target.value as YearType);
+                    setPeriods([]);
                   }}
                 >
                   <option value="fiscal">Fiscal</option>
                   <option value="calendar">Calendar</option>
                 </select>
               </label>
-
-              <label className="dashboard-control">
-                <span>{yearLabel}</span>
-                <select
-                  value={year}
-                  onChange={(event) => setYear(Number(event.target.value))}
-                >
-                  {yearOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {yearType === "fiscal" ? `FY ${option}` : option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="dashboard-control">
-                <span>Quarter</span>
-                <select
-                  value={quarter}
-                  onChange={(event) => setQuarter(event.target.value)}
-                >
-                  <option value="all">All quarters</option>
-                  <option value="1">Q1</option>
-                  <option value="2">Q2</option>
-                  <option value="3">Q3</option>
-                  <option value="4">Q4</option>
-                </select>
-              </label>
             </section>
+
+            <SpendTimelineBrush
+              yearType={yearType}
+              onPeriodsChange={setPeriods}
+            />
 
             <SpendIndicatorCards
               indicators={indicatorQuery.data?.indicators ?? []}
-              dateRangeLabel={buildDateRangeLabel(yearType, year, quarter)}
+              dateRangeLabel={buildPeriodRangeLabel(periods, yearType)}
               isLoading={indicatorQuery.isLoading}
             />
 
@@ -264,6 +250,32 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                   ) : (
                     <p className="dashboard-card__empty">
                       No Plotly data for this period.
+                    </p>
+                  )}
+                </div>
+              </article>
+
+              <article className="dashboard-card">
+                <div className="dashboard-card__header">
+                  <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
+                </div>
+                <div className="dashboard-card__chart">
+                  {sectorQuery.isLoading ? (
+                    <p className="dashboard-card__empty">
+                      Loading sector chart…
+                    </p>
+                  ) : sectorQuery.isError ? (
+                    <p className="dashboard-card__empty">
+                      Unable to load sector data.
+                    </p>
+                  ) : sectorQuery.data ? (
+                    <SpendBySectorChart
+                      chart={sectorQuery.data}
+                      dateRangeLabel={buildPeriodRangeLabel(periods, yearType)}
+                    />
+                  ) : (
+                    <p className="dashboard-card__empty">
+                      No data for this period.
                     </p>
                   )}
                 </div>

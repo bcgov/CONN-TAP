@@ -55,6 +55,7 @@ rogers as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'cellular' then 'Cellular'
             when source_service_family = 'data' then 'Data'
@@ -71,6 +72,7 @@ telus_ngta as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'wireless' or source_service_id in ('164', '130') then 'Cellular'
             when source_service_id in ('1001', '103') then 'Data'
@@ -101,6 +103,7 @@ tsma as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'wireless' then 'Cellular'
             when tsma_service_tower in ('business internet', 'data - wan') then 'Data'
@@ -119,6 +122,7 @@ tsma_other as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         'Other Professional Services'::text as service_category,
         spend_amount
     from {{ ref('stg_tsma_other_spend') }}
@@ -145,6 +149,7 @@ select
     extract(quarter from month_start)::integer as calendar_quarter,
     extract(year from month_start + interval '9 months')::integer as fiscal_year,
     (((extract(month from month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
+    organization_name,
     service_category,
     spend_amount
 from unioned
