@@ -39,7 +39,6 @@ override.tf.json
 **.sh
 *.sh
 **.zip
-*.xlsx
 
 *.tgz
 
@@ -116,7 +115,6 @@ app/**/*.log
 !app/**/tsconfig.*.json
 !app/**/next.config.json
 !app/**/*.sh
-!lambda/**/*.sh
 
 /.pnpm-store
 /.venv

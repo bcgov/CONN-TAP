@@ -11,19 +11,7 @@ import { MultiSelectDropdown } from "@/components/multi-select-dropdown";
 import {
   applyOutsideLabels,
   isPlotlyChart,
-  isRechartsChart,
-  type RechartsChart,
 } from "@/lib/chart-utils";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { fetchDataset } from "@/lib/dataset-api";
 import { buildYearOptions, currentFiscalYear, type YearType } from "@/lib/date-utils";
 
@@ -39,13 +27,9 @@ const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, years, quarters],
     queryFn: async () => {
-      const [plotly, recharts] = await Promise.all([
-        fetchDataset("service-category-spend-plotly", yearType, years, quarters),
-        fetchDataset("service-category-spend-recharts", yearType, years, quarters),
-      ]);
+      const plotly = await fetchDataset("service-category-spend-plotly", yearType, years, quarters);
       return {
         plotly: isPlotlyChart(plotly.metadata.chart) ? plotly.metadata.chart : null,
-        recharts: isRechartsChart(recharts.metadata.chart) ? recharts.metadata.chart : null,
       };
     },
   });
@@ -190,54 +174,6 @@ const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
                     />
                   ) : (
                     <p className="dashboard-card__empty">No Plotly data for this period.</p>
-                  )}
-                </div>
-              </article>
-
-              <article className="dashboard-card">
-                <div className="dashboard-card__header">
-                  <h2>Spend by service category</h2>
-                  <p>The same dataset, shaped for Recharts.</p>
-                </div>
-                <div className="dashboard-card__chart">
-                  {chartQuery.isLoading ? (
-                    <p className="dashboard-card__empty">Loading Recharts chart...</p>
-                  ) : chartQuery.data?.recharts ? (
-                    <ResponsiveContainer width="100%" height={420}>
-                      <BarChart
-                        data={chartQuery.data.recharts.data}
-                        margin={{ top: 24, right: 24, bottom: 88, left: 48 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey={chartQuery.data.recharts.xAxisKey}
-                          angle={-28}
-                          textAnchor="end"
-                          interval={0}
-                          height={88}
-                        />
-                        <YAxis
-                          label={{
-                            value: chartQuery.data.recharts.yAxisLabel,
-                            angle: -90,
-                            position: "insideLeft",
-                          }}
-                        />
-                        <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}M`, "Spend"]} />
-                        <Legend />
-                        {chartQuery.data.recharts.bars.map((bar) => (
-                          <Bar
-                            key={bar.dataKey}
-                            dataKey={bar.dataKey}
-                            stackId={bar.stackId}
-                            fill={bar.fill}
-                            name={bar.name}
-                          />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="dashboard-card__empty">No Recharts data for this period.</p>
                   )}
                 </div>
               </article>

@@ -17,36 +17,6 @@ export function isPlotlyChart(chart: unknown): chart is PlotlyChart {
   );
 }
 
-export type RechartsBar = {
-  dataKey: string;
-  stackId: string;
-  fill: string;
-  name: string;
-};
-
-export type RechartsRow = {
-  serviceCategory: string;
-  [provider: string]: number | string;
-};
-
-export type RechartsChart = {
-  data: RechartsRow[];
-  bars: RechartsBar[];
-  xAxisKey: "serviceCategory";
-  yAxisLabel: string;
-};
-
-export function isRechartsChart(chart: unknown): chart is RechartsChart {
-  return Boolean(
-    chart &&
-      typeof chart === "object" &&
-      "data" in chart &&
-      "bars" in chart &&
-      Array.isArray((chart as RechartsChart).data) &&
-      Array.isArray((chart as RechartsChart).bars)
-  );
-}
-
 export function applyOutsideLabels(traces: Data[], activeProviders: Set<string>): Data[] {
   const active = traces.filter((t) => activeProviders.has((t as PlotlyTrace).name ?? ""));
   return active.map((trace, idx) => {
