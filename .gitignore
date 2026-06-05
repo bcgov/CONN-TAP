@@ -57,3 +57,61 @@ scripts/spend_tracking.xlsx
 scripts/telus_ngta_spend.xlsx
 scripts/tsma_other_spend.xlsx
 scripts/~$*.xlsx
+
+# ---------------------------------------------------------------------------
+# app/ — local application stack (FastAPI + Next.js + Postgres)
+# ---------------------------------------------------------------------------
+
+# Python / FastAPI
+app/backend/__pycache__/
+app/backend/**/__pycache__/
+app/backend/**/*.pyc
+app/backend/**/*.pyo
+app/backend/.venv/
+app/backend/venv/
+app/backend/.pytest_cache/
+app/backend/.mypy_cache/
+app/backend/.ruff_cache/
+app/backend/.coverage
+app/backend/htmlcov/
+app/backend/*.egg-info/
+
+# dbt
+app/backend/dbt/target/
+app/backend/dbt/dbt_packages/
+app/backend/dbt/logs/
+app/backend/dbt/.user.yml
+
+# Node / Next.js
+app/frontend/node_modules/
+app/frontend/.next/
+app/frontend/out/
+app/frontend/.turbo/
+app/frontend/.swc/
+app/frontend/coverage/
+app/frontend/next-env.d.ts
+app/frontend/*.tsbuildinfo
+
+# Local env files (keep .env.example tracked)
+app/**/.env
+app/**/.env.local
+app/**/.env.*.local
+!app/**/.env.example
+
+# Postgres data (if mounted to host) and dumps
+app/db/data/
+app/db/pgdata/
+app/**/*.sql.gz
+app/**/*.dump
+
+# Docker / build artifacts
+app/**/*.log
+
+# Re-include app config files that the global *.json / *.sh rules would otherwise ignore
+!app/**/package.json
+!app/**/package-lock.json
+!app/**/tsconfig.json
+!app/**/tsconfig.*.json
+!app/**/next.config.json
+!app/**/*.sh
+

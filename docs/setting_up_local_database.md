@@ -100,6 +100,7 @@ Install Python dependencies once per ingestion area (each has its own `requireme
 
 ```bash
 pip install -r local_dev/raw_ingestion/ngta_postgres_ingest/requirements.txt
+pip install -r local_dev/raw_ingestion/ngta_pricebooks_ingest/requirements.txt
 pip install -r local_dev/raw_ingestion/tsma_postgres_ingest/requirements.txt
 pip install -r local_dev/raw_ingestion/tsma_other_postgres_ingest/requirements.txt
 ```
@@ -112,6 +113,7 @@ Run each `schema.sql` against the target database (`DATABASE_URL`). They are ide
 
 ```bash
 psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
+psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_pricebooks_ingest/schema.sql
 psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
 psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
 ```
@@ -120,6 +122,7 @@ psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schem
 
 ```powershell
 psql $env:DATABASE_URL -f local_dev/raw_ingestion/ngta_postgres_ingest/schema.sql
+psql $env:DATABASE_URL -f local_dev/raw_ingestion/ngta_pricebooks_ingest/schema.sql
 psql $env:DATABASE_URL -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
 psql $env:DATABASE_URL -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
 ```
@@ -146,7 +149,21 @@ python local_dev/raw_ingestion/ngta_postgres_ingest/ingest_raw_excel_folder.py "
 
 Optional: `--source-period 2025-06-01`, `--dry-run` (no database writes).
 
-#### 2) TSMA core / lite (`tsma_postgres_ingest`)
+#### 2) NGTA pricebooks (`ngta_pricebooks_ingest`)
+
+Place Rogers PDFs under a root such as `local_dev/raw_ingestion/ngta_pricebooks_ingest/price_books/` (or any folder outside the repo):
+
+- `rogers/professional_services.pdf`, `rogers/data.pdf`, `rogers/cellular.pdf`, `rogers/voice.pdf`
+- `telus/u_ngta_*.xlsx` catalogues (13 files; see `telus/catalogues.py`)
+
+```bash
+python local_dev/raw_ingestion/ngta_pricebooks_ingest/ingest_pricebooks_folder.py \
+  local_dev/raw_ingestion/ngta_pricebooks_ingest/price_books
+```
+
+Optional: `--source-period 2025-06-01`, `--dry-run`.
+
+#### 3) TSMA core / lite (`tsma_postgres_ingest`)
 
 Expects paths such as `<root>/tsma/wireless/`, `<root>/tsma/wireline/`, `<root>/tsma/master/`, `tsma_lite/wireless/`, `tsma_lite/wireline/`.
 
@@ -155,7 +172,7 @@ python local_dev/raw_ingestion/tsma_postgres_ingest/ingest_tsma_excel_folder.py 
 python local_dev/raw_ingestion/tsma_postgres_ingest/ingest_tsma_excel_folder.py "C:/Users/YourUsername/Documents/ngta-local-excels/tsma_root"
 ```
 
-#### 3) TSMA Other (`tsma_other_postgres_ingest`)
+#### 4) TSMA Other (`tsma_other_postgres_ingest`)
 
 Expects a `tsma_other` root with workbooks directly in:
 

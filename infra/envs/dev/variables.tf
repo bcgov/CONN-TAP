@@ -20,3 +20,8 @@ variable "account_id" {
   type    = string
   default = null
 }
+
+variable "ngta_raw_bucket_name" {
+  type        = string
+  description = "S3 bucket that receives raw Excel uploads. Set via TF_VAR_ngta_raw_bucket_name."
+}

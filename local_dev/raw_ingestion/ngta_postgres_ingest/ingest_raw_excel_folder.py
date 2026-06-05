@@ -10,6 +10,7 @@ Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
   python local_dev/raw_ingestion/ngta_postgres_ingest/ingest_raw_excel_folder.py /path/to/excel/folder
   python ... /path/to/root --source-period 2025-06-01 --dry-run   # no DATABASE_URL
+  python ... /path/to/root --workers 4   # concurrent files; one DB connection per worker
 
 Layout:
   Telus: place workbooks anywhere under telus/ (any depth), e.g. <root>/telus/*.xlsx.
@@ -20,6 +21,7 @@ Layout:
   Files directly under rogers/ are skipped unless --force-provider rogers with --force-rogers-feed
   (cellular|voice). The carrier is taken from path segments telus or rogers (case-insensitive).
   Use --force-provider to override. Recursive by default; --no-recursive limits depth as documented.
+  Use --workers N to ingest multiple files concurrently (each worker opens its own DB connection).
 """
 
 from __future__ import annotations
@@ -29,10 +31,12 @@ import json
 import os
 import re
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TextIO
 
 import pandas as pd
 import psycopg
@@ -791,6 +795,106 @@ def iter_excel_files(folder: Path, recursive: bool) -> list[Path]:
     return sorted(p for p in out if not p.name.startswith("~$"))
 
 
+def _safe_print(msg: str, *, file: TextIO = sys.stdout, lock: Optional[threading.Lock]) -> None:
+    if lock is not None:
+        with lock:
+            print(msg, file=file, flush=True)
+    else:
+        print(msg, file=file, flush=True)
+
+
+def _empty_partial_totals() -> dict[str, Any]:
+    return {
+        "telus_files": 0,
+        "telus_rows": 0,
+        "rogers_cellular_files": 0,
+        "rogers_cellular_rows": 0,
+        "rogers_data_voice_files": 0,
+        "rogers_data_voice_rows": 0,
+        "skipped": [],
+    }
+
+
+def _merge_partial_totals(dest: dict[str, Any], src: dict[str, Any]) -> None:
+    dest["telus_files"] += src["telus_files"]
+    dest["telus_rows"] += src["telus_rows"]
+    dest["rogers_cellular_files"] += src["rogers_cellular_files"]
+    dest["rogers_cellular_rows"] += src["rogers_cellular_rows"]
+    dest["rogers_data_voice_files"] += src["rogers_data_voice_files"]
+    dest["rogers_data_voice_rows"] += src["rogers_data_voice_rows"]
+    dest["skipped"].extend(src["skipped"])
+
+
+def _process_one_workbook(
+    conn: Optional[psycopg.Connection],
+    path: Path,
+    *,
+    folder: Path,
+    period: Optional[date],
+    force_provider: Optional[str],
+    force_rogers_feed: Optional[RogersFeed],
+    dry_run: bool,
+    rogers_sheet: Optional[str],
+    print_lock: Optional[threading.Lock],
+) -> dict[str, Any]:
+    out = _empty_partial_totals()
+    prov = provider_from_folder_path(path, folder, force_provider)
+    force_feed: Optional[RogersFeed] = force_rogers_feed if force_provider == "rogers" else None
+    feed = rogers_feed_from_path(folder, path, force_feed)
+
+    if prov is None:
+        out["skipped"].append(str(path))
+        _safe_print(
+            f"[skip] expected path under .../telus/... or .../rogers/... relative to {folder}: {path}",
+            file=sys.stderr,
+            lock=print_lock,
+        )
+        return out
+    if prov == "rogers" and feed is None:
+        out["skipped"].append(str(path))
+        _safe_print(
+            "[skip] Rogers file must be under rogers/cellular or rogers/voice or rogers/data "
+            f"(or use --force-provider rogers with --force-rogers-feed): {path}",
+            file=sys.stderr,
+            lock=print_lock,
+        )
+        return out
+
+    try:
+        if prov == "telus":
+            n = insert_telus_workbook(conn, path, period, dry_run)
+            out["telus_rows"] += n
+            out["telus_files"] += 1
+            _safe_print(f"[telus] {path.name}: {n} rows -> raw_telus_spend", lock=print_lock)
+            return out
+        assert feed is not None
+        if feed == "cellular":
+            n = insert_rogers_cellular_workbook(conn, path, period, dry_run, rogers_sheet)
+            out["rogers_cellular_rows"] += n
+            out["rogers_cellular_files"] += 1
+            _safe_print(
+                f"[rogers/cellular] {path.name}: {n} rows -> raw_rogers_spend_cellular",
+                lock=print_lock,
+            )
+        else:
+            n = insert_rogers_voice_workbook(conn, path, period, dry_run, rogers_sheet)
+            out["rogers_data_voice_rows"] += n
+            out["rogers_data_voice_files"] += 1
+            pl = {p.casefold() for p in path.parts}
+            sub = "voice" if "voice" in pl else "data"
+            _safe_print(
+                f"[rogers/{sub}->voice] {path.name}: {n} rows -> raw_rogers_spend_data_voice",
+                lock=print_lock,
+            )
+        return out
+    except Exception as e:
+        out["skipped"].append(str(path))
+        _safe_print(f"[error] {path.name}: {e}", file=sys.stderr, lock=print_lock)
+        if conn is not None:
+            conn.rollback()
+        return out
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -834,7 +938,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=None,
         help="Rogers sheet name (cellular: default Usage_&_Spend or best match; voice+data: best match)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Parallel workbook workers (default: 1). Each uses its own Postgres connection.",
+    )
     args = parser.parse_args(argv)
+
+    if args.workers < 1:
+        parser.error("--workers must be >= 1")
 
     if args.force_rogers_feed and args.force_provider != "rogers":
         parser.error("--force-rogers-feed requires --force-provider rogers")
@@ -853,72 +967,49 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"No .xlsx/.xlsm files under {folder}")
         return 0
 
-    totals: dict[str, Any] = {
-        "telus_files": 0,
-        "telus_rows": 0,
-        "rogers_cellular_files": 0,
-        "rogers_cellular_rows": 0,
-        "rogers_data_voice_files": 0,
-        "rogers_data_voice_rows": 0,
-        "skipped": [],
-    }
+    totals: dict[str, Any] = _empty_partial_totals()
+    print_lock: Optional[threading.Lock] = threading.Lock() if args.workers > 1 else None
 
-    def one_file(conn: Optional[psycopg.Connection], path: Path) -> None:
-        prov = provider_from_folder_path(path, folder, args.force_provider)
-        force_feed: Optional[RogersFeed] = args.force_rogers_feed if args.force_provider == "rogers" else None
-        feed = rogers_feed_from_path(folder, path, force_feed)
-
-        if prov is None:
-            totals["skipped"].append(str(path))
-            print(
-                f"[skip] expected path under .../telus/... or .../rogers/... relative to {folder}: {path}",
-                file=sys.stderr,
+    def run_path(path: Path) -> dict[str, Any]:
+        if args.dry_run:
+            return _process_one_workbook(
+                None,
+                path,
+                folder=folder,
+                period=period,
+                force_provider=args.force_provider,
+                force_rogers_feed=args.force_rogers_feed,
+                dry_run=True,
+                rogers_sheet=args.rogers_sheet,
+                print_lock=print_lock,
             )
-            return
-        if prov == "rogers" and feed is None:
-            totals["skipped"].append(str(path))
-            print(
-                f"[skip] Rogers file must be under rogers/cellular or rogers/voice or rogers/data "
-                f"(or use --force-provider rogers with --force-rogers-feed): {path}",
-                file=sys.stderr,
-            )
-            return
-        if prov == "telus":
-            n = insert_telus_workbook(conn, path, period, args.dry_run)
-            totals["telus_rows"] += n
-            totals["telus_files"] += 1
-            print(f"[telus] {path.name}: {n} rows -> raw_telus_spend")
-            return
-        assert feed is not None
-        if feed == "cellular":
-            n = insert_rogers_cellular_workbook(conn, path, period, args.dry_run, args.rogers_sheet)
-            totals["rogers_cellular_rows"] += n
-            totals["rogers_cellular_files"] += 1
-            print(f"[rogers/cellular] {path.name}: {n} rows -> raw_rogers_spend_cellular")
-        else:
-            n = insert_rogers_voice_workbook(conn, path, period, args.dry_run, args.rogers_sheet)
-            totals["rogers_data_voice_rows"] += n
-            totals["rogers_data_voice_files"] += 1
-            pl = {p.casefold() for p in path.parts}
-            sub = "voice" if "voice" in pl else "data"
-            print(f"[rogers/{sub}->voice] {path.name}: {n} rows -> raw_rogers_spend_data_voice")
+        try:
+            with psycopg.connect(args.dsn, autocommit=False) as conn:
+                return _process_one_workbook(
+                    conn,
+                    path,
+                    folder=folder,
+                    period=period,
+                    force_provider=args.force_provider,
+                    force_rogers_feed=args.force_rogers_feed,
+                    dry_run=False,
+                    rogers_sheet=args.rogers_sheet,
+                    print_lock=print_lock,
+                )
+        except Exception as e:
+            err = _empty_partial_totals()
+            err["skipped"].append(str(path))
+            _safe_print(f"[error] {path.name}: {e}", file=sys.stderr, lock=print_lock)
+            return err
 
-    if args.dry_run:
+    if args.workers == 1:
         for path in files:
-            try:
-                one_file(None, path)
-            except Exception as e:
-                print(f"[error] {path.name}: {e}", file=sys.stderr)
-                totals["skipped"].append(str(path))
+            _merge_partial_totals(totals, run_path(path))
     else:
-        with psycopg.connect(args.dsn, autocommit=False) as conn:
-            for path in files:
-                try:
-                    one_file(conn, path)
-                except Exception as e:
-                    print(f"[error] {path.name}: {e}", file=sys.stderr)
-                    conn.rollback()
-                    totals["skipped"].append(str(path))
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = [executor.submit(run_path, path) for path in files]
+            for fut in as_completed(futures):
+                _merge_partial_totals(totals, fut.result())
 
     print(json.dumps(totals, indent=2))
     return 0 if not totals["skipped"] else 1
