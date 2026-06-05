@@ -1,5 +1,5 @@
 # main.py
-# This is the main script for validating the Rogers voice data.
+# This is the main script for validating the Rogers data/voice data.
 import pandas as pd
 import os
 
