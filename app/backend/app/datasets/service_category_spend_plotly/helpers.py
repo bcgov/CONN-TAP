@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import fmt_spend, to_float
 from app.datasets.colors import PROVIDER_COLOURS, TEXT_SECONDARY
-from app.datasets.spend_common import Filters, PROVIDER_ORDER
+from app.datasets.spend_common import Filters, pg_text_array, PROVIDER_ORDER
 RESULT_COLUMNS = [
     "service_category",
     "vendor",
@@ -20,15 +20,12 @@ RESULT_COLUMNS = [
 
 
 def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.DataFrame:
-    def _pg_text_array(values: list[str] | None) -> str | None:
-        return "{" + ",".join(values) + "}" if values else None
-
     df = service.execute_sql(
         db,
         "service_category_vendor_spend",
         params={
             "year_type": filters.year_type.value,
-            "period": _pg_text_array(filters.period),
+            "period": pg_text_array(filters.period),
         },
     )
 

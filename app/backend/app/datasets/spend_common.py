@@ -4,7 +4,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
+import pandas as pd
 from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
 
 
 class YearType(StrEnum):
@@ -28,3 +30,16 @@ class Filters(BaseModel):
 
 
 PROVIDER_ORDER = ("TELUS", "Rogers")
+
+
+def pg_text_array(values: list[str] | None) -> str | None:
+    return "{" + ",".join(values) + "}" if values else None
+
+
+def run_period_query(service: Any, db: Session, filters: Filters) -> pd.DataFrame:
+    query_name = "calendar" if filters.year_type == "calendar" else "fiscal"
+    return service.execute_sql(
+        db,
+        query_name,
+        params={"period": pg_text_array(filters.period)},
+    )

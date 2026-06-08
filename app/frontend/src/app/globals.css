@@ -289,6 +289,10 @@ body.telecom-landing {
   gap: 1.5rem;
 }
 
+.dashboard-chart-grid--full {
+  grid-template-columns: 1fr;
+}
+
 .dashboard-card {
   min-width: 0;
   background: var(--color-surface-white);

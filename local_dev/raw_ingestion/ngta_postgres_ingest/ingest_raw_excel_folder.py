@@ -319,6 +319,8 @@ def canonical_header(name: Any) -> str:
     s_norm = re.sub(r"\s+", " ", s.lower())
     if s_norm == "sub-bge" or s_norm == "sub bge":
         return "sub_bge"
+    if s_norm == "company name" or s_norm == "company_name":
+        return "bge"
     # Legacy Rogers reports: CHARGES_SUBTOTAL / CHARGES_TOTAL
     key_snake = re.sub(r"\s+", "_", s_norm)
     if key_snake == "charges_subtotal":

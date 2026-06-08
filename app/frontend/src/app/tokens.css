@@ -30,6 +30,10 @@
   --color-pill-bg:   #eceff1;
   --color-pill-text: #37474f;
 
+  /* ── Vendor brand colours ─────────────────────────────────────────── */
+  --color-vendor-telus:   #053662;
+  --color-vendor-rogers:  #2e8540;
+
   /* ── Shimmer skeleton animation ───────────────────────────────────── */
   --color-shimmer-base:  #eef0f2;
   --color-shimmer-shine: #e0e4e8;
