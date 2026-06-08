@@ -7,14 +7,9 @@ WITH filtered AS (
         (SUM(spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
     FROM staging.service_category_vendor_spend
     WHERE (
-            CAST(:year AS integer) IS NULL
-            OR (CAST(:year_type AS text) = 'calendar' AND calendar_year = CAST(:year AS integer))
-            OR (CAST(:year_type AS text) = 'fiscal' AND fiscal_year = CAST(:year AS integer))
-        )
-        AND (
-            CAST(:quarter AS integer) IS NULL
-            OR (CAST(:year_type AS text) = 'calendar' AND calendar_quarter = CAST(:quarter AS integer))
-            OR (CAST(:year_type AS text) = 'fiscal' AND fiscal_quarter = CAST(:quarter AS integer))
+            CAST(:period AS text) IS NULL
+            OR (CAST(:year_type AS text) = 'calendar' AND (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:period AS text[])))
+            OR (CAST(:year_type AS text) = 'fiscal' AND (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:period AS text[])))
         )
     GROUP BY service_category, vendor
 ),

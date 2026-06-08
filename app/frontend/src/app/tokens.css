@@ -1,0 +1,36 @@
+/* Project-level design tokens — extend @bcgov/design-tokens */
+:root {
+  /* ── BC brand ─────────────────────────────────────────────────────── */
+  --color-bc-gold: #fcba19;
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  --color-text-primary:   #313131;
+  --color-text-secondary: #474543;
+  --color-text-hint:      #a0a09e;
+  --color-link:           #255a90;
+  --color-link-hover:     #1e4d7b;
+
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
+  --color-surface-white:    #ffffff;
+  --color-bg-light-gray:    #faf9f8;
+  --color-bg-dark-blue:     #053662;
+  --color-primary-hover:    #1e5189;
+  --color-secondary-hover:  #edebe9;
+
+  /* ── Borders ──────────────────────────────────────────────────────── */
+  --color-border-light:  #d8d8d8;
+  --color-border-medium: #898785;
+  --color-border-dark:   #353433;
+
+  /* ── Support ──────────────────────────────────────────────────────── */
+  --color-danger:         #ce3e39;
+  --color-surface-danger-bg: #fef1f2;
+
+  /* ── Pill / badge (date-range labels, timeline range indicator) ────── */
+  --color-pill-bg:   #eceff1;
+  --color-pill-text: #37474f;
+
+  /* ── Shimmer skeleton animation ───────────────────────────────────── */
+  --color-shimmer-base:  #eef0f2;
+  --color-shimmer-shine: #e0e4e8;
+}

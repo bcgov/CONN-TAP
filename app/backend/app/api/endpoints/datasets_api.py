@@ -42,7 +42,10 @@ def run_dataset_get(
     if service is None:
         raise HTTPException(status_code=404, detail=f"Unknown dataset '{dataset_id}'")
 
-    filters: dict[str, Any] = dict(request.query_params)
+    filters: dict[str, Any] = {
+        key: request.query_params.getlist(key) if len(request.query_params.getlist(key)) > 1 else request.query_params[key]
+        for key in dict.fromkeys(request.query_params.keys())
+    }
     try:
         return service.run(db, filters).to_dict()
     except (KeyError, ValueError) as exc:

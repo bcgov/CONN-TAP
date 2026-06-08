@@ -5,24 +5,24 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
-import type { Data, Layout } from "plotly.js";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
-import { useMemo, useState } from "react";
-
-const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
-
-type YearType = "fiscal" | "calendar";
+import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
+import { SpendTimelineBrush } from "@/components/spend-timeline-brush";
+import { SpendBySectorChart } from "@/components/spend-by-sector-chart";
+import {
+  applyOutsideLabels,
+  isIndicatorChart,
+  isPlotlyChart,
+  isSectorChart,
+  isTimelineChart,
+} from "@/lib/chart-utils";
+import {
+  buildPeriodRangeLabel,
+  periodsToYearsQuarters,
+  type YearType,
+} from "@/lib/date-utils";
+import { useEffect, useRef, useState } from "react";
 
 type DatasetEnvelope = {
   metadata: {
@@ -30,82 +30,17 @@ type DatasetEnvelope = {
   };
 };
 
-type PlotlyChart = {
-  data: Data[];
-  layout: Partial<Layout>;
-};
+async function fetchDataset(
+  datasetId: string,
+  filters: { yearType: YearType; period?: string[] },
+) {
+  const params = new URLSearchParams({ year_type: filters.yearType });
+  for (const p of filters.period ?? []) params.append("period", p);
 
-type RechartsBar = {
-  dataKey: "Rogers" | "Telus";
-  stackId: string;
-  fill: string;
-  name: string;
-};
-
-type RechartsRow = {
-  serviceCategory: string;
-  Rogers: number;
-  Telus: number;
-  total: number;
-};
-
-type RechartsChart = {
-  data: RechartsRow[];
-  bars: RechartsBar[];
-  xAxisKey: "serviceCategory";
-  yAxisLabel: string;
-};
-
-function currentFiscalYear(date = new Date()) {
-  return date.getMonth() >= 3 ? date.getFullYear() + 1 : date.getFullYear();
-}
-
-function buildYearOptions(yearType: YearType) {
-  const currentYear = yearType === "fiscal" ? currentFiscalYear() : new Date().getFullYear();
-  const endYear = Math.max(currentYear, 2027);
-  const years = [];
-
-  for (let year = 2024; year <= endYear; year += 1) {
-    years.push(year);
-  }
-
-  return years;
-}
-
-function isPlotlyChart(chart: unknown): chart is PlotlyChart {
-  return Boolean(
-    chart &&
-      typeof chart === "object" &&
-      "data" in chart &&
-      "layout" in chart &&
-      Array.isArray((chart as PlotlyChart).data)
+  const response = await fetch(
+    `/api/v1/datasets/${datasetId}/data?${params.toString()}`,
+    { cache: "no-store" },
   );
-}
-
-function isRechartsChart(chart: unknown): chart is RechartsChart {
-  return Boolean(
-    chart &&
-      typeof chart === "object" &&
-      "data" in chart &&
-      "bars" in chart &&
-      Array.isArray((chart as RechartsChart).data) &&
-      Array.isArray((chart as RechartsChart).bars)
-  );
-}
-
-async function fetchDataset(datasetId: string, yearType: YearType, year: number, quarter: string) {
-  const params = new URLSearchParams({
-    year_type: yearType,
-    year: String(year),
-  });
-
-  if (quarter !== "all") {
-    params.set("quarter", quarter);
-  }
-
-  const response = await fetch(`/api/v1/datasets/${datasetId}/data?${params.toString()}`, {
-    cache: "no-store",
-  });
 
   if (!response.ok) {
     throw new Error(`Dataset request failed with status ${response.status}`);
@@ -114,28 +49,80 @@ async function fetchDataset(datasetId: string, yearType: YearType, year: number,
   return (await response.json()) as DatasetEnvelope;
 }
 
+const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
+
 export function DashboardClient({ displayName }: { displayName: string }) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
-  const [year, setYear] = useState(currentFiscalYear());
-  const [quarter, setQuarter] = useState("all");
+  const [period, setPeriods] = useState<string[]>([]);
 
-  const yearOptions = useMemo(() => buildYearOptions(yearType), [yearType]);
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, year, quarter],
+    queryKey: ["service-category-spend", yearType, period],
     queryFn: async () => {
-      const [plotly, recharts] = await Promise.all([
-        fetchDataset("service-category-spend-plotly", yearType, year, quarter),
-        fetchDataset("service-category-spend-recharts", yearType, year, quarter),
-      ]);
-
+      const plotly = await fetchDataset("service-category-spend-plotly", {
+        yearType,
+        period,
+      });
       return {
-        plotly: isPlotlyChart(plotly.metadata.chart) ? plotly.metadata.chart : null,
-        recharts: isRechartsChart(recharts.metadata.chart) ? recharts.metadata.chart : null,
+        plotly: isPlotlyChart(plotly.metadata.chart)
+          ? plotly.metadata.chart
+          : null,
+      };
+    },
+    enabled: period.length > 0,
+  });
+  const indicatorQuery = useQuery({
+    queryKey: ["isp-spend-indicators", yearType, period],
+    queryFn: async () => {
+      const result = await fetchDataset("isp-spend-indicators", {
+        yearType,
+        period,
+      });
+      return isIndicatorChart(result.metadata.chart)
+        ? result.metadata.chart
+        : null;
+    },
+  });
+
+  const timelineQuery = useQuery({
+    queryKey: ["total-spend-over-time", yearType],
+    queryFn: async () => {
+      const result = await fetchDataset("total-spend-over-time", { yearType });
+      if (!isTimelineChart(result.metadata.chart)) return null;
+      const chart = result.metadata.chart;
+      return {
+        ...chart,
+        data: chart.data.filter(
+          (p) => parseInt(p.period.split("_")[0]) >= 2024,
+        ),
       };
     },
   });
 
-  const yearLabel = yearType === "fiscal" ? "Fiscal year" : "Calendar year";
+  const sectorQuery = useQuery({
+    queryKey: ["spend-by-sector", yearType, period],
+    queryFn: async () => {
+      const result = await fetchDataset("spend-by-sector", {
+        yearType,
+        period,
+      });
+      return isSectorChart(result.metadata.chart)
+        ? result.metadata.chart
+        : null;
+    },
+    enabled: period.length > 0,
+  });
+  const sectorTotalLabel = sectorQuery.data?.total_millions?.toFixed(1) ?? "—";
+
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = chartContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() =>
+      window.dispatchEvent(new Event("resize")),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div className="dashboard-shell">
@@ -149,7 +136,13 @@ export function DashboardClient({ displayName }: { displayName: string }) {
               Skip to main content
             </a>,
           ]}
-          logoLinkElement={<Link href="/" title="Government of British Columbia" prefetch={false} />}
+          logoLinkElement={
+            <Link
+              href="/"
+              title="Government of British Columbia"
+              prefetch={false}
+            />
+          }
         >
           <div className="dashboard-header__user">
             <UserCircle2 size={20} aria-hidden="true" />
@@ -170,55 +163,48 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             <div className="dashboard-main__header">
               <div>
                 <Heading level={1}>Telecom Spend Dashboard</Heading>
+                <Heading level={5}>TSMA & NGTA</Heading>
                 <p className="dashboard-main__intro">
-                  You are signed in as {displayName}. Spend is shown in millions of dollars and
-                  sorted by highest total service category spend.
+                  Consolidated view of telecom spend across BC government
+                  entities
                 </p>
               </div>
             </div>
+            <hr className="dashboard-main__divider" />
 
-            <section className="dashboard-controls" aria-label="Spend chart filters">
+            <section
+              className="dashboard-controls"
+              aria-label="Spend chart filters"
+            >
               <label className="dashboard-control">
                 <span>Year type</span>
                 <select
                   value={yearType}
-                  onChange={(event) => {
-                    const nextYearType = event.target.value as YearType;
-                    const nextYears = buildYearOptions(nextYearType);
-                    setYearType(nextYearType);
-                    setYear((currentYear) =>
-                      nextYears.includes(currentYear) ? currentYear : nextYears[nextYears.length - 1]
-                    );
-                    setQuarter("all");
+                  onChange={(e) => {
+                    setYearType(e.target.value as YearType);
+                    setPeriods([]);
                   }}
                 >
                   <option value="fiscal">Fiscal</option>
                   <option value="calendar">Calendar</option>
                 </select>
               </label>
-
-              <label className="dashboard-control">
-                <span>{yearLabel}</span>
-                <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
-                  {yearOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {yearType === "fiscal" ? `FY ${option}` : option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="dashboard-control">
-                <span>Quarter</span>
-                <select value={quarter} onChange={(event) => setQuarter(event.target.value)}>
-                  <option value="all">All quarters</option>
-                  <option value="1">Q1</option>
-                  <option value="2">Q2</option>
-                  <option value="3">Q3</option>
-                  <option value="4">Q4</option>
-                </select>
-              </label>
             </section>
+
+            <SpendTimelineBrush
+              key={yearType}
+              chart={timelineQuery.data ?? null}
+              isLoading={timelineQuery.isLoading}
+              onPeriodsChange={setPeriods}
+              yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
+              tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
+            />
+
+            <SpendIndicatorCards
+              indicators={indicatorQuery.data?.indicators ?? []}
+              dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+              isLoading={indicatorQuery.isLoading}
+            />
 
             {chartQuery.isError ? (
               <div className="dashboard-alert" role="alert">
@@ -227,20 +213,44 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             ) : null}
 
             <section className="dashboard-chart-grid" aria-live="polite">
-              <article className="dashboard-card">
+              <article className="dashboard-card" ref={chartContainerRef}>
                 <div className="dashboard-card__header">
-                  <h2>Plotly.js stacked bar</h2>
-                  <p>Total spend by service category and vendor.</p>
+                  <h2>Spend by service category</h2>
+                  {buildPeriodRangeLabel(period, yearType) && (
+                    <p className="dashboard-card__date-range">
+                      {buildPeriodRangeLabel(period, yearType)}
+                    </p>
+                  )}
+                  <p>
+                    The chart shows the breakdown of Telecom spend by service
+                    category and highlighting how much is spent with each
+                    provider.
+                  </p>
                 </div>
                 <div className="dashboard-card__chart">
                   {chartQuery.isLoading ? (
-                    <p className="dashboard-card__empty">Loading Plotly chart...</p>
+                    <p className="dashboard-card__empty">
+                      Loading Plotly chart...
+                    </p>
                   ) : chartQuery.data?.plotly ? (
                     <Plot
-                      data={chartQuery.data.plotly.data}
+                      data={applyOutsideLabels(
+                        chartQuery.data.plotly.data,
+                        new Set(
+                          chartQuery.data.plotly.data.map(
+                            (t) => (t as { name?: string }).name ?? "",
+                          ),
+                        ),
+                      )}
                       layout={{
                         ...chartQuery.data.plotly.layout,
                         autosize: true,
+                        showlegend: true,
+                        legend: {
+                          ...chartQuery.data.plotly.layout.legend,
+                          itemclick: false,
+                          itemdoubleclick: false,
+                        },
                         paper_bgcolor: "rgba(0,0,0,0)",
                         plot_bgcolor: "rgba(0,0,0,0)",
                       }}
@@ -249,55 +259,35 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                       useResizeHandler
                     />
                   ) : (
-                    <p className="dashboard-card__empty">No Plotly data for this period.</p>
+                    <p className="dashboard-card__empty">
+                      No Plotly data for this period.
+                    </p>
                   )}
                 </div>
               </article>
 
               <article className="dashboard-card">
                 <div className="dashboard-card__header">
-                  <h2>Recharts stacked bar</h2>
-                  <p>The same dataset, shaped for Recharts.</p>
+                  <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
                 </div>
                 <div className="dashboard-card__chart">
-                  {chartQuery.isLoading ? (
-                    <p className="dashboard-card__empty">Loading Recharts chart...</p>
-                  ) : chartQuery.data?.recharts ? (
-                    <ResponsiveContainer width="100%" height={420}>
-                      <BarChart
-                        data={chartQuery.data.recharts.data}
-                        margin={{ top: 24, right: 24, bottom: 88, left: 48 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey={chartQuery.data.recharts.xAxisKey}
-                          angle={-28}
-                          textAnchor="end"
-                          interval={0}
-                          height={88}
-                        />
-                        <YAxis
-                          label={{
-                            value: chartQuery.data.recharts.yAxisLabel,
-                            angle: -90,
-                            position: "insideLeft",
-                          }}
-                        />
-                        <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}M`, "Spend"]} />
-                        <Legend />
-                        {chartQuery.data.recharts.bars.map((bar) => (
-                          <Bar
-                            key={bar.dataKey}
-                            dataKey={bar.dataKey}
-                            stackId={bar.stackId}
-                            fill={bar.fill}
-                            name={bar.name}
-                          />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {sectorQuery.isLoading ? (
+                    <p className="dashboard-card__empty">
+                      Loading sector chart…
+                    </p>
+                  ) : sectorQuery.isError ? (
+                    <p className="dashboard-card__empty">
+                      Unable to load sector data.
+                    </p>
+                  ) : sectorQuery.data ? (
+                    <SpendBySectorChart
+                      chart={sectorQuery.data}
+                      dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                    />
                   ) : (
-                    <p className="dashboard-card__empty">No Recharts data for this period.</p>
+                    <p className="dashboard-card__empty">
+                      No data for this period.
+                    </p>
                   )}
                 </div>
               </article>

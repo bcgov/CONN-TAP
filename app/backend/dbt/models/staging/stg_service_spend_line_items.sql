@@ -2,50 +2,49 @@
 
 with telus_excluded_categories as (
     select unnest(array[
-        'Payment',
-        'Payments',
-        'Amount due from last bill',
-        'Amount Due from last bill',
-        'Taxes'
+        'payment',
+        'payments',
+        'amount due from last bill',
+        'taxes'
     ]::text[]) as statement_category
 ),
 
 telus_excluded_details as (
     select unnest(array[
-        'BC PST',
-        'B.C. PST Adjustment',
-        'BUS. SERVICES GST',
-        'CPS GST 100652692',
-        'CPS GST ADJUSTMENT 362037',
-        'CPS PST BRITISH COLUMBIA 7%',
-        'FP GST Credit',
-        'FP PST Credit',
-        'GST',
-        'GST adj',
-        'GST ADJUSTMENT',
-        'GST/HST',
-        'GST/HST ADJUSTMENT',
-        'GST Tax Adjustment',
-        'PQ PST',
-        'PST',
-        'PST ADJUSTMENT',
-        'PST-BC',
-        'PST-BC adj',
-        'PST-MB',
-        'PST-QC'
+        'bc pst',
+        'b.c. pst adjustment',
+        'bus. services gst',
+        'cps gst 100652692',
+        'cps gst adjustment 362037',
+        'cps pst british columbia 7%',
+        'fp gst credit',
+        'fp pst credit',
+        'gst',
+        'gst adj',
+        'gst adjustment',
+        'gst/hst',
+        'gst/hst adjustment',
+        'gst tax adjustment',
+        'pq pst',
+        'pst',
+        'pst adjustment',
+        'pst-bc',
+        'pst-bc adj',
+        'pst-mb',
+        'pst-qc'
     ]::text[]) as detail_description
 ),
 
 telus_hardware_details as (
     select unnest(array[
-        'Hardware Purchase Charge',
-        'Device Discount Repayment',
-        'Monthly TELUS Easy Payment',
-        'Device discount repay. canc.',
-        'Device discount repay. - CR',
-        'Monthly Easy Payment',
-        'TELUS Easy Payment Balance',
-        'Equipment Adjustment'
+        'hardware purchase charge',
+        'device discount repayment',
+        'monthly telus easy payment',
+        'device discount repay. canc.',
+        'device discount repay. - cr',
+        'monthly easy payment',
+        'telus easy payment balance',
+        'equipment adjustment'
     ]::text[]) as detail_description
 ),
 
@@ -56,6 +55,7 @@ rogers as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'cellular' then 'Cellular'
             when source_service_family = 'data' then 'Data'
@@ -72,6 +72,7 @@ telus_ngta as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'wireless' or source_service_id in ('164', '130') then 'Cellular'
             when source_service_id in ('1001', '103') then 'Data'
@@ -102,11 +103,12 @@ tsma as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         case
             when source_service_family = 'wireless' then 'Cellular'
-            when tsma_service_tower in ('Business Internet', 'Data - WAN') then 'Data'
-            when tsma_service_tower in ('Conferencing', 'Long Distance', 'Voice') then 'Voice'
-            when tsma_service_tower = 'Managed WLAN' then 'Other Professional Services'
+            when tsma_service_tower in ('business internet', 'data - wan') then 'Data'
+            when tsma_service_tower in ('conferencing', 'long distance', 'voice') then 'Voice'
+            when tsma_service_tower = 'managed wlan' then 'Other Professional Services'
             when source_service_family in ('ivr', 'mms') then 'Temporary Services'
         end as service_category,
         spend_amount
@@ -120,6 +122,7 @@ tsma_other as (
         source_table,
         raw_id,
         month_start,
+        organization_name,
         'Other Professional Services'::text as service_category,
         spend_amount
     from {{ ref('stg_tsma_other_spend') }}
@@ -146,9 +149,11 @@ select
     extract(quarter from month_start)::integer as calendar_quarter,
     extract(year from month_start + interval '9 months')::integer as fiscal_year,
     (((extract(month from month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
+    coalesce(m.bge_alias, u.organization_name) as organization_name,
     service_category,
     spend_amount
-from unioned
+from unioned u
+left join {{ ref('bge_alias_map') }} m on m.raw_name = u.organization_name
 where month_start is not null
     and service_category is not null
     and spend_amount <> 0

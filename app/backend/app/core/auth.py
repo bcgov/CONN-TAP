@@ -49,21 +49,17 @@ def _secret_bytes(value: str, min_bytes: int = 32) -> bytes:
 def _base64url_digest(digest: bytes) -> str:
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
-
 def hash_session_token(token: str) -> str:
     return _base64url_digest(hmac.new(_secret_bytes(settings.SESSION_SECRET), token.encode(), hashlib.sha256).digest())
 
-
 def hash_access_token(token: str) -> str:
     return _base64url_digest(hashlib.sha256(token.encode()).digest())
-
 
 def jwks_client() -> PyJWKClient:
     global _jwks_client
     if _jwks_client is None:
         _jwks_client = PyJWKClient(f"{settings.KEYCLOAK_ISSUER_URL.rstrip('/')}/protocol/openid-connect/certs")
     return _jwks_client
-
 
 def _unauthorized(detail: str = "Unauthorized") -> HTTPException:
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
