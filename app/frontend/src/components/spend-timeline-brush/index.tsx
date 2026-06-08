@@ -24,13 +24,13 @@ interface Props {
 
 type DisplayPoint = TimelinePoint & { base_value: number | null; selected_value: number | null };
 
-export function SpendTimelineBrush({
+export const SpendTimelineBrush = ({
   chart,
   isLoading,
   onPeriodsChange,
   yAxisFormatter = (v) => String(Number(v).toFixed(0)),
   tooltipFormatter = (v) => String(Number(v).toFixed(1)),
-}: Props) {
+}: Props) => {
   const initialized = useRef(false);
   const points = chart?.data ?? [];
 
@@ -53,32 +53,32 @@ export function SpendTimelineBrush({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
 
-  function getRange(startLabel: string, endLabel: string): [number, number] {
+  const getRange = (startLabel: string, endLabel: string): [number, number] => {
     const a = points.findIndex((p) => p.label === startLabel);
     const b = points.findIndex((p) => p.label === endLabel);
     return a <= b ? [a, b] : [b, a];
-  }
+  };
 
-  function periodsForLabels(startLabel: string, endLabel: string): string[] {
+  const periodsForLabels = (startLabel: string, endLabel: string): string[] => {
     const [lo, hi] = getRange(startLabel, endLabel);
     if (lo < 0 || hi < 0) return [];
     return points.slice(lo, hi + 1).map((p) => p.period);
-  }
+  };
 
-  function handleMouseDown(e: MouseHandlerDataParam) {
+  const handleMouseDown = (e: MouseHandlerDataParam) => {
     const label = String(e?.activeLabel ?? "");
     if (!label) return;
     setDrag({ start: label, end: label });
-  }
+  };
 
-  function handleMouseMove(e: MouseHandlerDataParam) {
+  const handleMouseMove = (e: MouseHandlerDataParam) => {
     if (!drag) return;
     const label = String(e?.activeLabel ?? "");
     if (!label) return;
     setDrag((prev) => prev && { ...prev, end: label });
-  }
+  };
 
-  function handleMouseUp() {
+  const handleMouseUp = () => {
     if (!drag) return;
     const periods = periodsForLabels(drag.start, drag.end);
     if (periods.length > 0) {
@@ -87,7 +87,7 @@ export function SpendTimelineBrush({
       onPeriodsChange(periods);
     }
     setDrag(null);
-  }
+  };
 
   const visible = drag ?? selection;
 
@@ -179,4 +179,4 @@ export function SpendTimelineBrush({
       )}
     </div>
   );
-}
+};

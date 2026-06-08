@@ -7,15 +7,14 @@ export type PlotlyChart = {
   layout: Partial<Layout>;
 };
 
-export function isPlotlyChart(chart: unknown): chart is PlotlyChart {
-  return Boolean(
+export const isPlotlyChart = (chart: unknown): chart is PlotlyChart =>
+  Boolean(
     chart &&
       typeof chart === "object" &&
       "data" in chart &&
       "layout" in chart &&
       Array.isArray((chart as PlotlyChart).data)
   );
-}
 
 export type IndicatorItem = {
   label: string;
@@ -26,14 +25,13 @@ export type IndicatorChart = {
   indicators: IndicatorItem[];
 };
 
-export function isIndicatorChart(chart: unknown): chart is IndicatorChart {
-  return Boolean(
+export const isIndicatorChart = (chart: unknown): chart is IndicatorChart =>
+  Boolean(
     chart &&
       typeof chart === "object" &&
       "indicators" in chart &&
       Array.isArray((chart as IndicatorChart).indicators)
   );
-}
 
 export type TimelinePoint = {
   period: string;
@@ -46,14 +44,13 @@ export type TimelineChart = {
   valueLabel: string;
 };
 
-export function isTimelineChart(chart: unknown): chart is TimelineChart {
-  return Boolean(
+export const isTimelineChart = (chart: unknown): chart is TimelineChart =>
+  Boolean(
     chart &&
       typeof chart === "object" &&
       "data" in chart &&
       Array.isArray((chart as TimelineChart).data)
   );
-}
 
 export type SectorSlice = {
   sector: string;
@@ -69,17 +66,16 @@ export type SectorChart = {
   nameKey: "sector";
 };
 
-export function isSectorChart(chart: unknown): chart is SectorChart {
-  return Boolean(
+export const isSectorChart = (chart: unknown): chart is SectorChart =>
+  Boolean(
     chart &&
       typeof chart === "object" &&
       "data" in chart &&
       "total_millions" in chart &&
       Array.isArray((chart as SectorChart).data)
   );
-}
 
-export function applyOutsideLabels(traces: Data[], activeProviders: Set<string>): Data[] {
+export const applyOutsideLabels = (traces: Data[], activeProviders: Set<string>): Data[] => {
   const active = traces.filter((t) => activeProviders.has((t as PlotlyTrace).name ?? ""));
   return active.map((trace, idx) => {
     if (idx < active.length - 1) return { ...trace, textposition: "none" };
@@ -93,4 +89,4 @@ export function applyOutsideLabels(traces: Data[], activeProviders: Set<string>)
     );
     return { ...trace, text: combined, textposition: "outside" };
   });
-}
+};

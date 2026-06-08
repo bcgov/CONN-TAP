@@ -1,6 +1,6 @@
 export type YearType = "fiscal" | "calendar";
 
-export function periodsToYearsQuarters(periods: string[]): { years: string[]; quarters: string[] } {
+export const periodsToYearsQuarters = (periods: string[]): { years: string[]; quarters: string[] } => {
   const yearSet = new Set<string>();
   const quarterSet = new Set<string>();
   for (const p of periods) {
@@ -12,9 +12,9 @@ export function periodsToYearsQuarters(periods: string[]): { years: string[]; qu
     years: Array.from(yearSet).sort(),
     quarters: Array.from(quarterSet).sort(),
   };
-}
+};
 
-export function buildPeriodRangeLabel(periods: string[], yearType: YearType = "fiscal"): string {
+export const buildPeriodRangeLabel = (periods: string[], yearType: YearType = "fiscal"): string => {
   if (periods.length === 0) return "";
   const toLabel = (p: string) => {
     const [year, quarter] = p.split("_");
@@ -24,4 +24,4 @@ export function buildPeriodRangeLabel(periods: string[], yearType: YearType = "f
   const last = periods[periods.length - 1];
   if (first === last) return `(${toLabel(first)})`;
   return `(${toLabel(first)} – ${toLabel(last)})`;
-}
+};

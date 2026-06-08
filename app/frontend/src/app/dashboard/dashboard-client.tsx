@@ -73,7 +73,10 @@ export function DashboardClient({ displayName }: { displayName: string }) {
   const indicatorQuery = useQuery({
     queryKey: ["isp-spend-indicators", yearType, period],
     queryFn: async () => {
-      const result = await fetchDataset("isp-spend-indicators", { yearType, period });
+      const result = await fetchDataset("isp-spend-indicators", {
+        yearType,
+        period,
+      });
       return isIndicatorChart(result.metadata.chart)
         ? result.metadata.chart
         : null;
@@ -88,7 +91,9 @@ export function DashboardClient({ displayName }: { displayName: string }) {
       const chart = result.metadata.chart;
       return {
         ...chart,
-        data: chart.data.filter((p) => parseInt(p.period.split("_")[0]) >= 2024),
+        data: chart.data.filter(
+          (p) => parseInt(p.period.split("_")[0]) >= 2024,
+        ),
       };
     },
   });
@@ -100,7 +105,9 @@ export function DashboardClient({ displayName }: { displayName: string }) {
         yearType,
         period,
       });
-      return isSectorChart(result.metadata.chart) ? result.metadata.chart : null;
+      return isSectorChart(result.metadata.chart)
+        ? result.metadata.chart
+        : null;
     },
     enabled: period.length > 0,
   });
@@ -156,12 +163,14 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             <div className="dashboard-main__header">
               <div>
                 <Heading level={1}>Telecom Spend Dashboard</Heading>
+                <Heading level={5}>TSMA & NGTA</Heading>
                 <p className="dashboard-main__intro">
-                  You are signed in as {displayName}. Spend is shown in millions
-                  of dollars and sorted by highest total service category spend.
+                  Consolidated view of telecom spend across BC government
+                  entities
                 </p>
               </div>
             </div>
+            <hr className="dashboard-main__divider" />
 
             <section
               className="dashboard-controls"
