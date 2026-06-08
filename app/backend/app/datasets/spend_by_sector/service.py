@@ -6,12 +6,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
-from app.datasets.chart_format import to_float
-from app.datasets.colors import FILL_UNKNOWN, SECTOR_COLOURS
-from app.datasets.spend_common import Filters
-SECTOR_ORDER = ("Health Authorities", "Crown Corporations", "Gov & ECC", "School Districts")
-
-RESULT_COLUMNS = ["sector", "vendor", "spend_amount", "spend_millions"]
+from .helpers import build_pie_result, run_query
+from .schema import Filters
 
 
 class Service(DatasetService):
@@ -21,75 +17,5 @@ class Service(DatasetService):
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
-
-        def _pg_text_array(values: list[str] | None) -> str | None:
-            return "{" + ",".join(values) + "}" if values else None
-
-        query_name = "calendar" if parsed.year_type == "calendar" else "fiscal"
-        df = self.execute_sql(
-            db,
-            query_name,
-            params={
-                "period": _pg_text_array(parsed.period),
-            },
-        )
-
-        if df.empty:
-            return DatasetResult(
-                columns=RESULT_COLUMNS,
-                rows=[],
-                row_count=0,
-                metadata={
-                    "dataset": self.id,
-                    "filters": parsed.model_dump(mode="json"),
-                    "chart": {"data": [], "total_millions": 0.0},
-                },
-            )
-
-        sector_totals: dict[str, float] = {}
-        for row in df.itertuples(index=False):
-            sector = str(row.sector)
-            sector_totals[sector] = sector_totals.get(sector, 0.0) + to_float(row.spend_millions)
-
-        grand_total = sum(sector_totals.values())
-
-        pie_data = []
-        for sector in SECTOR_ORDER:
-            if sector not in sector_totals:
-                continue
-            spend = round(sector_totals[sector], 6)
-            pie_data.append({
-                "sector": sector,
-                "spend_millions": spend,
-                "percentage": round(spend / grand_total * 100, 1) if grand_total else 0.0,
-                "fill": SECTOR_COLOURS.get(sector, FILL_UNKNOWN),
-            })
-        for sector, spend in sector_totals.items():
-            if sector not in SECTOR_ORDER:
-                pie_data.append({
-                    "sector": sector,
-                    "spend_millions": round(spend, 6),
-                    "percentage": round(spend / grand_total * 100, 1) if grand_total else 0.0,
-                    "fill": FILL_UNKNOWN,
-                })
-
-        tabular_rows = [
-            [str(row.sector), str(row.vendor), round(to_float(row.spend_amount), 2), round(to_float(row.spend_millions), 6)]
-            for row in df.itertuples(index=False)
-        ]
-
-        return DatasetResult(
-            columns=RESULT_COLUMNS,
-            rows=tabular_rows,
-            row_count=len(tabular_rows),
-            metadata={
-                "dataset": self.id,
-                "filters": parsed.model_dump(mode="json"),
-                "chart": {
-                    "data": pie_data,
-                    "total_millions": round(grand_total, 6),
-                    "dataKey": "spend_millions",
-                    "nameKey": "sector",
-                },
-            },
-        )
+        df = run_query(self, db, parsed)
+        return build_pie_result(self.id, df, parsed)

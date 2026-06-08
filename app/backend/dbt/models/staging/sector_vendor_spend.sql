@@ -7,73 +7,16 @@ select
     fiscal_quarter,
     vendor,
     case
-        -- Health Authorities
-        when organization_name in (
-            'Fraser Health Authority',
-            'FRASER HEALTH AUTHORITY',
-            'Fraser Health',
-            'FHA',
-            'First Nations Health Authority',
-            'FIRST NATIONS HEALTH AUTHORITY',
-            'FNHA',
-            'Interior Health Authority',
-            'IHA',
-            'Northern Health Authority',
-            'NHA',
-            'Provincial Health Services Authority',
-            'PROVINCIAL HEALTH SERVICES AUTHORITY',
-            'PHSA',
-            'Vancouver Coastal Health Authority',
-            'VCHA',
-            'Vancouver Island Health Authority',
-            'VANCOUVER ISLAND HEALTH AUTHORITY',
-            'VIHA',
-            'Providence Health Care',
-            'PROVIDENCE HEALTH CARE',
-            'CHILDRENS & WOMENS HEALTH CENTRE OF BC SOCIETY'
-        )
+        when organization_name in ('FHA', 'FNHA', 'IHA', 'NHA', 'PHSA', 'VCHA (+PHC)', 'VIHA')
           or lower(organization_name) like '%health author%'
-          or lower(organization_name) like '%health serv%'
             then 'Health Authorities'
-
-        -- Crown Corporations
-        when organization_name in (
-            'BC Hydro',
-            'BC HYDRO',
-            'BCH',
-            'BRITISH COLUMBIA HYDRO & POWER AUTHORITY',
-            'British Columbia Lottery Corporation',
-            'BCLC',
-            'BC LOTTERY',
-            'WorkSafe BC',
-            'Worksafe BC',
-            'WSBC',
-            'WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA',
-            'Insurance Corporation of BC',
-            'INSURANCE CORPORATION OF BRITISH COLUMB.',
-            'INSURANCE CORPORATION OF BRITISH COLUMBIA - ICBC',
-            'ICBC',
-            'BRITISH COLUMBIA LIQUOR DISTRIBUTION BRANCH',
-            'GBC - LIQUOR DISTRIBUTION BRANCH'
-        )
-          or lower(organization_name) like '%bc hydro%'
-          or lower(organization_name) like '%workers compensation%'
-          or lower(organization_name) like '%worksafe%'
-          or lower(organization_name) like '%insurance corporation%'
-          or lower(organization_name) like '%liquor distribution%'
+        when organization_name in ('BC Hydro', 'BCLC', 'WSBC', 'ICBC')
             then 'Crown Corporations'
-
-        -- School Districts
-        when organization_name in (
-            'School Districts',
-            'TSMA LITE SCHOOL DISTRICTS',
-            'SCHLDIST',
-            'SD'
-        )
+        when organization_name = 'School Districts'
           or lower(organization_name) like '%school district%'
             then 'School Districts'
-
-        -- Gov & ECC: BC Gov, all BC Min *, ministries, and everything else
+        when organization_name = 'ECC'
+            then 'Gov & ECC'
         else 'Gov & ECC'
     end as sector,
     sum(spend_amount)::numeric(19, 4) as spend_amount,
