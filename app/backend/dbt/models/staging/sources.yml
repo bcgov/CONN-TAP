@@ -5,6 +5,11 @@ sources:
     schema: app
     tables:
       - name: datasets
+  - name: reference_data
+    schema: reference_data
+    tables:
+      - name: sector
+      - name: bge
   - name: raw_data
     schema: raw_data
     tables:

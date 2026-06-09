@@ -150,10 +150,13 @@ select
     extract(year from month_start + interval '9 months')::integer as fiscal_year,
     (((extract(month from month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
     coalesce(m.bge_alias, u.organization_name) as organization_name,
+    b.id        as bge_id,
+    b.sector_id as sector_id,
     service_category,
     spend_amount
 from unioned u
 left join {{ ref('bge_alias_map') }} m on m.raw_name = u.organization_name
+left join {{ source('reference_data', 'bge') }} b on b.code = coalesce(m.bge_alias, u.organization_name)
 where month_start is not null
     and service_category is not null
     and spend_amount <> 0
