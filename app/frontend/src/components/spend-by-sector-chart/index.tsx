@@ -41,6 +41,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
               nameKey={chart.nameKey}
               cx="50%"
               cy="50%"
+              innerRadius={60}
               outerRadius={110}
               label={(props: PieLabelRenderProps & { percentage?: number }) => `${props.percentage ?? 0}%`}
               labelLine={false}
