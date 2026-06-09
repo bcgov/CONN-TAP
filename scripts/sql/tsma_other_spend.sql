@@ -13,7 +13,7 @@ FROM (
   UNION ALL
   SELECT 'managed_wlan_wifi'::text AS feed, rcid_cust_nm, month_start_dt, billed_amt
   FROM raw_data.tsma_wireline
-  WHERE tsma_service_tower = 'Managed WLAN'
+  WHERE LOWER(tsma_service_tower) = 'managed wlan'
 ) AS s
 WHERE s.month_start_dt IS NOT NULL
 GROUP BY s.feed, s.rcid_cust_nm,

@@ -4,16 +4,16 @@
 WITH lite AS (
     SELECT
         ccyymm,
-        SUM(CASE WHEN tsma_service_tower = 'Conferencing'
+        SUM(CASE WHEN LOWER(tsma_service_tower) = 'conferencing'
                  THEN COALESCE(billed_amt, 0) ELSE 0 END) AS conferencing_spend,
-        SUM(CASE WHEN tsma_service_tower = 'Long Distance'
+        SUM(CASE WHEN LOWER(tsma_service_tower) = 'long distance'
                  THEN COALESCE(billed_amt, 0) ELSE 0 END) AS long_distance_spend,
-        SUM(CASE WHEN tsma_service_tower = 'Voice'
+        SUM(CASE WHEN LOWER(tsma_service_tower) = 'voice'
                  THEN COALESCE(billed_amt, 0) ELSE 0 END) AS voice_spend,
         0::numeric AS cellular_spend
     FROM raw_data.tsma_lite_wireline
     WHERE ccyymm BETWEEN '202401' AND '202612'
-      AND tsma_service_tower IN ('Conferencing', 'Long Distance', 'Voice')
+      AND LOWER(tsma_service_tower) IN ('conferencing', 'long distance', 'voice')
     GROUP BY ccyymm
 
     UNION ALL

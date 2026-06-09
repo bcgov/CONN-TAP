@@ -18,7 +18,7 @@ SELECT
     SUM(COALESCE(billed_amt, 0)) AS amount
 FROM raw_data.tsma_wireline
 WHERE ccyymm BETWEEN '202401' AND '202612'
-  AND tsma_service_tower IN ('Business Internet', 'Data - WAN')
+  AND LOWER(tsma_service_tower) IN ('business internet', 'data - wan')
   AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
 GROUP BY entity, ccyymm
 ORDER BY entity, month_start;
@@ -33,7 +33,7 @@ SELECT
     SUM(COALESCE(billed_amt, 0)) AS amount
 FROM raw_data.tsma_wireline
 WHERE ccyymm BETWEEN '202401' AND '202612'
-  AND tsma_service_tower IN ('Conferencing', 'Long Distance', 'Voice')
+  AND LOWER(tsma_service_tower) IN ('conferencing', 'long distance', 'voice')
   AND NULLIF(TRIM(COALESCE(entity, '')), '') IS NOT NULL
 GROUP BY entity, ccyymm
 ORDER BY entity, month_start;
@@ -63,4 +63,3 @@ FROM raw_data.tsma_ivr
 WHERE ccyymm BETWEEN '202401' AND '202612'
 GROUP BY ccyymm
 ORDER BY month_start;
-
