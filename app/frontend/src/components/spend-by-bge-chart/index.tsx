@@ -16,23 +16,6 @@ import {
 } from "recharts";
 import styles from "./spend-by-bge-chart.module.css";
 
-const BGE_ABBREV: Record<string, string> = {
-  "Gov BC": "Gov BC",
-  "BCLC": "BCLC",
-  "BC Hydro": "BC Hydro",
-  "WSBC": "WSBC",
-  "ECC": "ECC",
-  "FHA": "FHA",
-  "NHA": "NHA",
-  "ICBC": "ICBC",
-  "PHSA": "PHSA",
-  "VIHA": "VHA",
-  "FNHA": "FNHA",
-  "VCHA (+PHC)": "VHA+PHC",
-  "School Districts": "Sch. Dist.",
-  "IHA": "IHA",
-};
-
 
 type WithTotal = BgeBarEntry & { _total: number };
 
@@ -66,7 +49,6 @@ export const SpendByBgeChart = ({ chart, dateRangeLabel }: Props) => {
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="organization_name"
-              tickFormatter={(v: string) => BGE_ABBREV[v] ?? v}
               tick={{ fontSize: 11 }}
             />
             <YAxis

@@ -13,14 +13,6 @@ import {
 } from "recharts";
 import styles from "./spend-by-sector-chart.module.css";
 
-const SECTOR_ABBREV: Record<string, string> = {
-  "Health Authorities": "Health auth",
-  "Crown Corporations": "Crown corp",
-  "Gov & ECC": "Gov & ECC",
-  "School Districts": "School districts",
-};
-
-const abbrev = (sector: string) => SECTOR_ABBREV[sector] ?? sector;
 
 type Props = {
   chart: SectorChart;
@@ -60,7 +52,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
             <Tooltip
               formatter={(spend, sector) => [
                 `${fmtMillions(Number(spend))} (${chart.data.find((s) => s.sector === String(sector))?.percentage ?? 0}%)`,
-                abbrev(String(sector)),
+                String(sector),
               ]}
             />
             <Legend
@@ -72,7 +64,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
                       return (
                         <li key={entry.value} className={styles.legendItem}>
                           <span className={styles.legendDot} style={{ background: entry.color }} />
-                          {abbrev(entry.value ?? "")} = {slice?.percentage ?? 0}% ({fmtMillions(slice?.spend_millions ?? 0)})
+                          {entry.value ?? ""} = {slice?.percentage ?? 0}% ({fmtMillions(slice?.spend_millions ?? 0)})
                         </li>
                       );
                     })}
