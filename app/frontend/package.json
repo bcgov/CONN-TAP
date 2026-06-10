@@ -11,7 +11,9 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@bcgov/bc-sans": "^2.1.0",
@@ -35,8 +37,10 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@types/react-plotly.js": "^2.6.3",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^10.0.0",
     "eslint-config-next": "^16.2.4",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
   }
 }

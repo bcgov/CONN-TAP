@@ -15,8 +15,8 @@ env:
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
 jobs:
-  python:
-    name: Run Python tests
+  backend:
+    name: Run backend tests
     runs-on: ubuntu-latest
 
     steps:
@@ -33,20 +33,71 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install --upgrade pip pytest pytest-cov
 
-      - name: Run tests
-        run: pytest --junitxml=reports/test-results.xml --cov=. --cov-report=xml:reports/coverage.xml tests
+      - name: Run backend tests
+        working-directory: app/backend
+        env:
+          PYTHONPATH: .
+        run: |
+          mkdir -p ../../reports
+          pytest \
+            --junitxml=../../reports/backend-test-results.xml \
+            --cov=app \
+            --cov-report=xml:../../reports/backend-coverage.xml \
+            tests
 
-      - name: Upload test reports
+      - name: Upload backend test reports
         uses: actions/upload-artifact@v4
         with:
-          name: python-test-reports
+          name: sonar-reports-backend
+          path: reports/
+          if-no-files-found: error
+
+  frontend:
+    name: Run frontend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: app/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: app/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend tests
+        working-directory: app/frontend
+        run: pnpm test:coverage
+
+      - name: Stage frontend coverage report
+        run: |
+          mkdir -p reports
+          cp app/frontend/coverage/lcov.info reports/frontend-lcov.info
+
+      - name: Upload frontend test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-reports-frontend
           path: reports/
           if-no-files-found: error
 
   sonarcloud:
     name: SonarCloud scan
     runs-on: ubuntu-latest
-    needs: python
+    needs: [backend, frontend]
     permissions:
       contents: read
       actions: read
@@ -58,10 +109,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download test reports
+      - name: Download backend test reports
         uses: actions/download-artifact@v4
         with:
-          name: python-test-reports
+          name: sonar-reports-backend
+          path: reports
+
+      - name: Download frontend test reports
+        uses: actions/download-artifact@v4
+        with:
+          name: sonar-reports-frontend
           path: reports
 
       - name: SonarCloud scan
