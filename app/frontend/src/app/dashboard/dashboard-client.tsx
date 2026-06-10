@@ -10,8 +10,10 @@ import { MinimalFooter } from "@/components/minimal-footer";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
 import { SpendTimelineBrush } from "@/components/spend-timeline-brush";
 import { SpendBySectorChart } from "@/components/spend-by-sector-chart";
+import { SpendByBgeChart } from "@/components/spend-by-bge-chart";
 import {
   applyOutsideLabels,
+  isBgeChart,
   isIndicatorChart,
   isPlotlyChart,
   isSectorChart,
@@ -112,6 +114,15 @@ export function DashboardClient({ displayName }: { displayName: string }) {
     enabled: period.length > 0,
   });
   const sectorTotalLabel = sectorQuery.data?.total_millions?.toFixed(1) ?? "—";
+
+  const bgeQuery = useQuery({
+    queryKey: ["spend-by-bge", yearType, period],
+    queryFn: async () => {
+      const result = await fetchDataset("spend-by-bge", { yearType, period });
+      return isBgeChart(result.metadata.chart) ? result.metadata.chart : null;
+    },
+    enabled: period.length > 0,
+  });
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -282,6 +293,32 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                   ) : sectorQuery.data ? (
                     <SpendBySectorChart
                       chart={sectorQuery.data}
+                      dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                    />
+                  ) : (
+                    <p className="dashboard-card__empty">
+                      No data for this period.
+                    </p>
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
+              <article className="dashboard-card">
+                <div className="dashboard-card__header">
+                  <h2>Spend by BGE</h2>
+                </div>
+                <div className="dashboard-card__chart">
+                  {bgeQuery.isLoading ? (
+                    <p className="dashboard-card__empty">Loading BGE chart…</p>
+                  ) : bgeQuery.isError ? (
+                    <p className="dashboard-card__empty">
+                      Unable to load BGE data.
+                    </p>
+                  ) : bgeQuery.data ? (
+                    <SpendByBgeChart
+                      chart={bgeQuery.data}
                       dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
                     />
                   ) : (

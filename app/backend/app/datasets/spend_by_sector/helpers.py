@@ -2,27 +2,14 @@
 from __future__ import annotations
 
 import pandas as pd
-from sqlalchemy.orm import Session
 
-from app.datasets.base import DatasetResult, DatasetService
+from app.datasets.base import DatasetResult
 from app.datasets.chart_format import to_float
 from app.datasets.colors import FILL_UNKNOWN, SECTOR_COLOURS
-from app.datasets.spend_common import Filters
+from app.datasets.spend_common import Filters, run_period_query as run_query
 
 SECTOR_ORDER = ("Health Authorities", "Crown Corporations", "Gov & ECC", "School Districts")
 RESULT_COLUMNS = ["sector", "vendor", "spend_amount", "spend_millions"]
-
-
-def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.DataFrame:
-    def _pg_text_array(values: list[str] | None) -> str | None:
-        return "{" + ",".join(values) + "}" if values else None
-
-    query_name = "calendar" if filters.year_type == "calendar" else "fiscal"
-    return service.execute_sql(
-        db,
-        query_name,
-        params={"period": _pg_text_array(filters.period)},
-    )
 
 
 def build_pie_result(dataset_id: str, df: pd.DataFrame, filters: Filters) -> DatasetResult:

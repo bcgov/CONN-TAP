@@ -75,6 +75,31 @@ export const isSectorChart = (chart: unknown): chart is SectorChart =>
       Array.isArray((chart as SectorChart).data)
   );
 
+export type BgeBarEntry = {
+  organization_name: string;
+  [key: string]: string | number;
+};
+
+export type BgeChart = {
+  data: BgeBarEntry[];
+  vendors: string[];
+  total_millions: number;
+};
+
+export const isBgeChart = (chart: unknown): chart is BgeChart =>
+  Boolean(
+    chart &&
+      typeof chart === "object" &&
+      "data" in chart &&
+      "vendors" in chart &&
+      Array.isArray((chart as BgeChart).data)
+  );
+
+export const VENDOR_COLOURS: Record<string, string> = {
+  TELUS: "var(--color-vendor-telus)",
+  Rogers: "var(--color-vendor-rogers)",
+};
+
 export const applyOutsideLabels = (traces: Data[], activeProviders: Set<string>): Data[] => {
   const active = traces.filter((t) => activeProviders.has((t as PlotlyTrace).name ?? ""));
   return active.map((trace, idx) => {
