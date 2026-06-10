@@ -282,14 +282,13 @@ const ACTIVE_SESSION_SQL = `SELECT session_hash,
 
 declare global {
   // eslint-disable-next-line no-var
-  var telecomRefreshFlights: Map<string, Promise<ServerSession | null>> | undefined;
+  var telecomSessionFlights: Map<string, Promise<ServerSession | null>> | undefined;
 }
 
-const refreshFlights = globalThis.telecomRefreshFlights ?? new Map<string, Promise<ServerSession | null>>();
+const sessionFlights =
+  globalThis.telecomSessionFlights ?? new Map<string, Promise<ServerSession | null>>();
 
-if (process.env.NODE_ENV !== "production") {
-  globalThis.telecomRefreshFlights = refreshFlights;
-}
+globalThis.telecomSessionFlights = sessionFlights;
 
 function accessTokenNeedsRefresh(accessTokenExpiresAt: Date, refreshWindowSeconds: number): boolean {
   const refreshAt = accessTokenExpiresAt.getTime() - refreshWindowSeconds * 1000;
@@ -423,18 +422,24 @@ async function refreshSessionAccessToken(
   return null;
 }
 
-async function singleFlightRefresh(
-  sessionHash: string,
-  refreshWindowSeconds: number,
-): Promise<ServerSession | null> {
-  const inFlight = refreshFlights.get(sessionHash);
-  if (inFlight) return inFlight;
+async function resolveSession(sessionHash: string, refresh: boolean): Promise<ServerSession | null> {
+  const row = await loadActiveSessionRow(sessionHash);
+  if (!row) return null;
 
-  const flight = refreshSessionAccessToken(sessionHash, refreshWindowSeconds).finally(() => {
-    refreshFlights.delete(sessionHash);
-  });
-  refreshFlights.set(sessionHash, flight);
-  return flight;
+  const tokens = decryptSessionTokens(row);
+  if (!tokens) return null;
+
+  const { refreshWindowSeconds } = authEnv();
+  if (
+    refresh &&
+    tokens.refreshToken &&
+    accessTokenNeedsRefresh(row.access_token_expires_at, refreshWindowSeconds)
+  ) {
+    return refreshSessionAccessToken(sessionHash, refreshWindowSeconds);
+  }
+
+  await touchLastSeen(sessionHash);
+  return buildServerSession(row, tokens);
 }
 
 export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
@@ -442,24 +447,20 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
   const sessionToken = cookieStore.get(sessionCookieName())?.value;
   if (!sessionToken) return null;
 
-  const { refreshWindowSeconds } = authEnv();
   const sessionHash = hashSessionToken(sessionToken);
-  const row = await loadActiveSessionRow(sessionHash);
-  if (!row) return null;
 
-  const tokens = decryptSessionTokens(row);
-  if (!tokens) return null;
-
-  if (
-    options.refresh &&
-    tokens.refreshToken &&
-    accessTokenNeedsRefresh(row.access_token_expires_at, refreshWindowSeconds)
-  ) {
-    return singleFlightRefresh(sessionHash, refreshWindowSeconds);
+  if (!options.refresh) {
+    return resolveSession(sessionHash, false);
   }
 
-  await touchLastSeen(sessionHash);
-  return buildServerSession(row, tokens);
+  const inFlight = sessionFlights.get(sessionHash);
+  if (inFlight) return inFlight;
+
+  const flight = resolveSession(sessionHash, true).finally(() => {
+    sessionFlights.delete(sessionHash);
+  });
+  sessionFlights.set(sessionHash, flight);
+  return flight;
 }
 
 export async function requireSession(returnTo: string): Promise<ServerSession> {

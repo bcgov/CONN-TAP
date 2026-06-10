@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { authEnv } from "@/lib/server/env";
 import { getCurrentSession } from "@/lib/server/auth";
@@ -32,11 +33,17 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (!HOP_BY_HOP_HEADERS.has(lower) && lower !== "authorization") {
+    if (!HOP_BY_HOP_HEADERS.has(lower) && lower !== "authorization" && lower !== "cookie") {
       headers.set(key, value);
     }
   });
   headers.set("authorization", `Bearer ${session.accessToken}`);
+
+  const { cookieName } = authEnv();
+  const sessionToken = (await cookies()).get(cookieName)?.value;
+  if (sessionToken) {
+    headers.set("cookie", `${cookieName}=${sessionToken}`);
+  }
 
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
   const upstream = await fetch(target, {
