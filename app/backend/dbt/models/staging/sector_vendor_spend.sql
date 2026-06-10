@@ -5,7 +5,7 @@ select
     li.calendar_quarter,
     li.fiscal_year,
     li.fiscal_quarter,
-    li.vendor,
+    li.provider_id,
     s.name as sector,
     sum(li.spend_amount)::numeric(19, 4)          as spend_amount,
     (sum(li.spend_amount) / 1000000.0)::numeric(19, 6) as spend_millions
@@ -16,5 +16,5 @@ group by
     li.calendar_quarter,
     li.fiscal_year,
     li.fiscal_quarter,
-    li.vendor,
+    li.provider_id,
     s.name

@@ -10,6 +10,9 @@ sources:
     tables:
       - name: sector
       - name: bge
+      - name: provider
+      - name: service_id
+      - name: service_tower
   - name: raw_data
     schema: raw_data
     tables:
