@@ -263,170 +263,6 @@ async function invalidateSession(sessionHash: string): Promise<void> {
   await clearSessionCookie();
 }
 
-interface RefreshedTokens {
-  accessToken: string;
-  refreshToken: string | null;
-  idToken: string | null;
-  accessTokenExpiresAt: Date;
-}
-
-/**
- * De-duplicates concurrent refreshes for the same session. A single dashboard
- * load fires many parallel API calls; without this, each one would submit the
- * same refresh token to Keycloak simultaneously. Keycloak rotates refresh
- * tokens, so only the first submission succeeds and the rest fail with
- * `invalid_grant` ("Token is not active"), tearing down the session.
- */
-const inflightRefreshes = new Map<string, Promise<RefreshedTokens | null>>();
-
-function decryptRowTokens(
-  row: Pick<SessionRow, "encrypted_access_token" | "encrypted_refresh_token" | "encrypted_id_token">
-): { accessToken: string | null; refreshToken: string | null; idToken: string | null } | null {
-  try {
-    return {
-      accessToken: decryptToken(row.encrypted_access_token),
-      refreshToken: decryptToken(row.encrypted_refresh_token),
-      idToken: decryptToken(row.encrypted_id_token),
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function readActiveSessionRow(sessionHash: string): Promise<SessionRow | null> {
-  const result = await query<SessionRow>(
-    `SELECT session_hash,
-            subject,
-            username,
-            email,
-            name,
-            claims,
-            encrypted_access_token,
-            encrypted_refresh_token,
-            encrypted_id_token,
-            access_token_hash,
-            access_token_expires_at,
-            session_expires_at
-       FROM auth_sessions
-      WHERE session_hash = $1
-        AND revoked_at IS NULL
-        AND session_expires_at > now()`,
-    [sessionHash]
-  );
-  return result.rows[0] ?? null;
-}
-
-async function performRefresh(
-  sessionHash: string,
-  staleRefreshToken: string,
-  refreshWindowSeconds: number
-): Promise<RefreshedTokens | null> {
-  // Re-read the latest row: another worker (or an earlier request in this same
-  // burst) may have already rotated the token while we waited for our turn.
-  const latest = await readActiveSessionRow(sessionHash);
-  if (!latest) return null;
-
-  const decrypted = decryptRowTokens(latest);
-  if (!decrypted?.accessToken) return null;
-
-  const stillNeedsRefresh =
-    Date.now() >= latest.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
-  if (!stillNeedsRefresh && decrypted.refreshToken) {
-    // Someone else already refreshed; reuse their fresh tokens, no Keycloak call.
-    return {
-      accessToken: decrypted.accessToken,
-      refreshToken: decrypted.refreshToken,
-      idToken: decrypted.idToken,
-      accessTokenExpiresAt: latest.access_token_expires_at,
-    };
-  }
-
-  const currentRefreshToken = decrypted.refreshToken ?? staleRefreshToken;
-  const refreshed = await refreshAccessToken(currentRefreshToken);
-  if (!refreshed?.access_token) {
-    // The refresh failed. Re-read the latest row, because a concurrent worker
-    // (another instance, or an earlier request in this burst) may have rotated
-    // the token. We use the freshest copy for both recovery checks below.
-    const recovered = await readActiveSessionRow(sessionHash);
-    const recoveredTokens = recovered ? decryptRowTokens(recovered) : null;
-
-    if (recovered && recoveredTokens?.accessToken) {
-      // Case 1: someone else rotated successfully (refresh token changed) -> use it.
-      if (
-        recoveredTokens.refreshToken &&
-        recoveredTokens.refreshToken !== currentRefreshToken
-      ) {
-        return {
-          accessToken: recoveredTokens.accessToken,
-          refreshToken: recoveredTokens.refreshToken,
-          idToken: recoveredTokens.idToken,
-          accessTokenExpiresAt: recovered.access_token_expires_at,
-        };
-      }
-
-      // Case 2: nobody rotated, but we refresh early (refreshWindowSeconds before
-      // expiry), so the current access token is very likely still valid. Keep
-      // serving it instead of destroying the session over a transient/raced
-      // refresh failure; a later request will retry the refresh.
-      if (recovered.access_token_expires_at.getTime() > Date.now()) {
-        return {
-          accessToken: recoveredTokens.accessToken,
-          refreshToken: recoveredTokens.refreshToken ?? currentRefreshToken,
-          idToken: recoveredTokens.idToken,
-          accessTokenExpiresAt: recovered.access_token_expires_at,
-        };
-      }
-    }
-
-    // The access token is actually expired and refresh failed: session is dead.
-    await revokeSessionInDatabase(sessionHash);
-    return null;
-  }
-
-  const accessToken = refreshed.access_token;
-  const refreshToken = refreshed.refresh_token ?? currentRefreshToken;
-  const idToken = refreshed.id_token ?? decrypted.idToken;
-  const expiresIn = refreshed.expiresIn() ?? 300;
-  const accessTokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
-
-  await query(
-    `UPDATE auth_sessions
-        SET encrypted_access_token = $2,
-            encrypted_refresh_token = $3,
-            encrypted_id_token = COALESCE($4, encrypted_id_token),
-            access_token_hash = $5,
-            access_token_expires_at = $6,
-            last_seen_at = now(),
-            updated_at = now()
-      WHERE session_hash = $1`,
-    [
-      sessionHash,
-      encryptToken(accessToken),
-      encryptToken(refreshToken),
-      encryptToken(refreshed.id_token),
-      hashAccessToken(accessToken),
-      accessTokenExpiresAt,
-    ]
-  );
-
-  return { accessToken, refreshToken, idToken, accessTokenExpiresAt };
-}
-
-function refreshSessionTokens(
-  sessionHash: string,
-  staleRefreshToken: string,
-  refreshWindowSeconds: number
-): Promise<RefreshedTokens | null> {
-  const existing = inflightRefreshes.get(sessionHash);
-  if (existing) return existing;
-
-  const task = performRefresh(sessionHash, staleRefreshToken, refreshWindowSeconds).finally(() => {
-    inflightRefreshes.delete(sessionHash);
-  });
-  inflightRefreshes.set(sessionHash, task);
-  return task;
-}
-
 export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(sessionCookieName())?.value;
@@ -473,16 +309,38 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
 
   const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
   if (options.refresh && refreshToken && Date.now() >= refreshAt) {
-    const refreshed = await refreshSessionTokens(sessionHash, refreshToken, refreshWindowSeconds);
-    if (!refreshed) {
-      // Refresh genuinely failed (token revoked at the IdP); session is dead.
+    const refreshed = await refreshAccessToken(refreshToken);
+    if (!refreshed?.access_token) {
+      // Server Components cannot modify cookies; logout route clears the cookie.
+      await revokeSessionInDatabase(sessionHash);
       return null;
     }
 
-    accessToken = refreshed.accessToken;
-    refreshToken = refreshed.refreshToken;
-    idToken = refreshed.idToken;
-    row.access_token_expires_at = refreshed.accessTokenExpiresAt;
+    accessToken = refreshed.access_token;
+    refreshToken = refreshed.refresh_token ?? refreshToken;
+    const expiresIn = refreshed.expiresIn() ?? 300;
+    row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
+    row.access_token_hash = hashAccessToken(accessToken);
+
+    await query(
+      `UPDATE auth_sessions
+          SET encrypted_access_token = $2,
+              encrypted_refresh_token = $3,
+              encrypted_id_token = COALESCE($4, encrypted_id_token),
+              access_token_hash = $5,
+              access_token_expires_at = $6,
+              last_seen_at = now(),
+              updated_at = now()
+        WHERE session_hash = $1`,
+      [
+        sessionHash,
+        encryptToken(accessToken),
+        encryptToken(refreshToken),
+        encryptToken(refreshed.id_token),
+        row.access_token_hash,
+        row.access_token_expires_at,
+      ]
+    );
   } else {
     await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
   }

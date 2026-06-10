@@ -1,18 +1,22 @@
 """SQLAlchemy session and engine."""
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+# Pin search_path as a libpq *startup* option so it applies to every connection
+# and survives the pool's reset-on-return ROLLBACK. A post-connect `SET` is not
+# reliable: it is reverted when SQLAlchemy rolls back the connection on return,
+# after which an unqualified `auth_sessions` resolves via the role default
+# search_path (e.g. `public` for the `dbadmin` role) and can hit a stale shadow
+# table instead of `app.auth_sessions`.
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    future=True,
+    connect_args={"options": "-c search_path=app,public"},
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-
-@event.listens_for(engine, "connect")
-def _set_search_path(dbapi_connection, _connection_record) -> None:
-    cursor = dbapi_connection.cursor()
-    cursor.execute("SET search_path TO app, public")
-    cursor.close()
 
 
 def get_db():
