@@ -1,47 +1,46 @@
 WITH hw_detail AS (
   SELECT unnest(ARRAY[
-    'Hardware Purchase Charge',
-    'Device Discount Repayment',
-    'Monthly TELUS Easy Payment',
-    'Device discount repay. canc.',
-    'Device discount repay. - CR',
-    'Monthly Easy Payment',
-	'TELUS Easy Payment Balance',
-	'Equipment Adjustment'
+    'hardware purchase charge',
+    'device discount repayment',
+    'monthly telus easy payment',
+    'device discount repay. canc.',
+    'device discount repay. - cr',
+    'monthly easy payment',
+	'telus easy payment balance',
+	'equipment adjustment'
   ]::text[]) AS detail_d
 ),
 excl_category AS (
   SELECT unnest(ARRAY[
-    'Payment',
-    'Payments',
-    'Amount due from last bill',
-    'Amount Due from last bill',
-    'Taxes'
+    'payment',
+    'payments',
+    'amount due from last bill',
+    'taxes'
   ]::text[]) AS stmt_cat
 ),
 excl_detail AS (
   SELECT unnest(ARRAY[
-    'BC PST',
-    'B.C. PST Adjustment',
-    'BUS. SERVICES GST',
-    'CPS GST 100652692',
-    'CPS GST ADJUSTMENT 362037',
-    'CPS PST BRITISH COLUMBIA 7%',
-    'FP GST Credit',
-    'FP PST Credit',
-    'GST',
-    'GST adj',
-    'GST ADJUSTMENT',
-    'GST/HST',
-    'GST/HST ADJUSTMENT',
-    'GST Tax Adjustment',
-    'PQ PST',
-    'PST',
-    'PST ADJUSTMENT',
-    'PST-BC',
-    'PST-BC adj',
-    'PST-MB',
-    'PST-QC'
+    'bc pst',
+    'b.c. pst adjustment',
+    'bus. services gst',
+    'cps gst 100652692',
+    'cps gst adjustment 362037',
+    'cps pst british columbia 7%',
+    'fp gst credit',
+    'fp pst credit',
+    'gst',
+    'gst adj',
+    'gst adjustment',
+    'gst/hst',
+    'gst/hst adjustment',
+    'gst tax adjustment',
+    'pq pst',
+    'pst',
+    'pst adjustment',
+    'pst-bc',
+    'pst-bc adj',
+    'pst-mb',
+    'pst-qc'
   ]::text[]) AS detail_d
 ),
 src AS (
@@ -49,13 +48,13 @@ src AS (
     r.sheet_name,
     r.amount,
     date_trunc('month', r.statement_date)::date AS month_start,
-    TRIM(r.detail_description) AS detail_d,
-    TRIM(COALESCE(r.statement_category, '')) AS stmt_cat,
+    LOWER(TRIM(r.detail_description)) AS detail_d,
+    LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = TRIM(r.detail_description)) AS is_hw,
+    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = LOWER(TRIM(r.detail_description))) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
   FROM raw_data.raw_telus_spend AS r
-  WHERE (TRIM(r.detail_description) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
+  WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
      OR r.detail_description IS NULL)
     AND COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
 ),
