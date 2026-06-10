@@ -1,9 +1,8 @@
 name: app-build
 
 # Pull requests build and push images tagged with the PR head SHA (for optional
-# deploy-dev PR deploys when ALLOW_PR_DEV_DEPLOY=true). Main pushes
-# the mutable dev tag and the git SHA tag. Test/prod promotion will use versioned
-# tags once the release versioning strategy is finalized.
+# deploy-dev PR deploys when ALLOW_PR_DEV_DEPLOY=true). Main pushes dev and test
+# images (mutable env tag + git SHA) to each environment's ECR.
 #
 # Required GitHub Environment configuration for push jobs:
 #   Secrets: AWS_DEPLOY_ROLE_ARN
@@ -19,6 +18,7 @@ on:
       - "helm/**"
       - ".github/workflows/app-build.yaml"
       - ".github/workflows/app-deploy-dev.yml"
+      - ".github/workflows/app-deploy-test.yml"
   push:
     branches:
       - main
@@ -28,6 +28,7 @@ on:
       - "helm/**"
       - ".github/workflows/app-build.yaml"
       - ".github/workflows/app-deploy-dev.yml"
+      - ".github/workflows/app-deploy-test.yml"
 
 permissions:
   contents: read
@@ -112,6 +113,71 @@ jobs:
 
     env:
       LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-app-build-${{ env.TARGET_ENV }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve ECR image settings
+        id: settings
+        run: |
+          : "${LICENSE_PLATE:?Set the ${TARGET_ENV} environment variable LICENSE_PLATE.}"
+
+          aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          backend_repository="${LICENSE_PLATE}-${TARGET_ENV}-app-backend"
+          frontend_repository="${LICENSE_PLATE}-${TARGET_ENV}-app-frontend"
+
+          aws ecr describe-repositories --repository-names "${backend_repository}" "${frontend_repository}" >/dev/null
+
+          {
+            echo "backend_image_uri=${registry}/${backend_repository}"
+            echo "frontend_image_uri=${registry}/${frontend_repository}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: app/backend
+          file: app/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.settings.outputs.backend_image_uri }}:${{ env.IMAGE_TAG }}
+            ${{ steps.settings.outputs.backend_image_uri }}:${{ github.sha }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: app/frontend
+          file: app/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.settings.outputs.frontend_image_uri }}:${{ env.IMAGE_TAG }}
+            ${{ steps.settings.outputs.frontend_image_uri }}:${{ github.sha }}
+
+  build-push-test:
+    name: Build and push test images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test
+
+    env:
+      LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
+      TARGET_ENV: test
+      IMAGE_TAG: test
 
     steps:
       - name: Check out repository
