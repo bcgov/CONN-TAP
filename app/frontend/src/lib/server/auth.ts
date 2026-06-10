@@ -263,16 +263,7 @@ async function invalidateSession(sessionHash: string): Promise<void> {
   await clearSessionCookie();
 }
 
-export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(sessionCookieName())?.value;
-  if (!sessionToken) return null;
-
-  const { refreshWindowSeconds } = authEnv();
-
-  const sessionHash = hashSessionToken(sessionToken);
-  const result = await query<SessionRow>(
-    `SELECT session_hash,
+const ACTIVE_SESSION_SQL = `SELECT session_hash,
             subject,
             username,
             email,
@@ -287,78 +278,188 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
        FROM auth_sessions
       WHERE session_hash = $1
         AND revoked_at IS NULL
-        AND session_expires_at > now()`,
-    [sessionHash]
-  );
+        AND session_expires_at > now()`;
 
-  const row = result.rows[0];
-  if (!row) return null;
+declare global {
+  // eslint-disable-next-line no-var
+  var telecomRefreshFlights: Map<string, Promise<ServerSession | null>> | undefined;
+}
 
-  let accessToken: string | null;
-  let refreshToken: string | null;
-  let idToken: string | null;
+const refreshFlights = globalThis.telecomRefreshFlights ?? new Map<string, Promise<ServerSession | null>>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.telecomRefreshFlights = refreshFlights;
+}
+
+function accessTokenNeedsRefresh(accessTokenExpiresAt: Date, refreshWindowSeconds: number): boolean {
+  const refreshAt = accessTokenExpiresAt.getTime() - refreshWindowSeconds * 1000;
+  return Date.now() >= refreshAt;
+}
+
+async function loadActiveSessionRow(sessionHash: string): Promise<SessionRow | null> {
+  const result = await query<SessionRow>(ACTIVE_SESSION_SQL, [sessionHash]);
+  return result.rows[0] ?? null;
+}
+
+function decryptSessionTokens(row: SessionRow): {
+  accessToken: string;
+  refreshToken: string | null;
+  idToken: string | null;
+} | null {
   try {
-    accessToken = decryptToken(row.encrypted_access_token);
-    refreshToken = decryptToken(row.encrypted_refresh_token);
-    idToken = decryptToken(row.encrypted_id_token);
+    const accessToken = decryptToken(row.encrypted_access_token);
+    const refreshToken = decryptToken(row.encrypted_refresh_token);
+    const idToken = decryptToken(row.encrypted_id_token);
+    if (!accessToken) return null;
+    return { accessToken, refreshToken, idToken };
   } catch {
     return null;
   }
+}
 
-  if (!accessToken) return null;
-
-  const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
-  if (options.refresh && refreshToken && Date.now() >= refreshAt) {
-    const refreshed = await refreshAccessToken(refreshToken);
-    if (!refreshed?.access_token) {
-      // Server Components cannot modify cookies; logout route clears the cookie.
-      await revokeSessionInDatabase(sessionHash);
-      return null;
-    }
-
-    accessToken = refreshed.access_token;
-    refreshToken = refreshed.refresh_token ?? refreshToken;
-    const expiresIn = refreshed.expiresIn() ?? 300;
-    row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
-    row.access_token_hash = hashAccessToken(accessToken);
-
-    await query(
-      `UPDATE auth_sessions
-          SET encrypted_access_token = $2,
-              encrypted_refresh_token = $3,
-              encrypted_id_token = COALESCE($4, encrypted_id_token),
-              access_token_hash = $5,
-              access_token_expires_at = $6,
-              last_seen_at = now(),
-              updated_at = now()
-        WHERE session_hash = $1`,
-      [
-        sessionHash,
-        encryptToken(accessToken),
-        encryptToken(refreshToken),
-        encryptToken(refreshed.id_token),
-        row.access_token_hash,
-        row.access_token_expires_at,
-      ]
-    );
-  } else {
-    await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
-  }
-
+function buildServerSession(
+  row: SessionRow,
+  tokens: { accessToken: string; refreshToken: string | null; idToken: string | null },
+): ServerSession {
   return {
     authenticated: true,
-    sessionHash,
+    sessionHash: row.session_hash,
     subject: row.subject,
     username: row.username,
     email: row.email,
     name: row.name,
     roles: extractClientRoles(row.claims),
-    accessToken,
-    refreshToken,
-    idToken,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    idToken: tokens.idToken,
     accessTokenExpiresAt: row.access_token_expires_at,
     expiresAt: row.session_expires_at.toISOString(),
   };
+}
+
+async function touchLastSeen(sessionHash: string): Promise<void> {
+  await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
+}
+
+async function persistRefreshedTokens(
+  sessionHash: string,
+  accessToken: string,
+  refreshToken: string | null,
+  idToken: string | null,
+  refreshedIdToken: string | undefined,
+  accessTokenExpiresAt: Date,
+): Promise<void> {
+  await query(
+    `UPDATE auth_sessions
+        SET encrypted_access_token = $2,
+            encrypted_refresh_token = $3,
+            encrypted_id_token = COALESCE($4, encrypted_id_token),
+            access_token_hash = $5,
+            access_token_expires_at = $6,
+            last_seen_at = now(),
+            updated_at = now()
+      WHERE session_hash = $1`,
+    [
+      sessionHash,
+      encryptToken(accessToken),
+      encryptToken(refreshToken ?? undefined),
+      encryptToken(refreshedIdToken),
+      hashAccessToken(accessToken),
+      accessTokenExpiresAt,
+    ],
+  );
+}
+
+async function refreshSessionAccessToken(
+  sessionHash: string,
+  refreshWindowSeconds: number,
+): Promise<ServerSession | null> {
+  const row = await loadActiveSessionRow(sessionHash);
+  if (!row) return null;
+
+  const tokens = decryptSessionTokens(row);
+  if (!tokens) return null;
+
+  if (!tokens.refreshToken || !accessTokenNeedsRefresh(row.access_token_expires_at, refreshWindowSeconds)) {
+    await touchLastSeen(sessionHash);
+    return buildServerSession(row, tokens);
+  }
+
+  const refreshed = await refreshAccessToken(tokens.refreshToken);
+  if (refreshed?.access_token) {
+    const accessToken = refreshed.access_token;
+    const refreshToken = refreshed.refresh_token ?? tokens.refreshToken;
+    const idToken = refreshed.id_token ?? tokens.idToken;
+    const accessTokenExpiresAt = new Date(Date.now() + (refreshed.expiresIn() ?? 300) * 1000);
+
+    await persistRefreshedTokens(
+      sessionHash,
+      accessToken,
+      refreshToken,
+      idToken,
+      refreshed.id_token,
+      accessTokenExpiresAt,
+    );
+
+    return buildServerSession(
+      { ...row, access_token_expires_at: accessTokenExpiresAt },
+      { accessToken, refreshToken, idToken },
+    );
+  }
+
+  // Refresh failed (for example invalid_grant when the refresh token was already used).
+  // Re-read the row in case another concurrent request refreshed successfully.
+  const reread = await loadActiveSessionRow(sessionHash);
+  if (!reread) return null;
+
+  const retokens = decryptSessionTokens(reread);
+  if (!retokens) return null;
+
+  if (!accessTokenNeedsRefresh(reread.access_token_expires_at, refreshWindowSeconds)) {
+    await touchLastSeen(sessionHash);
+    return buildServerSession(reread, retokens);
+  }
+
+  return null;
+}
+
+async function singleFlightRefresh(
+  sessionHash: string,
+  refreshWindowSeconds: number,
+): Promise<ServerSession | null> {
+  const inFlight = refreshFlights.get(sessionHash);
+  if (inFlight) return inFlight;
+
+  const flight = refreshSessionAccessToken(sessionHash, refreshWindowSeconds).finally(() => {
+    refreshFlights.delete(sessionHash);
+  });
+  refreshFlights.set(sessionHash, flight);
+  return flight;
+}
+
+export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(sessionCookieName())?.value;
+  if (!sessionToken) return null;
+
+  const { refreshWindowSeconds } = authEnv();
+  const sessionHash = hashSessionToken(sessionToken);
+  const row = await loadActiveSessionRow(sessionHash);
+  if (!row) return null;
+
+  const tokens = decryptSessionTokens(row);
+  if (!tokens) return null;
+
+  if (
+    options.refresh &&
+    tokens.refreshToken &&
+    accessTokenNeedsRefresh(row.access_token_expires_at, refreshWindowSeconds)
+  ) {
+    return singleFlightRefresh(sessionHash, refreshWindowSeconds);
+  }
+
+  await touchLastSeen(sessionHash);
+  return buildServerSession(row, tokens);
 }
 
 export async function requireSession(returnTo: string): Promise<ServerSession> {
