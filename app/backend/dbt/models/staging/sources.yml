@@ -1,8 +1,8 @@
 version: 2
 
 sources:
-  - name: public
-    schema: public
+  - name: app
+    schema: app
     tables:
       - name: datasets
   - name: raw_data

@@ -8,5 +8,5 @@ app:
       user: "{{ env_var('POSTGRES_USER', 'app') }}"
       password: "{{ env_var('POSTGRES_PASSWORD', 'app') }}"
       dbname: "{{ env_var('POSTGRES_DB', 'app') }}"
-      schema: public
+      schema: app
       threads: 4
