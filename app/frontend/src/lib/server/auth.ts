@@ -344,25 +344,41 @@ async function performRefresh(
   const currentRefreshToken = decrypted.refreshToken ?? staleRefreshToken;
   const refreshed = await refreshAccessToken(currentRefreshToken);
   if (!refreshed?.access_token) {
-    // The refresh failed. Before assuming the session is dead, re-check whether
-    // a concurrent worker on another instance already rotated the token (the
-    // refresh token in the DB would have changed). If so, recover instead of
-    // revoking; only a genuinely-unrotated session is truly invalid.
+    // The refresh failed. Re-read the latest row, because a concurrent worker
+    // (another instance, or an earlier request in this burst) may have rotated
+    // the token. We use the freshest copy for both recovery checks below.
     const recovered = await readActiveSessionRow(sessionHash);
     const recoveredTokens = recovered ? decryptRowTokens(recovered) : null;
-    if (
-      recovered &&
-      recoveredTokens?.accessToken &&
-      recoveredTokens.refreshToken &&
-      recoveredTokens.refreshToken !== currentRefreshToken
-    ) {
-      return {
-        accessToken: recoveredTokens.accessToken,
-        refreshToken: recoveredTokens.refreshToken,
-        idToken: recoveredTokens.idToken,
-        accessTokenExpiresAt: recovered.access_token_expires_at,
-      };
+
+    if (recovered && recoveredTokens?.accessToken) {
+      // Case 1: someone else rotated successfully (refresh token changed) -> use it.
+      if (
+        recoveredTokens.refreshToken &&
+        recoveredTokens.refreshToken !== currentRefreshToken
+      ) {
+        return {
+          accessToken: recoveredTokens.accessToken,
+          refreshToken: recoveredTokens.refreshToken,
+          idToken: recoveredTokens.idToken,
+          accessTokenExpiresAt: recovered.access_token_expires_at,
+        };
+      }
+
+      // Case 2: nobody rotated, but we refresh early (refreshWindowSeconds before
+      // expiry), so the current access token is very likely still valid. Keep
+      // serving it instead of destroying the session over a transient/raced
+      // refresh failure; a later request will retry the refresh.
+      if (recovered.access_token_expires_at.getTime() > Date.now()) {
+        return {
+          accessToken: recoveredTokens.accessToken,
+          refreshToken: recoveredTokens.refreshToken ?? currentRefreshToken,
+          idToken: recoveredTokens.idToken,
+          accessTokenExpiresAt: recovered.access_token_expires_at,
+        };
+      }
     }
+
+    // The access token is actually expired and refresh failed: session is dead.
     await revokeSessionInDatabase(sessionHash);
     return null;
   }
