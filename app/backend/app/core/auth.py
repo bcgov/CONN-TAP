@@ -52,9 +52,6 @@ def _base64url_digest(digest: bytes) -> str:
 def hash_session_token(token: str) -> str:
     return _base64url_digest(hmac.new(_secret_bytes(settings.SESSION_SECRET), token.encode(), hashlib.sha256).digest())
 
-def hash_access_token(token: str) -> str:
-    return _base64url_digest(hashlib.sha256(token.encode()).digest())
-
 def jwks_client() -> PyJWKClient:
     global _jwks_client
     if _jwks_client is None:
@@ -105,7 +102,7 @@ def get_current_user(
         db.execute(
             text(
                 """
-                SELECT subject, username, email, name, access_token_hash, session_expires_at
+                SELECT subject, username, email, name, session_expires_at
                   FROM auth_sessions
                  WHERE session_hash = :session_hash
                    AND revoked_at IS NULL
@@ -127,9 +124,6 @@ def get_current_user(
 
     if row["subject"] != subject:
         raise _unauthorized("Session subject does not match token")
-
-    if row["access_token_hash"] != hash_access_token(token):
-        raise _unauthorized("Session token does not match")
 
     return AuthenticatedUser(
         subject=subject,

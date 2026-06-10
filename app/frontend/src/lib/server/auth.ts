@@ -310,37 +310,35 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
   const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
   if (options.refresh && refreshToken && Date.now() >= refreshAt) {
     const refreshed = await refreshAccessToken(refreshToken);
-    if (!refreshed?.access_token) {
-      // Server Components cannot modify cookies; logout route clears the cookie.
-      await revokeSessionInDatabase(sessionHash);
-      return null;
+    if (refreshed?.access_token) {
+      accessToken = refreshed.access_token;
+      refreshToken = refreshed.refresh_token ?? refreshToken;
+      const expiresIn = refreshed.expiresIn() ?? 300;
+      row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
+      row.access_token_hash = hashAccessToken(accessToken);
+
+      await query(
+        `UPDATE auth_sessions
+            SET encrypted_access_token = $2,
+                encrypted_refresh_token = $3,
+                encrypted_id_token = COALESCE($4, encrypted_id_token),
+                access_token_hash = $5,
+                access_token_expires_at = $6,
+                last_seen_at = now(),
+                updated_at = now()
+          WHERE session_hash = $1`,
+        [
+          sessionHash,
+          encryptToken(accessToken),
+          encryptToken(refreshToken),
+          encryptToken(refreshed.id_token),
+          row.access_token_hash,
+          row.access_token_expires_at,
+        ]
+      );
     }
-
-    accessToken = refreshed.access_token;
-    refreshToken = refreshed.refresh_token ?? refreshToken;
-    const expiresIn = refreshed.expiresIn() ?? 300;
-    row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
-    row.access_token_hash = hashAccessToken(accessToken);
-
-    await query(
-      `UPDATE auth_sessions
-          SET encrypted_access_token = $2,
-              encrypted_refresh_token = $3,
-              encrypted_id_token = COALESCE($4, encrypted_id_token),
-              access_token_hash = $5,
-              access_token_expires_at = $6,
-              last_seen_at = now(),
-              updated_at = now()
-        WHERE session_hash = $1`,
-      [
-        sessionHash,
-        encryptToken(accessToken),
-        encryptToken(refreshToken),
-        encryptToken(refreshed.id_token),
-        row.access_token_hash,
-        row.access_token_expires_at,
-      ]
-    );
+    // Refresh failed (concurrent request already consumed the refresh token, or
+    // still a valid Keycloak-signed JWT and will expire on its own.
   } else {
     await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
   }
