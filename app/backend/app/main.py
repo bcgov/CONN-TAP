@@ -1,5 +1,4 @@
 """FastAPI application entrypoint."""
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,13 +10,10 @@ from app.db.session import engine
 from app.models import auth, dataset, user  # noqa: F401
 from app.models.dataset import Dataset
 
-# Ensure application loggers (e.g. app.auth) emit to stdout alongside uvicorn logs.
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
-
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # App auth tables are managed by Alembic (schema `app`). Datasets registry stays in public for now.
+    # App tables (auth, users, datasets registry) live in schema `app`, managed by Alembic.
     Dataset.__table__.create(bind=engine, checkfirst=True)
     yield
 

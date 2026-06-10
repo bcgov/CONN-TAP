@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -18,8 +17,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
-
-logger = logging.getLogger("app.auth")
 
 bearer_scheme = HTTPBearer(auto_error=False)
 _jwks_client: PyJWKClient | None = None
@@ -96,11 +93,6 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> AuthenticatedUser:
     if not session_cookie or credentials is None:
-        logger.warning(
-            "auth reject: missing credentials (cookie=%s, bearer=%s)",
-            bool(session_cookie),
-            credentials is not None,
-        )
         raise _unauthorized()
 
     token = credentials.credentials
@@ -109,7 +101,6 @@ def get_current_user(
     if not isinstance(subject, str) or not subject:
         raise _unauthorized("Token is missing subject")
 
-    session_hash = hash_session_token(session_cookie)
     row = (
         db.execute(
             text(
@@ -121,60 +112,23 @@ def get_current_user(
                    AND session_expires_at > now()
                 """
             ),
-            {"session_hash": session_hash},
+            {"session_hash": hash_session_token(session_cookie)},
         )
         .mappings()
         .first()
     )
 
-    # Short, non-secret fingerprints to correlate a single browser's requests
-    # across log lines without exposing the cookie or token themselves.
-    session_fp = session_hash[:8]
-    subject_fp = subject[:12]
-
     if row is None:
-        # Either the session was never written, or it has been revoked/expired.
-        existing = (
-            db.execute(
-                text(
-                    "SELECT revoked_at, session_expires_at FROM auth_sessions WHERE session_hash = :h"
-                ),
-                {"h": session_hash},
-            )
-            .mappings()
-            .first()
-        )
-        if existing is None:
-            reason = "no row for session_hash"
-        elif existing["revoked_at"] is not None:
-            reason = f"row revoked at {existing['revoked_at'].isoformat()}"
-        else:
-            reason = f"row session_expires_at={existing['session_expires_at'].isoformat()} (now past)"
-        logger.warning(
-            "auth reject: Invalid session sub=%s session_fp=%s reason=%s", subject_fp, session_fp, reason
-        )
         raise _unauthorized("Invalid session")
 
     session_expires_at = row["session_expires_at"]
     if isinstance(session_expires_at, datetime) and session_expires_at <= datetime.now(timezone.utc):
-        logger.warning("auth reject: Expired session sub=%s session_fp=%s", subject_fp, session_fp)
         raise _unauthorized("Expired session")
 
     if row["subject"] != subject:
-        logger.warning(
-            "auth reject: subject mismatch token_sub=%s row_sub=%s session_fp=%s",
-            subject_fp,
-            str(row["subject"])[:12],
-            session_fp,
-        )
         raise _unauthorized("Session subject does not match token")
 
     if row["access_token_hash"] != hash_access_token(token):
-        # Most often means the proxy sent a bearer that no longer matches the
-        # stored (rotated) access token, i.e. a refresh-token race.
-        logger.warning(
-            "auth reject: access-token hash mismatch sub=%s session_fp=%s", subject_fp, session_fp
-        )
         raise _unauthorized("Session token does not match")
 
     return AuthenticatedUser(
