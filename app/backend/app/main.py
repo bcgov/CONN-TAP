@@ -13,7 +13,7 @@ from app.models.dataset import Dataset
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # App auth tables are managed by Alembic (schema `app`). Datasets registry stays in public for now.
+    # App tables (auth, users, datasets registry) live in schema `app`, managed by Alembic.
     Dataset.__table__.create(bind=engine, checkfirst=True)
     yield
 
