@@ -93,6 +93,8 @@ app/frontend/out/
 app/frontend/.turbo/
 app/frontend/.swc/
 app/frontend/coverage/
+app/frontend/playwright-report/
+app/frontend/test-results/
 app/frontend/next-env.d.ts
 app/frontend/*.tsbuildinfo
 
