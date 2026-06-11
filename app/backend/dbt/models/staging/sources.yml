@@ -11,6 +11,7 @@ sources:
       - name: sector
       - name: bge
       - name: provider
+      - name: service_category
       - name: service_id
       - name: service_tower
   - name: raw_data

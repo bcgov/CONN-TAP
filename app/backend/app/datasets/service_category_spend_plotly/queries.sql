@@ -1,18 +1,19 @@
 -- name: service_category_vendor_spend
 WITH filtered AS (
     SELECT
-        scvs.service_category,
+        sc.name                                             AS service_category,
         p.code                                              AS vendor,
         SUM(scvs.spend_amount)::numeric(19, 4)             AS spend_amount,
         (SUM(scvs.spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
-    FROM staging.service_category_vendor_spend scvs
+    FROM analytics.service_category_vendor_spend scvs
+    JOIN reference_data.service_category sc ON sc.id = scvs.service_category_id
     JOIN reference_data.provider p ON p.id = scvs.provider_id
     WHERE (
             CAST(:period AS text) IS NULL
             OR (CAST(:year_type AS text) = 'calendar' AND (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:period AS text[])))
             OR (CAST(:year_type AS text) = 'fiscal' AND (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:period AS text[])))
         )
-    GROUP BY scvs.service_category, p.code
+    GROUP BY sc.name, p.code
 ),
 ranked AS (
     SELECT

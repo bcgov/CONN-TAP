@@ -5,7 +5,7 @@ select
     calendar_quarter,
     fiscal_year,
     fiscal_quarter,
-    service_category,
+    service_category_id,
     provider_id,
     sum(spend_amount)::numeric(19, 4) as spend_amount,
     (sum(spend_amount) / 1000000.0)::numeric(19, 6) as spend_millions
@@ -15,5 +15,5 @@ group by
     calendar_quarter,
     fiscal_year,
     fiscal_quarter,
-    service_category,
+    service_category_id,
     provider_id

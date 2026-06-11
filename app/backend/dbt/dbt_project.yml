@@ -16,6 +16,10 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+seeds:
+  app:
+    +schema: seeds
+
 models:
   app:
     +materialized: view
@@ -28,3 +32,6 @@ models:
     marts:
       +schema: core
       +materialized: table
+    analytics:
+      +schema: analytics
+      +materialized: materialized_view

@@ -29,27 +29,36 @@ CREATE TABLE IF NOT EXISTS reference_data.bge (
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS reference_data.service_category (
+    id          serial PRIMARY KEY,
+    code        text NOT NULL UNIQUE,
+    name        text NOT NULL,
+    description text,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS reference_data.service_id (
-    id               serial PRIMARY KEY,
-    source_system    text NOT NULL,
-    provider_id      integer NOT NULL REFERENCES reference_data.provider(id),
-    code             text NOT NULL,
-    service_category text NOT NULL,
-    service_name     text,
-    created_at       timestamptz NOT NULL DEFAULT now(),
-    updated_at       timestamptz NOT NULL DEFAULT now(),
+    id                  serial PRIMARY KEY,
+    source_system       text NOT NULL,
+    provider_id         integer NOT NULL REFERENCES reference_data.provider(id),
+    code                text NOT NULL,
+    service_category_id integer NOT NULL REFERENCES reference_data.service_category(id),
+    service_name        text,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
     UNIQUE (source_system, code)
 );
 
 CREATE TABLE IF NOT EXISTS reference_data.service_tower (
-    id               serial PRIMARY KEY,
-    source_system    text NOT NULL,
-    provider_id      integer NOT NULL REFERENCES reference_data.provider(id),
-    code             text NOT NULL,
-    service_category text NOT NULL,
-    service_name     text,
-    created_at       timestamptz NOT NULL DEFAULT now(),
-    updated_at       timestamptz NOT NULL DEFAULT now(),
+    id                  serial PRIMARY KEY,
+    source_system       text NOT NULL,
+    provider_id         integer NOT NULL REFERENCES reference_data.provider(id),
+    code                text NOT NULL,
+    service_category_id integer NOT NULL REFERENCES reference_data.service_category(id),
+    service_name        text,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
     UNIQUE (source_system, code)
 );
 
@@ -60,36 +69,46 @@ INSERT INTO reference_data.sector (code, name) VALUES
     ('gov_ecc',            'Gov & ECC')
 ON CONFLICT (code) DO NOTHING;
 
+INSERT INTO reference_data.service_category (code, name) VALUES
+    ('cellular',                    'Cellular'),
+    ('data',                        'Data'),
+    ('voice',                       'Voice'),
+    ('temporary_services',          'Temporary Services'),
+    ('other_professional_services', 'Other Professional Services')
+ON CONFLICT (code) DO NOTHING;
+
 INSERT INTO reference_data.provider (code, name) VALUES
     ('telus',  'TELUS'),
     ('rogers', 'Rogers')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO reference_data.service_id (source_system, provider_id, code, service_category, service_name)
-SELECT 'ngta', p.id, svc.code, svc.service_category, svc.service_name
+INSERT INTO reference_data.service_id (source_system, provider_id, code, service_category_id, service_name)
+SELECT 'ngta', p.id, svc.code, sc.id, svc.service_name
 FROM (VALUES
-    ('164',  'Cellular', 'Wireless Cellular'),
-    ('130',  'Cellular', 'Wireless Cellular'),
-    ('1001', 'Data',     'Wireline Data'),
-    ('103',  'Data',     'Wireline Data'),
-    ('104',  'Voice',    'Wireline Voice'),
-    ('102',  'Voice',    'Wireline Voice'),
-    ('106',  'Voice',    'Wireline Voice')
-) AS svc(code, service_category, service_name)
+    ('164',  'cellular', 'Wireless Cellular'),
+    ('130',  'cellular', 'Wireless Cellular'),
+    ('1001', 'data',     'Wireline Data'),
+    ('103',  'data',     'Wireline Data'),
+    ('104',  'voice',    'Wireline Voice'),
+    ('102',  'voice',    'Wireline Voice'),
+    ('106',  'voice',    'Wireline Voice')
+) AS svc(code, service_category_code, service_name)
 JOIN reference_data.provider p ON p.code = 'telus'
+JOIN reference_data.service_category sc ON sc.code = svc.service_category_code
 ON CONFLICT (source_system, code) DO NOTHING;
 
-INSERT INTO reference_data.service_tower (source_system, provider_id, code, service_category, service_name)
-SELECT 'tsma', p.id, svc.code, svc.service_category, svc.service_name
+INSERT INTO reference_data.service_tower (source_system, provider_id, code, service_category_id, service_name)
+SELECT 'tsma', p.id, svc.code, sc.id, svc.service_name
 FROM (VALUES
-    ('business internet', 'Data',                        'Business Internet'),
-    ('data - wan',        'Data',                        'WAN Data'),
-    ('conferencing',      'Voice',                       'Conferencing'),
-    ('long distance',     'Voice',                       'Long Distance'),
-    ('voice',             'Voice',                       'Voice'),
-    ('managed wlan',      'Other Professional Services', 'Managed WLAN')
-) AS svc(code, service_category, service_name)
+    ('business internet', 'data',                        'Business Internet'),
+    ('data - wan',        'data',                        'WAN Data'),
+    ('conferencing',      'voice',                       'Conferencing'),
+    ('long distance',     'voice',                       'Long Distance'),
+    ('voice',             'voice',                       'Voice'),
+    ('managed wlan',      'other_professional_services', 'Managed WLAN')
+) AS svc(code, service_category_code, service_name)
 JOIN reference_data.provider p ON p.code = 'telus'
+JOIN reference_data.service_category sc ON sc.code = svc.service_category_code
 ON CONFLICT (source_system, code) DO NOTHING;
 
 INSERT INTO reference_data.bge (code, name, sector_id) VALUES

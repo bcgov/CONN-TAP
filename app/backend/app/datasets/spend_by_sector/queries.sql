@@ -4,7 +4,7 @@ SELECT
     p.code                                          AS vendor,
     SUM(svs.spend_amount)::numeric(19, 4)           AS spend_amount,
     (SUM(svs.spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
-FROM staging.sector_vendor_spend svs
+FROM analytics.sector_vendor_spend svs
 JOIN reference_data.provider p ON p.id = svs.provider_id
 WHERE (
         CAST(:period AS text) IS NULL
@@ -19,7 +19,7 @@ SELECT
     p.code                                          AS vendor,
     SUM(svs.spend_amount)::numeric(19, 4)           AS spend_amount,
     (SUM(svs.spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
-FROM staging.sector_vendor_spend svs
+FROM analytics.sector_vendor_spend svs
 JOIN reference_data.provider p ON p.id = svs.provider_id
 WHERE (
         CAST(:period AS text) IS NULL
