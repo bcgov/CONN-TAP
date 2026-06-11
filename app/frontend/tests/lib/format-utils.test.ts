@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fmtMillions, fmtMillionsFixed } from "./format-utils";
+import { fmtMillions, fmtMillionsFixed } from "@/lib/format-utils";
 
 describe("fmtMillions", () => {
   it("formats whole millions without decimals", () => {
