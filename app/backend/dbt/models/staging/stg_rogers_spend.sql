@@ -6,7 +6,7 @@ select
     'raw_rogers_spend_cellular'::text as source_table,
     c.raw_id,
     c.ingestion_run_id,
-    date_trunc('month', coalesce(c.invoice_date, r.source_period))::date as month_start,
+    (date_trunc('month', coalesce(c.invoice_date, r.source_period)) - interval '1 month')::date as month_start,
     case
         when lower(nullif(trim(regexp_replace(c.bge, '[\x00-\x1f\x7f]', '', 'g')), '')) like '%school district%'
             then 'School Districts'
