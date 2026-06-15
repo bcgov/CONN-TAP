@@ -1,18 +1,7 @@
 {{ config(materialized='view') }}
 
-with telus_excluded_categories as (
-    select statement_category from {{ ref('telus_excluded_categories') }}
-),
-
-telus_excluded_details as (
-    select detail_description from {{ ref('telus_excluded_details') }}
-),
-
-telus_hardware_details as (
-    select detail_description from {{ ref('telus_hardware_details') }}
-),
-
-rogers as (
+-- Rogers
+with rogers as (
     select
         vendor,
         source_system,
@@ -26,34 +15,12 @@ rogers as (
     from {{ ref('stg_rogers_spend') }}
 ),
 
+-- Telus
 telus_ngta as (
-    select
-        vendor,
-        source_system,
-        source_table,
-        raw_id,
-        month_start,
-        organization_name,
-        sub_organization_name,
-        coalesce(source_service_id, source_service_family) as lookup_code,
-        spend_amount
-    from {{ ref('stg_telus_ngta_spend') }}
-    where (
-            source_service_description not in (
-                select detail_description from telus_excluded_details
-            )
-            or source_service_description is null
-        )
-        and (
-            source_service_description in (
-                select detail_description from telus_hardware_details
-            )
-            or coalesce(statement_category, '') not in (
-                select statement_category from telus_excluded_categories
-            )
-        )
+    select * from {{ ref('int_telus_ngta_spend') }}
 ),
 
+-- TSMA and TSMA Lite
 tsma as (
     select
         vendor,
@@ -68,6 +35,7 @@ tsma as (
     from {{ ref('stg_tsma_spend') }}
 ),
 
+-- TSMA Other
 tsma_other as (
     select
         vendor,
@@ -120,5 +88,4 @@ left join {{ ref('bge_alias_map') }} m on m.raw_name = u.organization_name
 left join {{ source('reference_data', 'bge') }} b on b.code = coalesce(m.bge_alias, u.organization_name)
 left join {{ ref('sub_bge_alias_map') }} sm on sm.raw_name = u.sub_organization_name
 where u.month_start is not null
-    and sc.service_category_id is not null
     and u.spend_amount <> 0

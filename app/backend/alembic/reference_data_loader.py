@@ -8,7 +8,14 @@ from alembic import op
 
 REFERENCE_DATA_SQL_DIR = Path(__file__).resolve().parent / "reference_data"
 
-REFERENCE_DATA_SCHEMA_FILES = ("reference_data.sql",)
+REFERENCE_DATA_SCHEMA_FILES = (
+    "schema.sql",
+    "sector.sql",
+    "provider.sql",
+    "service_category.sql",
+    "service_code.sql",
+    "bge.sql",
+)
 
 
 def _strip_sql_comments(sql: str) -> str:
