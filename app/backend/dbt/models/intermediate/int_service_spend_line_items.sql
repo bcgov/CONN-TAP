@@ -99,10 +99,10 @@ select
     u.source_table,
     u.raw_id,
     u.month_start,
+    fc.calendar_quarter,
     extract(year from u.month_start)::integer as calendar_year,
-    extract(quarter from u.month_start)::integer as calendar_quarter,
-    extract(year from u.month_start + interval '9 months')::integer as fiscal_year,
-    (((extract(month from u.month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
+    fc.fiscal_quarter,
+    extract(year from u.month_start)::integer + fc.fiscal_year_offset as fiscal_year,
     coalesce(m.bge_alias, u.organization_name) as organization_name,
     coalesce(sm.sub_bge_alias, u.sub_organization_name) as sub_organization_name,
     b.id        as bge_id,
@@ -110,6 +110,8 @@ select
     sc.service_category_id,
     u.spend_amount
 from unioned u
+left join {{ ref('fiscal_calendar') }} fc
+    on fc.calendar_month = extract(month from u.month_start)::integer
 left join {{ source('reference_data', 'service_code') }} sc
     on sc.source_system = u.source_system
     and sc.code = u.lookup_code
