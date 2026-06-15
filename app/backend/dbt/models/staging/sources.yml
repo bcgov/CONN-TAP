@@ -12,8 +12,7 @@ sources:
       - name: bge
       - name: provider
       - name: service_category
-      - name: service_id
-      - name: service_tower
+      - name: service_code
   - name: raw_data
     schema: raw_data
     tables:

@@ -57,44 +57,34 @@ rogers as (
         month_start,
         organization_name,
         sub_organization_name,
-        case
-            when source_service_family = 'cellular' then 'Cellular'
-            when source_service_family = 'data' then 'Data'
-            when source_service_family = 'voice' then 'Voice'
-        end as service_category,
+        source_service_family as lookup_code,
         spend_amount
     from {{ ref('stg_rogers_spend') }}
 ),
 
 telus_ngta as (
     select
-        t.vendor,
-        t.source_system,
-        t.source_table,
-        t.raw_id,
-        t.month_start,
-        t.organization_name,
-        t.sub_organization_name,
-        coalesce(
-            case when t.source_service_family = 'wireless' then 'Cellular' end,
-            sid.service_category
-        ) as service_category,
-        t.spend_amount
-    from {{ ref('stg_telus_ngta_spend') }} t
-    left join {{ source('reference_data', 'service_id') }} sid
-        on sid.source_system = 'ngta'
-        and sid.code         = t.source_service_id
+        vendor,
+        source_system,
+        source_table,
+        raw_id,
+        month_start,
+        organization_name,
+        sub_organization_name,
+        coalesce(source_service_id, source_service_family) as lookup_code,
+        spend_amount
+    from {{ ref('stg_telus_ngta_spend') }}
     where (
-            t.source_service_description not in (
+            source_service_description not in (
                 select detail_description from telus_excluded_details
             )
-            or t.source_service_description is null
+            or source_service_description is null
         )
         and (
-            t.source_service_description in (
+            source_service_description in (
                 select detail_description from telus_hardware_details
             )
-            or coalesce(t.statement_category, '') not in (
+            or coalesce(statement_category, '') not in (
                 select statement_category from telus_excluded_categories
             )
         )
@@ -102,25 +92,16 @@ telus_ngta as (
 
 tsma as (
     select
-        t.vendor,
-        t.source_system,
-        t.source_table,
-        t.raw_id,
-        t.month_start,
-        t.organization_name,
-        t.sub_organization_name,
-        coalesce(
-            case
-                when t.source_service_family = 'wireless' then 'Cellular'
-                when t.source_service_family in ('ivr', 'mms') then 'Temporary Services'
-            end,
-            st.service_category
-        ) as service_category,
-        t.spend_amount
-    from {{ ref('stg_tsma_spend') }} t
-    left join {{ source('reference_data', 'service_tower') }} st
-        on st.source_system = 'tsma'
-        and st.code         = t.tsma_service_tower
+        vendor,
+        source_system,
+        source_table,
+        raw_id,
+        month_start,
+        organization_name,
+        sub_organization_name,
+        coalesce(tsma_service_tower, source_service_family) as lookup_code,
+        spend_amount
+    from {{ ref('stg_tsma_spend') }}
 ),
 
 tsma_other as (
@@ -132,7 +113,7 @@ tsma_other as (
         month_start,
         organization_name,
         sub_organization_name,
-        'Other Professional Services'::text as service_category,
+        source_service_family as lookup_code,
         spend_amount
     from {{ ref('stg_tsma_other_spend') }}
 ),
@@ -148,27 +129,30 @@ unioned as (
 )
 
 select
-    md5(concat_ws('|', vendor, source_system, source_table, raw_id::text)) as spend_line_item_id,
+    md5(concat_ws('|', u.vendor, u.source_system, u.source_table, u.raw_id::text)) as spend_line_item_id,
     p.id        as provider_id,
-    source_system,
-    source_table,
-    raw_id,
-    month_start,
-    extract(year from month_start)::integer as calendar_year,
-    extract(quarter from month_start)::integer as calendar_quarter,
-    extract(year from month_start + interval '9 months')::integer as fiscal_year,
-    (((extract(month from month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
+    u.source_system,
+    u.source_table,
+    u.raw_id,
+    u.month_start,
+    extract(year from u.month_start)::integer as calendar_year,
+    extract(quarter from u.month_start)::integer as calendar_quarter,
+    extract(year from u.month_start + interval '9 months')::integer as fiscal_year,
+    (((extract(month from u.month_start)::integer + 8) % 12) / 3 + 1)::integer as fiscal_quarter,
     coalesce(m.bge_alias, u.organization_name) as organization_name,
     coalesce(sm.sub_bge_alias, u.sub_organization_name) as sub_organization_name,
     b.id        as bge_id,
     b.sector_id as sector_id,
-    service_category,
-    spend_amount
+    sc.service_category_id,
+    u.spend_amount
 from unioned u
+left join {{ source('reference_data', 'service_code') }} sc
+    on sc.source_system = u.source_system
+    and sc.code = u.lookup_code
 left join {{ source('reference_data', 'provider') }} p on p.code = u.vendor
 left join {{ ref('bge_alias_map') }} m on m.raw_name = u.organization_name
 left join {{ source('reference_data', 'bge') }} b on b.code = coalesce(m.bge_alias, u.organization_name)
 left join {{ ref('sub_bge_alias_map') }} sm on sm.raw_name = u.sub_organization_name
-where month_start is not null
-    and service_category is not null
-    and spend_amount <> 0
+where u.month_start is not null
+    and sc.service_category_id is not null
+    and u.spend_amount <> 0

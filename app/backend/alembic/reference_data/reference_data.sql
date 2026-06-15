@@ -38,19 +38,7 @@ CREATE TABLE IF NOT EXISTS reference_data.service_category (
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS reference_data.service_id (
-    id                  serial PRIMARY KEY,
-    source_system       text NOT NULL,
-    provider_id         integer NOT NULL REFERENCES reference_data.provider(id),
-    code                text NOT NULL,
-    service_category_id integer NOT NULL REFERENCES reference_data.service_category(id),
-    service_name        text,
-    created_at          timestamptz NOT NULL DEFAULT now(),
-    updated_at          timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (source_system, code)
-);
-
-CREATE TABLE IF NOT EXISTS reference_data.service_tower (
+CREATE TABLE IF NOT EXISTS reference_data.service_code (
     id                  serial PRIMARY KEY,
     source_system       text NOT NULL,
     provider_id         integer NOT NULL REFERENCES reference_data.provider(id),
@@ -82,32 +70,41 @@ INSERT INTO reference_data.provider (code, name) VALUES
     ('rogers', 'Rogers')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO reference_data.service_id (source_system, provider_id, code, service_category_id, service_name)
-SELECT 'ngta', p.id, svc.code, sc.id, svc.service_name
+INSERT INTO reference_data.service_code (source_system, provider_id, code, service_category_id, service_name)
+SELECT svc.source_system, p.id, svc.code, sc.id, svc.service_name
 FROM (VALUES
-    ('164',  'cellular', 'Wireless Cellular'),
-    ('130',  'cellular', 'Wireless Cellular'),
-    ('1001', 'data',     'Wireline Data'),
-    ('103',  'data',     'Wireline Data'),
-    ('104',  'voice',    'Wireline Voice'),
-    ('102',  'voice',    'Wireline Voice'),
-    ('106',  'voice',    'Wireline Voice')
-) AS svc(code, service_category_code, service_name)
-JOIN reference_data.provider p ON p.code = 'telus'
-JOIN reference_data.service_category sc ON sc.code = svc.service_category_code
-ON CONFLICT (source_system, code) DO NOTHING;
-
-INSERT INTO reference_data.service_tower (source_system, provider_id, code, service_category_id, service_name)
-SELECT 'tsma', p.id, svc.code, sc.id, svc.service_name
-FROM (VALUES
-    ('business internet', 'data',                        'Business Internet'),
-    ('data - wan',        'data',                        'WAN Data'),
-    ('conferencing',      'voice',                       'Conferencing'),
-    ('long distance',     'voice',                       'Long Distance'),
-    ('voice',             'voice',                       'Voice'),
-    ('managed wlan',      'other_professional_services', 'Managed WLAN')
-) AS svc(code, service_category_code, service_name)
-JOIN reference_data.provider p ON p.code = 'telus'
+    -- ngta: numeric service IDs
+    ('ngta', 'telus', '164',               'cellular',                    'Wireless Cellular'),
+    ('ngta', 'telus', '130',               'cellular',                    'Wireless Cellular'),
+    ('ngta', 'telus', '1001',              'data',                        'Wireline Data'),
+    ('ngta', 'telus', '103',               'data',                        'Wireline Data'),
+    ('ngta', 'telus', '104',               'voice',                       'Wireline Voice'),
+    ('ngta', 'telus', '102',               'voice',                       'Wireline Voice'),
+    ('ngta', 'telus', '106',               'voice',                       'Wireline Voice'),
+    -- ngta: fallback (rows with no numeric source_service_id)
+    ('ngta', 'telus', 'wireless',          'cellular',                    'Wireless'),
+    -- tsma: service tower values (wireline rows)
+    ('tsma', 'telus', 'business internet', 'data',                        'Business Internet'),
+    ('tsma', 'telus', 'data - wan',        'data',                        'WAN Data'),
+    ('tsma', 'telus', 'conferencing',      'voice',                       'Conferencing'),
+    ('tsma', 'telus', 'long distance',     'voice',                       'Long Distance'),
+    ('tsma', 'telus', 'voice',             'voice',                       'Voice'),
+    ('tsma', 'telus', 'managed wlan',      'other_professional_services', 'Managed WLAN'),
+    -- tsma: fallbacks (wireless/ivr/mms rows have no tower)
+    ('tsma', 'telus', 'wireless',          'cellular',                    'Wireless'),
+    ('tsma', 'telus', 'ivr',               'temporary_services',          'IVR'),
+    ('tsma', 'telus', 'mms',               'temporary_services',          'MMS'),
+    -- tsma_other: always other professional services
+    ('tsma_other', 'telus', 'managed_security', 'other_professional_services', 'Managed Security'),
+    ('tsma_other', 'telus', 'managed_router',   'other_professional_services', 'Managed Router'),
+    -- rogers: productline values
+    ('rogers', 'rogers', 'cellular',       'cellular',                    'Cellular'),
+    ('rogers', 'rogers', 'data',           'data',                        'Data'),
+    ('rogers', 'rogers', 'voice',          'voice',                       'Voice'),
+    ('rogers', 'rogers', 'business voice', 'voice',                       'Business Voice'),
+    ('rogers', 'rogers', 'cable gateway',  'data',                        'Cable Gateway')
+) AS svc(source_system, provider_code, code, service_category_code, service_name)
+JOIN reference_data.provider p ON p.code = svc.provider_code
 JOIN reference_data.service_category sc ON sc.code = svc.service_category_code
 ON CONFLICT (source_system, code) DO NOTHING;
 
