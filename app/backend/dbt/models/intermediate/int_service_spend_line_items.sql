@@ -1,51 +1,15 @@
 {{ config(materialized='view') }}
 
 with telus_excluded_categories as (
-    select unnest(array[
-        'payment',
-        'payments',
-        'amount due from last bill',
-        'taxes'
-    ]::text[]) as statement_category
+    select statement_category from {{ ref('telus_excluded_categories') }}
 ),
 
 telus_excluded_details as (
-    select unnest(array[
-        'bc pst',
-        'b.c. pst adjustment',
-        'bus. services gst',
-        'cps gst 100652692',
-        'cps gst adjustment 362037',
-        'cps pst british columbia 7%',
-        'fp gst credit',
-        'fp pst credit',
-        'gst',
-        'gst adj',
-        'gst adjustment',
-        'gst/hst',
-        'gst/hst adjustment',
-        'gst tax adjustment',
-        'pq pst',
-        'pst',
-        'pst adjustment',
-        'pst-bc',
-        'pst-bc adj',
-        'pst-mb',
-        'pst-qc'
-    ]::text[]) as detail_description
+    select detail_description from {{ ref('telus_excluded_details') }}
 ),
 
 telus_hardware_details as (
-    select unnest(array[
-        'hardware purchase charge',
-        'device discount repayment',
-        'monthly telus easy payment',
-        'device discount repay. canc.',
-        'device discount repay. - cr',
-        'monthly easy payment',
-        'telus easy payment balance',
-        'equipment adjustment'
-    ]::text[]) as detail_description
+    select detail_description from {{ ref('telus_hardware_details') }}
 ),
 
 rogers as (
