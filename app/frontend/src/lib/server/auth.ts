@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authEnv, sessionCookieName } from "./env";
 import { createOpaqueToken, decryptToken, encryptToken, hashAccessToken, hashSessionToken } from "./crypto";
-import { query, withTransaction } from "./db";
+import { query } from "./db";
 import { refreshAccessToken } from "./oidc";
 
 export const ALLOWED_ROLES = ["global_admin", "global_analyst"] as const;
@@ -309,73 +309,38 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
 
   const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
   if (options.refresh && refreshToken && Date.now() >= refreshAt) {
-    await withTransaction(async (txQuery) => {
-      // Lock this session row so concurrent requests (in any process) wait here.
-      const locked = await txQuery<Pick<SessionRow,
-        "encrypted_access_token" | "encrypted_refresh_token" | "encrypted_id_token" |
-        "access_token_expires_at" | "access_token_hash">>(
-        `SELECT encrypted_access_token, encrypted_refresh_token, encrypted_id_token,
-                access_token_expires_at, access_token_hash
-           FROM auth_sessions
-          WHERE session_hash = $1 AND revoked_at IS NULL AND session_expires_at > now()
-          FOR UPDATE`,
-        [sessionHash]
-      );
-      const lockedRow = locked.rows[0];
-      if (!lockedRow) { accessToken = null; return; }
+    const refreshed = await refreshAccessToken(refreshToken);
+    if (!refreshed?.access_token) {
+      // Server Components cannot modify cookies; logout route clears the cookie.
+      await revokeSessionInDatabase(sessionHash);
+      return null;
+    }
 
-      const lockedRefreshAt = lockedRow.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
-      if (Date.now() < lockedRefreshAt) {
-        // Another request already refreshed — use its result.
-        accessToken = decryptToken(lockedRow.encrypted_access_token);
-        refreshToken = decryptToken(lockedRow.encrypted_refresh_token);
-        idToken = decryptToken(lockedRow.encrypted_id_token);
-        row.access_token_expires_at = lockedRow.access_token_expires_at;
-        return;
-      }
+    accessToken = refreshed.access_token;
+    refreshToken = refreshed.refresh_token ?? refreshToken;
+    const expiresIn = refreshed.expiresIn() ?? 300;
+    row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
+    row.access_token_hash = hashAccessToken(accessToken);
 
-      const currentRefreshToken = decryptToken(lockedRow.encrypted_refresh_token);
-      if (!currentRefreshToken) { accessToken = null; return; }
-
-      const refreshed = await refreshAccessToken(currentRefreshToken);
-      if (!refreshed?.access_token) {
-        // Server Components cannot modify cookies; logout route clears the cookie.
-        await txQuery(
-          "UPDATE auth_sessions SET revoked_at = now(), updated_at = now() WHERE session_hash = $1",
-          [sessionHash]
-        );
-        accessToken = null;
-        return;
-      }
-
-      accessToken = refreshed.access_token;
-      refreshToken = refreshed.refresh_token ?? currentRefreshToken;
-      const expiresIn = refreshed.expiresIn() ?? 300;
-      row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
-      row.access_token_hash = hashAccessToken(accessToken);
-
-      await txQuery(
-        `UPDATE auth_sessions
-            SET encrypted_access_token = $2,
-                encrypted_refresh_token = $3,
-                encrypted_id_token = COALESCE($4, encrypted_id_token),
-                access_token_hash = $5,
-                access_token_expires_at = $6,
-                last_seen_at = now(),
-                updated_at = now()
-          WHERE session_hash = $1`,
-        [
-          sessionHash,
-          encryptToken(accessToken),
-          encryptToken(refreshToken),
-          encryptToken(refreshed.id_token),
-          row.access_token_hash,
-          row.access_token_expires_at,
-        ]
-      );
-    });
-
-    if (!accessToken) return null;
+    await query(
+      `UPDATE auth_sessions
+          SET encrypted_access_token = $2,
+              encrypted_refresh_token = $3,
+              encrypted_id_token = COALESCE($4, encrypted_id_token),
+              access_token_hash = $5,
+              access_token_expires_at = $6,
+              last_seen_at = now(),
+              updated_at = now()
+        WHERE session_hash = $1`,
+      [
+        sessionHash,
+        encryptToken(accessToken),
+        encryptToken(refreshToken),
+        encryptToken(refreshed.id_token),
+        row.access_token_hash,
+        row.access_token_expires_at,
+      ]
+    );
   } else {
     await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
   }

@@ -1,3 +1,13 @@
+CREATE TABLE IF NOT EXISTS reference_data.bge (
+    id          serial PRIMARY KEY,
+    code        text NOT NULL UNIQUE,
+    name        text NOT NULL,
+    description text,
+    sector_id   integer NOT NULL REFERENCES reference_data.sector(id),
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
 INSERT INTO reference_data.bge (code, name, sector_id) VALUES
     ('FHA',            'Fraser Health Authority',              (SELECT id FROM reference_data.sector WHERE code = 'health_authorities')),
     ('FNHA',           'First Nations Health Authority',       (SELECT id FROM reference_data.sector WHERE code = 'health_authorities')),

@@ -12,9 +12,10 @@ REFERENCE_DATA_SCHEMA_FILES = (
     "schema.sql",
     "sector.sql",
     "provider.sql",
+    "bge.sql",
     "service_category.sql",
     "service_code.sql",
-    "bge.sql",
+    "sub_bge.sql",
 )
 
 
