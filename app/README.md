@@ -82,7 +82,7 @@ The backend container bind-mounts `./backend` into `/app` and starts `uvicorn ap
 
 ## Authentication
 
-This application uses **Keycloak** for user authentication via the BC Government's login proxy. 
+This application uses **Keycloak** for user authentication via the BC Government's login proxy.
 
 For detailed Keycloak setup, environment variables, and authentication flow documentation, see [KEYCLOAK.md](./frontend/KEYCLOAK.md).
 
@@ -106,6 +106,10 @@ cd app/backend/dbt
 DBT_PROFILES_DIR=. dbt run
 DBT_PROFILES_DIR=. dbt test
 ```
+
+### Tests
+
+Tests live in `seeds/_seeds.yml` (alias-to-reference-data relationships) and `models/intermediate/_intermediate.yml` (not_null/unique checks on the unioned spend model). `dbt test` also runs in the Helm `db-migrate` job on every deploy.
 
 ## Building production images for EKS
 
