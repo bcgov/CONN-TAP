@@ -76,6 +76,8 @@ select
     b.id        as bge_id,
     b.sector_id as sector_id,
     sc.service_category_id,
+    sb.id           as sub_bge_id,
+    sb.entity_type  as sub_bge_entity_type,
     u.spend_amount
 from unioned u
 left join {{ ref('fiscal_calendar') }} fc
@@ -87,5 +89,6 @@ left join {{ source('reference_data', 'provider') }} p on p.code = u.vendor
 left join {{ ref('bge_alias_map') }} m on m.raw_name = u.organization_name
 left join {{ source('reference_data', 'bge') }} b on b.code = coalesce(m.bge_alias, u.organization_name)
 left join {{ ref('sub_bge_alias_map') }} sm on sm.raw_name = u.sub_organization_name
+left join {{ source('reference_data', 'sub_bge') }} sb on sb.code = coalesce(sm.sub_bge_alias, u.sub_organization_name)
 where u.month_start is not null
     and u.spend_amount <> 0
