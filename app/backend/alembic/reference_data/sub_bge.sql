@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS reference_data.sub_bge (
     description       text,
     bge_id            integer NOT NULL REFERENCES reference_data.bge(id),
     entity_type       text NOT NULL DEFAULT 'sub_org' CHECK (entity_type IN ('sub_org', 'service_designee')),
+    parent_sub_bge_id integer REFERENCES reference_data.sub_bge(id),
     created_at        timestamptz NOT NULL DEFAULT now(),
     updated_at        timestamptz NOT NULL DEFAULT now()
 );
@@ -50,14 +51,16 @@ INSERT INTO reference_data.sub_bge (code, name, bge_id, entity_type) VALUES
     ('School District 93',                            'School District 93',                            (SELECT id FROM reference_data.bge WHERE code = 'School Districts'), 'sub_org'),
     ('School District 34',                            'School District 34',                            (SELECT id FROM reference_data.bge WHERE code = 'School Districts'), 'sub_org'),
     ('School District 36',                            'School District 36',                            (SELECT id FROM reference_data.bge WHERE code = 'School Districts'), 'sub_org'),
-    ('School District 67',                            'School District 67',                            (SELECT id FROM reference_data.bge WHERE code = 'School Districts'), 'sub_org'),
-    -- Service designees: billed entities that sit directly under a BGE, same level as
-    -- a sub-org — entity_type is the only thing distinguishing them from sub_org rows.
-    ('BC Financial Services Authority', 'BC Financial Services Authority', (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee'),
-    ('BC Family Maintenance Agency',    'BC Family Maintenance Agency',    (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee'),
-    ('BC Assessment',                   'BC Assessment',                   (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee'),
-    ('BC LDB',                          'BC Liquor Distribution Branch',   (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee'),
-    ('Providence Health Care',          'Providence Health Care',          (SELECT id FROM reference_data.bge WHERE code = 'VCHA (+PHC)'), 'service_designee'),
-    ('Powertech',                       'Powertech Labs',                  (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee'),
-    ('Power Ex',                        'Powerex',                         (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee')
+    ('School District 67',                            'School District 67',                            (SELECT id FROM reference_data.bge WHERE code = 'School Districts'), 'sub_org')
+ON CONFLICT (code) DO NOTHING;
+
+-- after the sub_org insert above so the parent lookups below can resolve.
+INSERT INTO reference_data.sub_bge (code, name, bge_id, entity_type, parent_sub_bge_id) VALUES
+    ('BC Financial Services Authority', 'BC Financial Services Authority', (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
+    ('BC Family Maintenance Agency',    'BC Family Maintenance Agency',    (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
+    ('BC Assessment',                   'BC Assessment',                   (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
+    ('BC LDB',                          'BC Liquor Distribution Branch',   (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
+    ('Providence Health Care',          'Providence Health Care',          (SELECT id FROM reference_data.bge WHERE code = 'VCHA (+PHC)'), 'service_designee', NULL),
+    ('Powertech',                       'Powertech Labs',                  (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee', NULL),
+    ('Power Ex',                        'Powerex',                         (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee', NULL)
 ON CONFLICT (code) DO NOTHING;

@@ -76,8 +76,9 @@ select
     b.id        as bge_id,
     b.sector_id as sector_id,
     sc.service_category_id,
-    sb.id           as sub_bge_id,
-    sb.entity_type  as sub_bge_entity_type,
+    sb.id                as sub_bge_id,
+    sb.entity_type       as sub_bge_entity_type,
+    sb.parent_sub_bge_id as sub_bge_parent_id,
     u.spend_amount
 from unioned u
 left join {{ ref('fiscal_calendar') }} fc
