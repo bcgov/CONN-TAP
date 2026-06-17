@@ -1,1 +1,4 @@
 ignore_merge_commits = true
+
+[semver]
+tag_prefix = "v"

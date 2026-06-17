@@ -1,0 +1,512 @@
+name: app-deploy-prod
+
+# Promotes tested images from test ECR to immutable prod ECR, tags them as
+# v<semver>-<short-sha>, deploys to prod EKS, then creates the matching git tag.
+#
+# Trigger manually from the Actions tab on main only.
+#
+# Prerequisites:
+#   - Terraform applied in infra/envs/prod (EKS, ALB controller, immutable ECR).
+#   - Images for image_sha already built in test ECR (app-build on main).
+#
+# Prod GitHub Environment configuration:
+#   Secrets:
+#     AWS_DEPLOY_ROLE_ARN          — prod account GitHub Actions role
+#     TEST_AWS_DEPLOY_ROLE_ARN     — test account role (read test ECR; test OIDC allows repo:*)
+#     KEYCLOAK_CLIENT_SECRET, SESSION_SECRET, TOKEN_ENCRYPTION_KEY
+#   Variables:
+#     LICENSE_PLATE                — same license plate used in test/dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full git SHA on main to promote from test (must exist in test ECR)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: app-deploy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ca-central-1
+  ENV_NAME: prod
+  SOURCE_ENV_NAME: test
+  HELM_RELEASE: conn-tap
+  HELM_NAMESPACE: conn-tap
+  CHART_PATH: helm/conn-tap
+
+jobs:
+  gate:
+    name: Validate release candidate
+    runs-on: ubuntu-latest
+    environment: prod
+    outputs:
+      image_sha: ${{ steps.gate.outputs.image_sha }}
+      short_sha: ${{ steps.gate.outputs.short_sha }}
+      checkout_ref: ${{ steps.gate.outputs.checkout_ref }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs
+        id: gate
+        env:
+          INPUT_SHA: ${{ inputs.image_sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Production deploy must be triggered from the main branch (got ${GITHUB_REF})."
+            exit 1
+          fi
+
+          if ! [[ "${INPUT_SHA}" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            echo "::error::image_sha must be a git commit SHA (7–40 hex characters)."
+            exit 1
+          fi
+
+          git fetch origin main --tags
+
+          if ! git cat-file -e "${INPUT_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Commit ${INPUT_SHA} was not found in this repository."
+            exit 1
+          fi
+
+          full_sha="$(git rev-parse "${INPUT_SHA}")"
+
+          if ! git merge-base --is-ancestor "${full_sha}" origin/main; then
+            echo "::error::Commit ${full_sha} is not on the main branch."
+            exit 1
+          fi
+
+          short_sha="$(printf '%s' "${full_sha}" | cut -c1-7)"
+          echo "image_sha=${full_sha}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "checkout_ref=${INPUT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "::notice::Release candidate ${INPUT_SHA} (${short_sha}) validated on main."
+
+  version:
+    name: Compute release version
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: prod
+    outputs:
+      git_tag: ${{ steps.version.outputs.git_tag }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Determine next semver
+        id: version
+        env:
+          SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags origin
+
+          bump_log="$(mktemp)"
+          if ! docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/git" \
+            -w /git \
+            ghcr.io/cocogitto/cocogitto:6.3.0 \
+            bump --dry-run >"${bump_log}" 2>&1; then
+            cat "${bump_log}"
+            echo "::error::Failed to compute the next semver with cocogitto."
+            exit 1
+          fi
+          cat "${bump_log}"
+
+          git_tag="$(grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' "${bump_log}" | tail -1 || true)"
+          if [ -z "${git_tag}" ]; then
+            if latest="$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)" && [ -n "${latest}" ]; then
+              IFS=. read -r major minor patch <<<"${latest#v}"
+              patch="$((patch + 1))"
+              git_tag="v${major}.${minor}.${patch}"
+            else
+              git_tag="v0.1.0"
+            fi
+            echo "::notice::Cocogitto did not emit a version; using fallback ${git_tag}."
+          fi
+
+          if git rev-parse "${git_tag}" >/dev/null 2>&1; then
+            echo "::error::Git tag ${git_tag} already exists. Choose a different commit or delete the tag."
+            exit 1
+          fi
+
+          release_tag="${git_tag}-${SHORT_SHA}"
+          echo "git_tag=${git_tag}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "::notice::Production image tag will be ${release_tag} (git tag ${git_tag})."
+
+  promote:
+    name: Promote images to prod ECR
+    needs: [gate, version]
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
+      IMAGE_SHA: ${{ needs.gate.outputs.image_sha }}
+      RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
+    steps:
+      - name: Configure AWS credentials (test)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TEST_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-app-prod-promote-test-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Pull images from test ECR
+        id: pull
+        env:
+          TEST_AWS_DEPLOY_ROLE_ARN: ${{ secrets.TEST_AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          : "${TEST_AWS_DEPLOY_ROLE_ARN:?Set the prod environment secret TEST_AWS_DEPLOY_ROLE_ARN (test account deploy role ARN).}"
+          : "${LICENSE_PLATE:?Set the prod environment variable LICENSE_PLATE.}"
+          : "${IMAGE_SHA:?IMAGE_SHA was not set.}"
+          : "${RELEASE_TAG:?RELEASE_TAG was not set.}"
+
+          test_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          test_registry="${test_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          backend_repository="${LICENSE_PLATE}-${SOURCE_ENV_NAME}-app-backend"
+          frontend_repository="${LICENSE_PLATE}-${SOURCE_ENV_NAME}-app-frontend"
+
+          aws ecr describe-repositories --repository-names "${backend_repository}" "${frontend_repository}" >/dev/null
+
+          wait_for_image_tag() {
+            local repository="$1"
+            local attempt
+            for attempt in $(seq 1 40); do
+              if aws ecr describe-images \
+                --repository-name "${repository}" \
+                --image-ids "imageTag=${IMAGE_SHA}" >/dev/null 2>&1; then
+                return 0
+              fi
+              echo "Waiting for ${repository}:${IMAGE_SHA} (attempt ${attempt}/40)..."
+              sleep 15
+            done
+            echo "::error::Image ${repository}:${IMAGE_SHA} not found in test ECR."
+            return 1
+          }
+          wait_for_image_tag "${backend_repository}"
+          wait_for_image_tag "${frontend_repository}"
+
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${test_registry}"
+
+          docker pull "${test_registry}/${backend_repository}:${IMAGE_SHA}"
+          docker pull "${test_registry}/${frontend_repository}:${IMAGE_SHA}"
+
+          {
+            echo "test_registry=${test_registry}"
+            echo "backend_repository=${backend_repository}"
+            echo "frontend_repository=${frontend_repository}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Configure AWS credentials (prod)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-app-prod-promote-prod-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push images to prod ECR
+        run: |
+          set -euo pipefail
+          : "${LICENSE_PLATE:?Set the prod environment variable LICENSE_PLATE.}"
+
+          prod_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          prod_registry="${prod_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          prod_backend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-backend"
+          prod_frontend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-frontend"
+
+          aws ecr describe-repositories --repository-names "${prod_backend_repository}" "${prod_frontend_repository}" >/dev/null
+
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${prod_registry}"
+
+          docker tag \
+            "${{ steps.pull.outputs.test_registry }}/${{ steps.pull.outputs.backend_repository }}:${IMAGE_SHA}" \
+            "${prod_registry}/${prod_backend_repository}:${RELEASE_TAG}"
+          docker tag \
+            "${{ steps.pull.outputs.test_registry }}/${{ steps.pull.outputs.frontend_repository }}:${IMAGE_SHA}" \
+            "${prod_registry}/${prod_frontend_repository}:${RELEASE_TAG}"
+
+          docker push "${prod_registry}/${prod_backend_repository}:${RELEASE_TAG}"
+          docker push "${prod_registry}/${prod_frontend_repository}:${RELEASE_TAG}"
+
+          echo "::notice::Promoted test:${IMAGE_SHA} to prod:${RELEASE_TAG}."
+
+  deploy:
+    name: Deploy prod
+    needs: [gate, version, promote]
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
+      KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
+      KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      SESSION_COOKIE_NAME: ${{ vars.SESSION_COOKIE_NAME }}
+      TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+      IMAGE_SHA: ${{ needs.gate.outputs.image_sha }}
+      RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
+      GIT_TAG: ${{ needs.version.outputs.git_tag }}
+      BUILD_RUN_ID: ${{ github.run_id }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.checkout_ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-app-prod-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve AWS and image settings
+        run: |
+          set -euo pipefail
+          : "${LICENSE_PLATE:?Set the prod environment variable LICENSE_PLATE.}"
+          : "${RELEASE_TAG:?RELEASE_TAG was not set.}"
+
+          echo "Deploying release ${GIT_TAG} (${RELEASE_TAG}) built from ${IMAGE_SHA}"
+
+          aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          registry="${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          backend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-backend"
+          frontend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-frontend"
+
+          aws ecr describe-repositories --repository-names "${backend_repository}" "${frontend_repository}" >/dev/null
+
+          if ! aws ecr describe-images \
+            --repository-name "${backend_repository}" \
+            --image-ids "imageTag=${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "::error::Promoted backend image ${backend_repository}:${RELEASE_TAG} not found in prod ECR."
+            exit 1
+          fi
+          if ! aws ecr describe-images \
+            --repository-name "${frontend_repository}" \
+            --image-ids "imageTag=${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "::error::Promoted frontend image ${frontend_repository}:${RELEASE_TAG} not found in prod ECR."
+            exit 1
+          fi
+
+          ingress_host="tap.${LICENSE_PLATE}-${ENV_NAME}.stratus.cloud.gov.bc.ca"
+          app_base_url="https://${ingress_host}"
+
+          {
+            echo "AWS_ACCOUNT_ID=${aws_account_id}"
+            echo "ECR_REGISTRY=${registry}"
+            echo "BACKEND_IMAGE_URI=${registry}/${backend_repository}"
+            echo "FRONTEND_IMAGE_URI=${registry}/${frontend_repository}"
+            echo "EKS_CLUSTER_NAME=${LICENSE_PLATE}-${ENV_NAME}-eks"
+            echo "POSTGRES_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-master"
+            echo "POSTGRES_DB_INSTANCE_ID=${LICENSE_PLATE}-${ENV_NAME}"
+            echo "APP_BASE_URL=${app_base_url}"
+            echo "INGRESS_HOST=${ingress_host}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Verify ALB controller and load ingress config
+        run: |
+          aws eks update-kubeconfig \
+            --region "${AWS_REGION}" \
+            --name "${EKS_CLUSTER_NAME}"
+
+          if ! kubectl wait --for=condition=available \
+            deployment/aws-load-balancer-controller \
+            -n kube-system \
+            --timeout=120s 2>/dev/null; then
+            echo "::error::AWS Load Balancer Controller is not ready in kube-system."
+            echo "Apply Terraform first (infra/envs/prod/alb_controller.tf):"
+            echo "  terraform apply -target=module.eks -target=module.eks_alb_controller_identity"
+            echo "  terraform apply"
+            exit 1
+          fi
+
+          if ! kubectl get ingress bcgovhealthcheck -n kube-system >/dev/null 2>&1; then
+            echo "::error::bcgovhealthcheck Ingress not found in kube-system."
+            echo "Run a full Terraform apply so alb_controller.tf creates the shared internal ALB group."
+            exit 1
+          fi
+
+          alb_ann="$(kubectl get ingress bcgovhealthcheck -n kube-system -o json \
+            | jq -r '.metadata.annotations')"
+          web_subnet_ids="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/subnets" // empty')"
+          alb_certificate_arn="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/certificate-arn" // empty')"
+          ingress_group="$(echo "${alb_ann}" | jq -r '."alb.ingress.kubernetes.io/group.name" // empty')"
+
+          if [ -z "${web_subnet_ids}" ] || [ -z "${alb_certificate_arn}" ] || [ -z "${ingress_group}" ]; then
+            echo "::error::bcgovhealthcheck Ingress is missing required ALB annotations."
+            echo "Expected: subnets, certificate-arn, group.name (from Terraform alb_controller.tf)."
+            kubectl get ingress bcgovhealthcheck -n kube-system -o yaml
+            exit 1
+          fi
+
+          {
+            echo "WEB_SUBNET_IDS=${web_subnet_ids}"
+            echo "ALB_CERTIFICATE_ARN=${alb_certificate_arn}"
+            echo "INGRESS_GROUP=${ingress_group}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Deploy with Helm
+        run: |
+          set +x
+
+          : "${KEYCLOAK_CLIENT_SECRET:?Set the prod environment secret KEYCLOAK_CLIENT_SECRET.}"
+          : "${SESSION_SECRET:?Set the prod environment secret SESSION_SECRET.}"
+          : "${TOKEN_ENCRYPTION_KEY:?Set the prod environment secret TOKEN_ENCRYPTION_KEY.}"
+
+          keycloak_issuer_url="${KEYCLOAK_ISSUER_URL:-https://dev.loginproxy.gov.bc.ca/auth/realms/standard}"
+          keycloak_client_id="${KEYCLOAK_CLIENT_ID:-conn-hub-6434}"
+          session_cookie_name="${SESSION_COOKIE_NAME:-telecom_session}"
+          cors_origins="${CORS_ORIGINS:-[\"${APP_BASE_URL}\"]}"
+
+          postgres_host="$(aws rds describe-db-instances \
+            --db-instance-identifier "${POSTGRES_DB_INSTANCE_ID}" \
+            --query "DBInstances[0].Endpoint.Address" \
+            --output text)"
+          postgres_password="$(aws secretsmanager get-secret-value \
+            --secret-id "${POSTGRES_SECRET_ID}" \
+            --query SecretString \
+            --output text)"
+
+          aws eks update-kubeconfig \
+            --region "${AWS_REGION}" \
+            --name "${EKS_CLUSTER_NAME}"
+
+          kubectl create namespace "${HELM_NAMESPACE}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          backend_secret="${HELM_RELEASE}-backend-runtime"
+          frontend_secret="${HELM_RELEASE}-frontend-runtime"
+
+          kubectl create secret generic "${backend_secret}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          kubectl create secret generic "${frontend_secret}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET}" \
+            --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
+            --from-literal=TOKEN_ENCRYPTION_KEY="${TOKEN_ENCRYPTION_KEY}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          ingress_annotations="$(jq -nc \
+            --arg subnets "${WEB_SUBNET_IDS}" \
+            --arg cert "${ALB_CERTIFICATE_ARN}" \
+            --arg group "${INGRESS_GROUP}" \
+            '{
+              "alb.ingress.kubernetes.io/scheme": "internal",
+              "alb.ingress.kubernetes.io/target-type": "ip",
+              "alb.ingress.kubernetes.io/subnets": $subnets,
+              "alb.ingress.kubernetes.io/certificate-arn": $cert,
+              "alb.ingress.kubernetes.io/group.name": $group,
+              "alb.ingress.kubernetes.io/tags": "Public=True",
+              "alb.ingress.kubernetes.io/listen-ports": "[{\"HTTPS\":443}]"
+            }')"
+          : "${ingress_annotations:?Failed to build ingress annotations JSON.}"
+
+          helm upgrade --install "${HELM_RELEASE}" "${CHART_PATH}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            --timeout 10m \
+            --set-string backend.image.repository="${BACKEND_IMAGE_URI}" \
+            --set-string backend.image.tag="${RELEASE_TAG}" \
+            --set-string backend.image.pullPolicy="IfNotPresent" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/build-sha'="${IMAGE_SHA}" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/release-tag'="${RELEASE_TAG}" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/git-tag'="${GIT_TAG}" \
+            --set-string 'backend.podAnnotations.conn-tap\.github\.com/build-run-id'="${BUILD_RUN_ID}" \
+            --set-string backend.env.POSTGRES_HOST="${postgres_host}" \
+            --set-string backend.env.POSTGRES_PORT="5432" \
+            --set-string backend.env.POSTGRES_USER="dbadmin" \
+            --set-string backend.env.POSTGRES_DB="app" \
+            --set-string backend.env.POSTGRES_SSL="true" \
+            --set-string backend.env.CORS_ORIGINS="${cors_origins}" \
+            --set-string backend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
+            --set-string backend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
+            --set-string backend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
+            --set-string backend.existingSecret="${backend_secret}" \
+            --set-string frontend.image.repository="${FRONTEND_IMAGE_URI}" \
+            --set-string frontend.image.tag="${RELEASE_TAG}" \
+            --set-string frontend.image.pullPolicy="IfNotPresent" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/build-sha'="${IMAGE_SHA}" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/release-tag'="${RELEASE_TAG}" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/git-tag'="${GIT_TAG}" \
+            --set-string 'frontend.podAnnotations.conn-tap\.github\.com/build-run-id'="${BUILD_RUN_ID}" \
+            --set-string frontend.env.APP_BASE_URL="${APP_BASE_URL}" \
+            --set-string frontend.env.BACKEND_INTERNAL_URL="http://${HELM_RELEASE}-backend:8000" \
+            --set-string frontend.env.POSTGRES_HOST="${postgres_host}" \
+            --set-string frontend.env.POSTGRES_PORT="5432" \
+            --set-string frontend.env.POSTGRES_USER="dbadmin" \
+            --set-string frontend.env.POSTGRES_DB="app" \
+            --set-string frontend.env.POSTGRES_SSL="true" \
+            --set-string frontend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
+            --set-string frontend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
+            --set-string frontend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
+            --set-string frontend.existingSecret="${frontend_secret}" \
+            --set ingress.enabled=true \
+            --set ingress.className=alb \
+            --set-string ingress.host="${INGRESS_HOST}" \
+            --set-json ingress.annotations="${ingress_annotations}" \
+            --set migrate.enabled=true
+
+  release-tag:
+    name: Create git release tag
+    needs: [gate, version, deploy]
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Push git tag
+        env:
+          GIT_TAG: ${{ needs.version.outputs.git_tag }}
+          IMAGE_SHA: ${{ needs.gate.outputs.image_sha }}
+          RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${GIT_TAG}" -m "Production release ${GIT_TAG} (${RELEASE_TAG})"
+          git push origin "${GIT_TAG}"
+          echo "::notice::Created git tag ${GIT_TAG} for commit ${IMAGE_SHA}."
