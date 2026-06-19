@@ -54,7 +54,6 @@ check_and_generate_fix_commands.py
 
 # spend sheet source data (contributor CSV files — not committed)
 source/
-source_original/
 
 # generated spend tracking workbooks and Excel lock files
 scripts/spend_tracking.xlsx
@@ -124,10 +123,3 @@ app/**/*.log
 
 /.pnpm-store
 /.venv
-.claude/agents/lead-1.md
-.claude/agents/lead-2.md
-.claude/commands/debate.md
-app/db/dbt-architecture-plans copy.md
-docs/data-pipeline-architecture-x copy.md
-docs/data-pipeline-diagram copy.svg
-docs/data-pipeline-diagram.md
