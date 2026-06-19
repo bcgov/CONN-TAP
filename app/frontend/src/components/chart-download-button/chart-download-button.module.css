@@ -36,6 +36,7 @@
   border: 1px solid var(--surface-color-border-light, var(--color-border-light));
   border-radius: 0.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
   outline: none;
 }
 
