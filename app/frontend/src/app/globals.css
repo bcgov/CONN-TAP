@@ -294,6 +294,7 @@ body.telecom-landing {
 }
 
 .dashboard-card {
+  position: relative;
   min-width: 0;
   background: var(--color-surface-white);
   border: 1px solid var(--surface-color-border-light, var(--color-border-light));
