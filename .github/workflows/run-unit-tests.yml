@@ -40,6 +40,7 @@ jobs:
           mkdir -p reports
           pytest app/backend/tests \
             --cov=app/backend/app \
+            --cov=app/backend/alembic \
             --cov-config=.coveragerc \
             --junitxml=reports/backend-test-results.xml \
             --cov-report=xml:reports/backend-coverage.xml
