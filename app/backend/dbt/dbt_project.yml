@@ -16,12 +16,22 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+seeds:
+  app:
+    +schema: seeds
+
 models:
   app:
     +materialized: view
     staging:
       +schema: staging
       +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
     marts:
       +schema: core
       +materialized: table
+    analytics:
+      +schema: analytics
+      +materialized: materialized_view

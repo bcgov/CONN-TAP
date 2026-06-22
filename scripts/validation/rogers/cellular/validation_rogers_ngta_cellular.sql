@@ -155,9 +155,6 @@ issues AS (
             THEN 'Mapping Issue'
         END AS mapping_issue,
 
-
-
-=======
   -- Unknown SUB-BGE
         CASE
             WHEN sub_bge_norm IS NOT NULL
