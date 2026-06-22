@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_telus_ngta_spend
+    description: Telus NGTA spend after applying section/detail/category exclusion rules.
+
+  - name: int_service_spend_line_items
+    description: Unioned spend line items across all vendors, joined to reference data.
+    columns:
+      - name: spend_line_item_id
+        tests:
+          - unique     # fails if two raw rows hash to the same id, ie: a duplicate/double-counted row
+          - not_null
+      - name: provider_id
+        tests:
+          - not_null   # fails if vendor code isn't in reference_data.provider
+      - name: bge_id
+        tests:
+          - not_null   # fails if organization_name (or its alias) isn't in reference_data.bge
+      - name: service_category_id
+        tests:
+          - not_null   # fails if lookup_code isn't in reference_data.service_code

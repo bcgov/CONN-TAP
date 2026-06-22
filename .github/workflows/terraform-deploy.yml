@@ -21,11 +21,15 @@ on:
     branches: [main]
     paths:
       - "infra/**"
+      - "lambda/**"
+      - "local_dev/raw_ingestion/**"
       - ".github/workflows/terraform-deploy.yml"
   push:
     branches: [main]
     paths:
       - "infra/**"
+      - "lambda/**"
+      - "local_dev/raw_ingestion/**"
       - ".github/workflows/terraform-deploy.yml"
   workflow_dispatch:
     inputs:
