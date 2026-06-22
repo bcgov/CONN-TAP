@@ -1,7 +1,8 @@
 -- Drill-down for telus_raw_validate_duplicate_rows_by_sheet_and_month: returns every
 -- raw_telus_spend row that is part of a duplicate group (identical on all columns except
 -- raw_id, ingestion_run_id, extras) for one sheet_name and statement calendar month.
--- Rows with amount NULL or 0 are excluded from duplicate detection, matching the validator.
+-- Rows with amount NULL or 0 are excluded from duplicate detection, as are rows in categories
+-- excluded from totals (payment, payments, amount due from last bill, taxes), matching the validator.
 -- Uses one window pass over the filtered slice (avoids correlated EXISTS over the full table).
 
 CREATE OR REPLACE FUNCTION telus_raw_get_duplicate_rows (
@@ -69,6 +70,9 @@ AS $$
       AND date_trunc('month', t.statement_date) = make_date(p_year, p_month, 1)
       AND t.amount IS NOT NULL
       AND t.amount <> 0
+      AND lower(trim(both FROM COALESCE(t.statement_category, ''))) NOT IN (
+        'payment', 'payments', 'amount due from last bill', 'taxes'
+      )
   ) AS d
   WHERE d._dup_row_count > 1
   ORDER BY d.raw_id;

@@ -548,8 +548,9 @@ $$;
 
 -- Rows that match on every column except raw_id, ingestion_run_id, and extras, within the same
 -- sheet_name and calendar month of statement_date, are duplicates. Rows with amount NULL or 0
--- are excluded before duplicate detection. Returns one row per sheet_name + month with how many
--- distinct duplicate signatures exist and total row count in those groups (all copies).
+-- are excluded before duplicate detection, as are rows in categories excluded from totals
+-- (payment, payments, amount due from last bill, taxes). Returns one row per sheet_name + month
+-- with how many distinct duplicate signatures exist and total row count in those groups (all copies).
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_duplicate_rows_by_sheet_and_month (
@@ -570,6 +571,9 @@ AS $$
     FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
+      AND lower(trim(both FROM COALESCE(t.statement_category, ''))) NOT IN (
+        'payment', 'payments', 'amount due from last bill', 'taxes'
+      )
       AND (
         p_statement_month IS NULL
         OR (
@@ -624,9 +628,9 @@ AS $$
     sheet_name NULLS LAST;
 $$;
 
--- Same duplicate detection as telus_raw_validate_duplicate_rows_by_sheet_and_month, plus
--- duplicate_amount_sum (sum of amount over every row in duplicate groups). Sorted by sheet_name
--- for easier visual review, then statement month.
+-- Same duplicate detection as telus_raw_validate_duplicate_rows_by_sheet_and_month (same category
+-- exclusions apply), plus duplicate_amount_sum (sum of amount over every row in duplicate groups).
+-- Sorted by sheet_name for easier visual review, then statement month.
 
 CREATE OR REPLACE FUNCTION telus_raw_summarize_duplicate_rows_by_sheet_and_month (
   p_statement_month date DEFAULT NULL
@@ -647,6 +651,9 @@ AS $$
     FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
+      AND lower(trim(both FROM COALESCE(t.statement_category, ''))) NOT IN (
+        'payment', 'payments', 'amount due from last bill', 'taxes'
+      )
       AND (
         p_statement_month IS NULL
         OR (
