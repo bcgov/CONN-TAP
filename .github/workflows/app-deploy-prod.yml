@@ -161,6 +161,26 @@ jobs:
       IMAGE_SHA: ${{ needs.gate.outputs.image_sha }}
       RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
     steps:
+      - name: Validate AWS role secrets
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${{ secrets.TEST_AWS_DEPLOY_ROLE_ARN }}" ] && missing+=("TEST_AWS_DEPLOY_ROLE_ARN")
+          [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ] && missing+=("AWS_DEPLOY_ROLE_ARN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing prod environment secret(s): ${missing[*]}. Set TEST_AWS_DEPLOY_ROLE_ARN to the test account github_actions_role_arn (terraform output in infra/envs/test) and AWS_DEPLOY_ROLE_ARN to the prod account role."
+            exit 1
+          fi
+
+      - name: Configure Docker ECR credential helper
+        run: |
+          mkdir -p ~/.local/bin ~/.docker
+          curl -fsSL -o ~/.local/bin/docker-credential-ecr-login \
+            https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/0.9.0/linux-amd64/docker-credential-ecr-login
+          chmod +x ~/.local/bin/docker-credential-ecr-login
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          printf '%s\n' '{"credsStore":"ecr-login"}' > ~/.docker/config.json
+
       - name: Configure AWS credentials (test)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -204,9 +224,6 @@ jobs:
           wait_for_image_tag "${backend_repository}"
           wait_for_image_tag "${frontend_repository}"
 
-          aws ecr get-login-password --region "${AWS_REGION}" \
-            | docker login --username AWS --password-stdin "${test_registry}"
-
           docker pull "${test_registry}/${backend_repository}:${IMAGE_SHA}"
           docker pull "${test_registry}/${frontend_repository}:${IMAGE_SHA}"
 
@@ -234,9 +251,6 @@ jobs:
           prod_frontend_repository="${LICENSE_PLATE}-${ENV_NAME}-app-frontend"
 
           aws ecr describe-repositories --repository-names "${prod_backend_repository}" "${prod_frontend_repository}" >/dev/null
-
-          aws ecr get-login-password --region "${AWS_REGION}" \
-            | docker login --username AWS --password-stdin "${prod_registry}"
 
           docker tag \
             "${{ steps.pull.outputs.test_registry }}/${{ steps.pull.outputs.backend_repository }}:${IMAGE_SHA}" \
