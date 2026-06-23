@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -46,7 +46,7 @@ jobs:
             --cov-report=xml:reports/backend-coverage.xml
 
       - name: Upload backend test reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sonar-reports-backend
           path: reports/
@@ -58,17 +58,17 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 11.1.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: pnpm
@@ -88,7 +88,7 @@ jobs:
           sed 's|^SF:src/|SF:app/frontend/src/|g' app/frontend/coverage/lcov.info > reports/frontend-lcov.info
 
       - name: Upload frontend test reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sonar-reports-frontend
           path: reports/
@@ -105,18 +105,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download backend test reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sonar-reports-backend
           path: reports
 
       - name: Download frontend test reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sonar-reports-frontend
           path: reports
