@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
+import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
@@ -224,109 +225,124 @@ export function DashboardClient({ displayName }: { displayName: string }) {
             ) : null}
 
             <section className="dashboard-chart-grid" aria-live="polite">
-              <article className="dashboard-card" ref={chartContainerRef}>
-                <div className="dashboard-card__header">
-                  <h2>Spend by service category</h2>
-                  {buildPeriodRangeLabel(period, yearType) && (
-                    <p className="dashboard-card__date-range">
-                      {buildPeriodRangeLabel(period, yearType)}
+              <article className="dashboard-card">
+                <CustomDashboardChart
+                  title="Spend by Service Category"
+                  label="Download spend by service category chart as image"
+                >
+                  <div className="dashboard-card__header">
+                    <h2>Spend by service category</h2>
+                    {buildPeriodRangeLabel(period, yearType) && (
+                      <p className="dashboard-card__date-range">
+                        {buildPeriodRangeLabel(period, yearType)}
+                      </p>
+                    )}
+                    <p>
+                      The chart shows the breakdown of Telecom spend by service
+                      category and highlighting how much is spent with each
+                      provider.
                     </p>
-                  )}
-                  <p>
-                    The chart shows the breakdown of Telecom spend by service
-                    category and highlighting how much is spent with each
-                    provider.
-                  </p>
-                </div>
-                <div className="dashboard-card__chart">
-                  {chartQuery.isLoading ? (
-                    <p className="dashboard-card__empty">
-                      Loading Plotly chart...
-                    </p>
-                  ) : chartQuery.data?.plotly ? (
-                    <Plot
-                      data={applyOutsideLabels(
-                        chartQuery.data.plotly.data,
-                        new Set(
-                          chartQuery.data.plotly.data.map(
-                            (t) => (t as { name?: string }).name ?? "",
+                  </div>
+                  <div className="dashboard-card__chart">
+                    {chartQuery.isLoading ? (
+                      <p className="dashboard-card__empty">
+                        Loading Plotly chart...
+                      </p>
+                    ) : chartQuery.data?.plotly ? (
+                      <Plot
+                        data={applyOutsideLabels(
+                          chartQuery.data.plotly.data,
+                          new Set(
+                            chartQuery.data.plotly.data.map(
+                              (t) => (t as { name?: string }).name ?? "",
+                            ),
                           ),
-                        ),
-                      )}
-                      layout={{
-                        ...chartQuery.data.plotly.layout,
-                        autosize: true,
-                        showlegend: true,
-                        legend: {
-                          ...chartQuery.data.plotly.layout.legend,
-                          itemclick: false,
-                          itemdoubleclick: false,
-                        },
-                        paper_bgcolor: "rgba(0,0,0,0)",
-                        plot_bgcolor: "rgba(0,0,0,0)",
-                      }}
-                      config={{ displayModeBar: false, responsive: true }}
-                      style={{ width: "100%", height: "420px" }}
-                      useResizeHandler
-                    />
-                  ) : (
-                    <p className="dashboard-card__empty">
-                      No Plotly data for this period.
-                    </p>
-                  )}
-                </div>
+                        )}
+                        layout={{
+                          ...chartQuery.data.plotly.layout,
+                          autosize: true,
+                          showlegend: true,
+                          legend: {
+                            ...chartQuery.data.plotly.layout.legend,
+                            itemclick: false,
+                            itemdoubleclick: false,
+                          },
+                          paper_bgcolor: "rgba(0,0,0,0)",
+                          plot_bgcolor: "rgba(0,0,0,0)",
+                        }}
+                        config={{ displayModeBar: false, responsive: true }}
+                        style={{ width: "100%", height: "420px" }}
+                        useResizeHandler
+                      />
+                    ) : (
+                      <p className="dashboard-card__empty">
+                        No Plotly data for this period.
+                      </p>
+                    )}
+                  </div>
+                </CustomDashboardChart>
               </article>
 
               <article className="dashboard-card">
-                <div className="dashboard-card__header">
-                  <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
-                </div>
-                <div className="dashboard-card__chart">
-                  {sectorQuery.isLoading ? (
-                    <p className="dashboard-card__empty">
-                      Loading sector chart…
-                    </p>
-                  ) : sectorQuery.isError ? (
-                    <p className="dashboard-card__empty">
-                      Unable to load sector data.
-                    </p>
-                  ) : sectorQuery.data ? (
-                    <SpendBySectorChart
-                      chart={sectorQuery.data}
-                      dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-                    />
-                  ) : (
-                    <p className="dashboard-card__empty">
-                      No data for this period.
-                    </p>
-                  )}
-                </div>
+                <CustomDashboardChart
+                  title="Telecom Spend Share by Sector"
+                  label="Download spend by sector chart as image"
+                >
+                  <div className="dashboard-card__header">
+                    <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
+                  </div>
+                  <div className="dashboard-card__chart">
+                    {sectorQuery.isLoading ? (
+                      <p className="dashboard-card__empty">
+                        Loading sector chart…
+                      </p>
+                    ) : sectorQuery.isError ? (
+                      <p className="dashboard-card__empty">
+                        Unable to load sector data.
+                      </p>
+                    ) : sectorQuery.data ? (
+                      <SpendBySectorChart
+                        chart={sectorQuery.data}
+                        dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                      />
+                    ) : (
+                      <p className="dashboard-card__empty">
+                        No data for this period.
+                      </p>
+                    )}
+                  </div>
+                </CustomDashboardChart>
               </article>
             </section>
 
             <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
               <article className="dashboard-card">
-                <div className="dashboard-card__header">
-                  <h2>Spend by BGE</h2>
-                </div>
-                <div className="dashboard-card__chart">
-                  {bgeQuery.isLoading ? (
-                    <p className="dashboard-card__empty">Loading BGE chart…</p>
-                  ) : bgeQuery.isError ? (
-                    <p className="dashboard-card__empty">
-                      Unable to load BGE data.
-                    </p>
-                  ) : bgeQuery.data ? (
-                    <SpendByBgeChart
-                      chart={bgeQuery.data}
-                      dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-                    />
-                  ) : (
-                    <p className="dashboard-card__empty">
-                      No data for this period.
-                    </p>
-                  )}
-                </div>
+                <CustomDashboardChart
+                  title="Spend by BGE"
+                  label="Download spend by BGE chart as image"
+                >
+                  <div className="dashboard-card__header">
+                    <h2>Spend by BGE</h2>
+                  </div>
+                  <div className="dashboard-card__chart">
+                    {bgeQuery.isLoading ? (
+                      <p className="dashboard-card__empty">Loading BGE chart…</p>
+                    ) : bgeQuery.isError ? (
+                      <p className="dashboard-card__empty">
+                        Unable to load BGE data.
+                      </p>
+                    ) : bgeQuery.data ? (
+                      <SpendByBgeChart
+                        chart={bgeQuery.data}
+                        dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                      />
+                    ) : (
+                      <p className="dashboard-card__empty">
+                        No data for this period.
+                      </p>
+                    )}
+                  </div>
+                </CustomDashboardChart>
               </article>
             </section>
           </main>
