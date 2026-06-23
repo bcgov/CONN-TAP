@@ -121,8 +121,8 @@ jobs:
           if ! docker run --rm \
             -v "${GITHUB_WORKSPACE}:/git" \
             -w /git \
-            ghcr.io/cocogitto/cocogitto:6.3.0 \
-            bump --dry-run >"${bump_log}" 2>&1; then
+            ghcr.io/cocogitto/cog:6.3.0 \
+            bump --auto --dry-run >"${bump_log}" 2>&1; then
             cat "${bump_log}"
             echo "::error::Failed to compute the next semver with cocogitto."
             exit 1
