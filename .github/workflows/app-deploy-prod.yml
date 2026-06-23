@@ -52,7 +52,7 @@ jobs:
       checkout_ref: ${{ steps.gate.outputs.checkout_ref }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -103,7 +103,7 @@ jobs:
       release_tag: ${{ steps.version.outputs.release_tag }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.gate.outputs.checkout_ref }}
           fetch-depth: 0
@@ -286,7 +286,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.gate.outputs.checkout_ref }}
 
@@ -341,10 +341,10 @@ jobs:
           } >> "${GITHUB_ENV}"
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Verify ALB controller and load ingress config
         run: |
@@ -505,7 +505,7 @@ jobs:
     environment: prod
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.gate.outputs.checkout_ref }}
           fetch-depth: 0

@@ -55,10 +55,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -88,7 +88,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/backend
           file: app/backend/Dockerfile
@@ -97,7 +97,7 @@ jobs:
             ${{ steps.settings.outputs.backend_image_uri }}:${{ github.event.pull_request.head.sha }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/frontend
           file: app/frontend/Dockerfile
@@ -116,10 +116,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -149,7 +149,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/backend
           file: app/backend/Dockerfile
@@ -159,7 +159,7 @@ jobs:
             ${{ steps.settings.outputs.backend_image_uri }}:${{ github.sha }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/frontend
           file: app/frontend/Dockerfile
@@ -181,10 +181,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -214,7 +214,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/backend
           file: app/backend/Dockerfile
@@ -224,7 +224,7 @@ jobs:
             ${{ steps.settings.outputs.backend_image_uri }}:${{ github.sha }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: app/frontend
           file: app/frontend/Dockerfile
