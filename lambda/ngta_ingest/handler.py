@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import urllib.parse
 from pathlib import Path
 
 import boto3
@@ -34,8 +35,13 @@ def _get_dsn() -> str:
     return _cached_dsn
 
 
+def _normalize_s3_key(key: str) -> str:
+    return urllib.parse.unquote_plus(key)
+
+
 def _download(bucket: str, key: str) -> Path:
-    tmp_path = Path(f"/tmp/{key.split('/')[-1]}")
+    filename = _normalize_s3_key(key.split("/")[-1])
+    tmp_path = Path(f"/tmp/{filename}")
     logger.info("Downloading s3://%s/%s", bucket, key)
     s3_client.download_file(
         bucket,
@@ -65,16 +71,17 @@ def _download(bucket: str, key: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def _handle_tsma(bucket: str, key: str) -> None:
-    feed_map = {
-        ("tsma",      "wireless"): "tsma_wireless",
-        ("tsma",      "wireline"): "tsma_wireline",
-        ("tsma",      "master"):   "tsma_master",
-        ("tsma_lite", "wireless"): "tsma_lite_wireless",
-        ("tsma_lite", "wireline"): "tsma_lite_wireline",
-    }
+    # tsma_lite entries first — otherwise "tsma" + "wireless" matches tsma/tsma_lite/wireless/...
+    feed_map = [
+        (("tsma_lite", "wireless"), "tsma_lite_wireless"),
+        (("tsma_lite", "wireline"), "tsma_lite_wireline"),
+        (("tsma",      "wireless"), "tsma_wireless"),
+        (("tsma",      "wireline"), "tsma_wireline"),
+        (("tsma",      "master"),   "tsma_master"),
+    ]
     parts = [p.casefold() for p in key.split("/")]
     feed = next(
-        (v for (a, b), v in feed_map.items() if a in parts and b in parts),
+        (v for (a, b), v in feed_map if a in parts and b in parts),
         None,
     )
     if not feed:
@@ -176,7 +183,7 @@ def lambda_handler(event, context):
 
     for record in event.get("Records", []):
         bucket = record["s3"]["bucket"]["name"]
-        key = record["s3"]["object"]["key"].replace("+", " ")
+        key = _normalize_s3_key(record["s3"]["object"]["key"])
 
         handler = next((h for prefix, h in _ROUTES if key.startswith(prefix)), None)
         if handler is None:

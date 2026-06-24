@@ -1,3 +1,8 @@
+variable "name_prefix" {
+  type        = string
+  description = "Environment-scoped prefix for Lambda, IAM, and layer resource names (e.g. license-env)."
+}
+
 variable "ngta_raw_bucket_name" {
   type        = string
   description = "S3 bucket that receives raw Excel uploads."
