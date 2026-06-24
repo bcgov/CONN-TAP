@@ -39,6 +39,7 @@ override.tf.json
 **.sh
 *.sh
 **.zip
+infra/modules/ngta_ingest_lambda/.build/
 
 *.tgz
 

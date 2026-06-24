@@ -1,7 +1,8 @@
 locals {
-  ngta_ingest_dir = "${var.repo_root}/lambda/ngta_ingest"
-  layer_zip       = "${var.repo_root}/lambda/ngta_ingest/ngta_ingest_layer.zip"
-  layer_build_dir = "${var.repo_root}/lambda/ngta_ingest/layer_build"
+  ngta_ingest_dir = abspath("${var.repo_root}/lambda/ngta_ingest")
+  build_dir       = abspath("${path.module}/.build")
+  layer_zip       = "${local.build_dir}/ngta_ingest_layer.zip"
+  function_zip    = "${local.build_dir}/lambda_ngta_ingest.zip"
 }
 
 # ---------------------------------------------------------------------------
@@ -9,7 +10,7 @@ locals {
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_role" "this" {
-  name = "lambda-ngta-ingest-role"
+  name = "${var.name_prefix}-ngta-ingest-lambda"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -22,7 +23,7 @@ resource "aws_iam_role" "this" {
 }
 
 resource "aws_iam_role_policy" "inline" {
-  name = "ngta-ingest-s3"
+  name = "${var.name_prefix}-ngta-ingest-s3"
   role = aws_iam_role.this.id
 
   policy = jsonencode({
@@ -57,37 +58,25 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
 }
 
 # ---------------------------------------------------------------------------
-# Dependency layer — pip install runs locally during terraform apply
-# Rebuilds only when requirements.txt changes
+# Dependency layer — built during plan/apply when zip is missing or stale
 # ---------------------------------------------------------------------------
 
-resource "null_resource" "layer_build" {
-  triggers = {
-    requirements = filemd5("${local.ngta_ingest_dir}/requirements.txt")
-  }
+data "external" "layer_build" {
+  program = ["python3", "${path.module}/build_layer.py"]
 
-  provisioner "local-exec" {
-    interpreter = ["bash", "-c"]
-    command     = <<-EOT
-      set -euo pipefail
-      rm -rf "${local.layer_build_dir}"
-      mkdir -p "${local.layer_build_dir}/python"
-      pip install \
-        --requirement "${local.ngta_ingest_dir}/requirements.txt" \
-        --target "${local.layer_build_dir}/python" \
-        --no-cache-dir \
-        --quiet
-      cd "${local.layer_build_dir}" && zip -r "${local.layer_zip}" python/ --quiet
-      rm -rf "${local.layer_build_dir}"
-    EOT
+  query = {
+    requirements_hash = filemd5("${local.ngta_ingest_dir}/requirements.txt")
+    ingest_dir        = local.ngta_ingest_dir
+    layer_zip         = local.layer_zip
   }
 }
 
 resource "aws_lambda_layer_version" "deps" {
-  layer_name          = "ngta-ingest-deps"
+  layer_name          = "${var.name_prefix}-ngta-ingest-deps"
   filename            = local.layer_zip
   compatible_runtimes = ["python3.12"]
-  depends_on          = [null_resource.layer_build]
+
+  depends_on = [data.external.layer_build]
 }
 
 # ---------------------------------------------------------------------------
@@ -96,7 +85,7 @@ resource "aws_lambda_layer_version" "deps" {
 
 data "archive_file" "function" {
   type        = "zip"
-  output_path = "${local.ngta_ingest_dir}/lambda_ngta_ingest.zip"
+  output_path = local.function_zip
 
   source {
     content  = file("${local.ngta_ingest_dir}/handler.py")
@@ -121,7 +110,7 @@ data "archive_file" "function" {
 # ---------------------------------------------------------------------------
 
 resource "aws_security_group" "this" {
-  name_prefix = "lambda-ngta-ingest-"
+  name_prefix = "${var.name_prefix}-ngta-ingest-"
   description = "Outbound-only SG for the NGTA ingest Lambda."
   vpc_id      = var.vpc_id
 
@@ -151,7 +140,7 @@ resource "aws_vpc_security_group_ingress_rule" "rds_access" {
 # ---------------------------------------------------------------------------
 
 resource "aws_lambda_function" "this" {
-  function_name    = "lambda-ngta-ingest"
+  function_name    = "${var.name_prefix}-ngta-ingest"
   role             = aws_iam_role.this.arn
   runtime          = "python3.12"
   handler          = "handler.lambda_handler"
@@ -233,5 +222,17 @@ resource "aws_s3_bucket_notification" "triggers" {
     filter_suffix       = ".xlsx"
   }
 
-  depends_on = [aws_lambda_permission.allow_s3]
+  depends_on = [
+    aws_lambda_function.this,
+    aws_lambda_permission.allow_s3,
+  ]
+
+  # AWS removes S3 notifications when the target Lambda is deleted. The function
+  # ARN is unchanged after recreate (same name), so Terraform would not detect
+  # drift without forcing this resource to re-apply when the function changes.
+  lifecycle {
+    replace_triggered_by = [
+      aws_lambda_function.this,
+    ]
+  }
 }
