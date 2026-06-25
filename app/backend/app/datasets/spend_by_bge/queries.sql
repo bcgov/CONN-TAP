@@ -1,5 +1,6 @@
 -- name: fiscal
 SELECT
+    bg.code                                         AS bge_code,
     bg.name                                         AS organization_name,
     p.code                                          AS vendor,
     SUM(bvs.spend_amount)::numeric(19, 4)           AS spend_amount,
@@ -11,11 +12,12 @@ WHERE (
         CAST(:period AS text) IS NULL
         OR (bvs.fiscal_year::text || '_' || bvs.fiscal_quarter::text) = ANY(CAST(:period AS text[]))
     )
-GROUP BY bg.name, p.code
+GROUP BY bg.code, bg.name, p.code
 ORDER BY SUM(bvs.spend_amount) DESC
 
 -- name: calendar
 SELECT
+    bg.code                                         AS bge_code,
     bg.name                                         AS organization_name,
     p.code                                          AS vendor,
     SUM(bvs.spend_amount)::numeric(19, 4)           AS spend_amount,
@@ -27,5 +29,5 @@ WHERE (
         CAST(:period AS text) IS NULL
         OR (bvs.calendar_year::text || '_' || bvs.calendar_quarter::text) = ANY(CAST(:period AS text[]))
     )
-GROUP BY bg.name, p.code
+GROUP BY bg.code, bg.name, p.code
 ORDER BY SUM(bvs.spend_amount) DESC
