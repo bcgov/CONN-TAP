@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: fct_service_spend
+    description: >
+      Atomic spend fact (one row per provider spend line item), keyed only by STABLE
+      identity ids. Editable attributes (sector membership, names, sub_bge type/parent,
+      provider active) are NOT stored here -- they are resolved live in the FastAPI
+      query layer so admin-UI edits appear instantly. The relationship tests below are
+      the hard-fail gate: an unmatched entity stops the pipeline.
+    columns:
+      - name: spend_line_item_id
+        description: MD5 of vendor|source_system|source_table|raw_id. One row per raw line item.
+        tests:
+          - unique     # fails if two raw rows hash to the same id, ie: a duplicate/double-counted row
+          - not_null
+      - name: period_key
+        description: Month grain (first day of month). FK to dim_period.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_period')
+              field: period_key
+      - name: provider_id
+        tests:
+          - not_null   # fails if vendor code isn't in reference_data.provider
+          - relationships:
+              to: source('reference_data', 'provider')
+              field: id
+      - name: bge_id
+        tests:
+          - not_null   # fails if organization_name (or its alias) isn't in reference_data.bge
+          - relationships:
+              to: source('reference_data', 'bge')
+              field: id
+      - name: sub_bge_id
+        tests:
+          - relationships:
+              to: source('reference_data', 'sub_bge')
+              field: id
+      - name: service_category_id
+        tests:
+          - not_null   # fails if lookup_code isn't in reference_data.service_code
+          - relationships:
+              to: source('reference_data', 'service_category')
+              field: id
+
+  - name: dim_period
+    description: Conformed period dimension at month grain (BC Gov fiscal calendar).
+    columns:
+      - name: period_key
+        tests: [unique, not_null]
+
+  - name: dim_source
+    description: Dataset source metadata (load counts and timestamps per source).
