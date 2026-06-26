@@ -8,6 +8,7 @@ import {
   MenuTrigger,
   Popover,
 } from "react-aria-components";
+import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { toJpeg, toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
@@ -35,15 +36,9 @@ const triggerImageDownload = (href: string, filename: string) => {
   link.click();
 };
 
-//with filename format: {chart title} - {timestamp}.pdf/png/jpeg
-const buildFilename = (title: string, extension: string) => {
-  const timestamp = new Date()
-    .toISOString()
-    .slice(0, 19)
-    .replace("T", " ")
-    .replace(/:/g, "-");
-  return `${title} - ${timestamp}.${extension}`;
-};
+// filename format: {chart title} - YYYY Mon DD hh.mmaaa.{ext}
+const buildFilename = (title: string, extension: string) =>
+  `${title} - ${format(new Date(), "d MMM yyyy, h.mmaaa")}.${extension}`;
 
 type ChartDownloadButtonProps = {
   targetRef: React.RefObject<HTMLElement | null>;
