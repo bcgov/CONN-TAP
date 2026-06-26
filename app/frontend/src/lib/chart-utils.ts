@@ -76,6 +76,7 @@ export const isSectorChart = (chart: unknown): chart is SectorChart =>
   );
 
 export type BgeBarEntry = {
+  bge_code: string;
   organization_name: string;
   [key: string]: string | number;
 };
