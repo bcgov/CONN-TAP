@@ -61,3 +61,13 @@ output "web_subnet_ids_csv" {
   description = "Web-tier subnet IDs for ALB Ingress annotations."
   value       = local.web_subnet_ids_csv
 }
+
+output "raw_data_bucket_name" {
+  description = "S3 bucket for raw data uploads (admin upload via AWS Console)."
+  value       = module.raw_data_bucket.bucket_name
+}
+
+output "ngta_ingest_lambda_name" {
+  description = "Lambda function that ingests raw data files into Postgres raw_data."
+  value       = module.ngta_ingest_lambda.function_name
+}
