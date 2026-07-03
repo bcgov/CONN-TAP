@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import styles from "./spend-by-sector-chart.module.css";
 
+const CHART_MARGIN = { top: 24, right: 24, bottom: 8, left: 24 };
 
 type Props = {
   chart: SectorChart;
@@ -34,7 +35,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
         <p className={styles.empty}>No data for this period.</p>
       ) : (
         <ResponsiveContainer width="100%" height={320}>
-          <PieChart>
+          <PieChart margin={CHART_MARGIN}>
             <Pie
               data={chart.data}
               dataKey={chart.dataKey}

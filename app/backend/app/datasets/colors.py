@@ -6,9 +6,9 @@ PROVIDER_COLOURS: dict[str, str] = {
 }
 
 SECTOR_COLOURS: dict[str, str] = {
-    "Health Authorities": "#4e79a7",
-    "Crown Corporations": "#c03b27",
-    "Gov & ECC": "#b6f396",
+    "Health Authorities": "#3470B1",
+    "Crown Corporations": "#7229B3",
+    "Gov & ECC": "#FCBA19",
     "School Districts": "#7b5ea7",
 }
 

@@ -177,8 +177,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
                 <Heading level={1}>Telecom Spend Dashboard</Heading>
                 <Heading level={5}>TSMA & NGTA</Heading>
                 <p className="dashboard-main__intro">
-                  Consolidated view of telecom spend across BC government
-                  entities
+                  Consolidated view of telecom spend across Buyers Group Entities
                 </p>
               </div>
             </div>
