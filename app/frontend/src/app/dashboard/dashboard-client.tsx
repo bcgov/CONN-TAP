@@ -54,9 +54,16 @@ async function fetchDataset(
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
-export function DashboardClient({ displayName }: { displayName: string }) {
+export function DashboardClient({
+  displayName,
+  visibleDatasetIds,
+}: {
+  displayName: string;
+  visibleDatasetIds: string[];
+}) {
   const [yearType, setYearType] = useState<YearType>("fiscal");
   const [period, setPeriods] = useState<string[]>([]);
+  const canAccessBgeData = visibleDatasetIds.includes("spend-by-bge");
 
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, period],
@@ -122,7 +129,7 @@ export function DashboardClient({ displayName }: { displayName: string }) {
       const result = await fetchDataset("spend-by-bge", { yearType, period });
       return isBgeChart(result.metadata.chart) ? result.metadata.chart : null;
     },
-    enabled: period.length > 0,
+    enabled: canAccessBgeData && period.length > 0,
   });
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -314,36 +321,38 @@ export function DashboardClient({ displayName }: { displayName: string }) {
               </article>
             </section>
 
-            <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
-              <article className="dashboard-card">
-                <CustomDashboardChart
-                  title="Spend by BGE"
-                  label="Download spend by BGE chart as image"
-                >
-                  <div className="dashboard-card__header">
-                    <h2>Spend by BGE</h2>
-                  </div>
-                  <div className="dashboard-card__chart">
-                    {bgeQuery.isLoading ? (
-                      <p className="dashboard-card__empty">Loading BGE chart…</p>
-                    ) : bgeQuery.isError ? (
-                      <p className="dashboard-card__empty">
-                        Unable to load BGE data.
-                      </p>
-                    ) : bgeQuery.data ? (
-                      <SpendByBgeChart
-                        chart={bgeQuery.data}
-                        dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-                      />
-                    ) : (
-                      <p className="dashboard-card__empty">
-                        No data for this period.
-                      </p>
-                    )}
-                  </div>
-                </CustomDashboardChart>
-              </article>
-            </section>
+            {canAccessBgeData && (
+              <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
+                <article className="dashboard-card">
+                  <CustomDashboardChart
+                    title="Spend by BGE"
+                    label="Download spend by BGE chart as image"
+                  >
+                    <div className="dashboard-card__header">
+                      <h2>Spend by BGE</h2>
+                    </div>
+                    <div className="dashboard-card__chart">
+                      {bgeQuery.isLoading ? (
+                        <p className="dashboard-card__empty">Loading BGE chart…</p>
+                      ) : bgeQuery.isError ? (
+                        <p className="dashboard-card__empty">
+                          Unable to load BGE data.
+                        </p>
+                      ) : bgeQuery.data ? (
+                        <SpendByBgeChart
+                          chart={bgeQuery.data}
+                          dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                        />
+                      ) : (
+                        <p className="dashboard-card__empty">
+                          No data for this period.
+                        </p>
+                      )}
+                    </div>
+                  </CustomDashboardChart>
+                </article>
+              </section>
+            )}
           </main>
           <MinimalFooter />
         </div>

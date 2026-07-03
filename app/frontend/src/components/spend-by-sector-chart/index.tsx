@@ -13,7 +13,16 @@ import {
 } from "recharts";
 import styles from "./spend-by-sector-chart.module.css";
 
-const CHART_MARGIN = { top: 24, right: 24, bottom: 8, left: 24 };
+const CHART_MARGIN = { top: 40, right: 24, bottom: 8, left: 24 };
+
+// Giving separate display names for some sectors to allow better customization
+const SECTOR_DISPLAY_NAMES: Record<string, string> = {
+  "Gov & ECC": "Gov BC",
+  "Health Authorities": "Health",
+  "Crown Corporations": "Crown Corp",
+};
+
+const displaySector = (sector: string) => SECTOR_DISPLAY_NAMES[sector] ?? sector;
 
 type Props = {
   chart: SectorChart;
@@ -34,7 +43,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
       ) : chart.data.length === 0 ? (
         <p className={styles.empty}>No data for this period.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={320}>
+        <ResponsiveContainer width="100%" height={340}>
           <PieChart margin={CHART_MARGIN}>
             <Pie
               data={chart.data}
@@ -43,7 +52,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
               cx="50%"
               cy="50%"
               innerRadius={60}
-              outerRadius={110}
+              outerRadius={100}
               label={(props: PieLabelRenderProps & { percentage?: number }) => `${props.percentage ?? 0}%`}
               labelLine={false}
               shape={(sectorProps, index) => (
@@ -54,7 +63,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
             <Tooltip
               formatter={(spend, sector) => [
                 `${fmtMillions(Number(spend))} (${chart.data.find((s) => s.sector === String(sector))?.percentage ?? 0}%)`,
-                String(sector),
+                displaySector(String(sector)),
               ]}
             />
             <Legend
@@ -66,7 +75,7 @@ export const SpendBySectorChart = ({ chart, dateRangeLabel, isLoading }: Props) 
                       return (
                         <li key={entry.value} className={styles.legendItem}>
                           <span className={styles.legendDot} style={{ background: entry.color }} />
-                          {entry.value ?? ""} = {slice?.percentage ?? 0}% ({fmtMillions(slice?.spend_millions ?? 0)})
+                          {displaySector(entry.value ?? "")} = {slice?.percentage ?? 0}% ({fmtMillions(slice?.spend_millions ?? 0)})
                         </li>
                       );
                     })}
