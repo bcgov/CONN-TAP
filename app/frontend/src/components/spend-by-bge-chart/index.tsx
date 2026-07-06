@@ -48,7 +48,7 @@ export const SpendByBgeChart = ({ chart, dateRangeLabel }: Props) => {
           <BarChart data={data} margin={{ top: 24, right: 16, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="organization_name"
+              dataKey="bge_code"
               tick={{ fontSize: 11 }}
             />
             <YAxis

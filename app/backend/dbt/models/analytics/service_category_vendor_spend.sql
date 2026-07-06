@@ -1,19 +1,20 @@
 {{ config(materialized='materialized_view') }}
 
 select
-    calendar_year,
-    calendar_quarter,
-    fiscal_year,
-    fiscal_quarter,
-    service_category_id,
-    provider_id,
-    sum(spend_amount)::numeric(19, 4) as spend_amount,
-    (sum(spend_amount) / 1000000.0)::numeric(19, 6) as spend_millions
-from {{ ref('int_service_spend_line_items') }}
+    dp.calendar_year,
+    dp.calendar_quarter,
+    dp.fiscal_year,
+    dp.fiscal_quarter,
+    f.service_category_id,
+    f.provider_id,
+    sum(f.spend_amount)::numeric(19, 4) as spend_amount,
+    (sum(f.spend_amount) / 1000000.0)::numeric(19, 6) as spend_millions
+from {{ ref('fct_service_spend') }} f
+join {{ ref('dim_period') }} dp on dp.period_key = f.period_key
 group by
-    calendar_year,
-    calendar_quarter,
-    fiscal_year,
-    fiscal_quarter,
-    service_category_id,
-    provider_id
+    dp.calendar_year,
+    dp.calendar_quarter,
+    dp.fiscal_year,
+    dp.fiscal_quarter,
+    f.service_category_id,
+    f.provider_id
