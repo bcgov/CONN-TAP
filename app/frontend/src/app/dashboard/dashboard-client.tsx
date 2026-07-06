@@ -54,6 +54,31 @@ async function fetchDataset(
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
+const ChartState = ({
+  isLoading,
+  isError,
+  isEmpty,
+  loadingLabel,
+  errorLabel,
+  emptyLabel,
+  children,
+}: Readonly<{
+  isLoading: boolean;
+  isError?: boolean;
+  isEmpty: boolean;
+  loadingLabel: string;
+  errorLabel?: string;
+  emptyLabel: string;
+  children: React.ReactNode;
+}>) => {
+  if (isLoading)
+    return <p className="dashboard-card__empty">{loadingLabel}</p>;
+  if (isError && errorLabel)
+    return <p className="dashboard-card__empty">{errorLabel}</p>;
+  if (isEmpty) return <p className="dashboard-card__empty">{emptyLabel}</p>;
+  return <>{children}</>;
+};
+
 export function DashboardClient({
   displayName,
   visibleDatasetIds,
@@ -250,41 +275,40 @@ export function DashboardClient({
                     </p>
                   </div>
                   <div className="dashboard-card__chart">
-                    {chartQuery.isLoading ? (
-                      <p className="dashboard-card__empty">
-                        Loading Plotly chart...
-                      </p>
-                    ) : chartQuery.data?.plotly ? (
-                      <Plot
-                        data={applyOutsideLabels(
-                          chartQuery.data.plotly.data,
-                          new Set(
-                            chartQuery.data.plotly.data.map(
-                              (t) => (t as { name?: string }).name ?? "",
+                    <ChartState
+                      isLoading={chartQuery.isLoading}
+                      isEmpty={!chartQuery.data?.plotly}
+                      loadingLabel="Loading Plotly chart..."
+                      emptyLabel="No Plotly data for this period."
+                    >
+                      {chartQuery.data?.plotly && (
+                        <Plot
+                          data={applyOutsideLabels(
+                            chartQuery.data.plotly.data,
+                            new Set(
+                              chartQuery.data.plotly.data.map(
+                                (t) => (t as { name?: string }).name ?? "",
+                              ),
                             ),
-                          ),
-                        )}
-                        layout={{
-                          ...chartQuery.data.plotly.layout,
-                          autosize: true,
-                          showlegend: true,
-                          legend: {
-                            ...chartQuery.data.plotly.layout.legend,
-                            itemclick: false,
-                            itemdoubleclick: false,
-                          },
-                          paper_bgcolor: "rgba(0,0,0,0)",
-                          plot_bgcolor: "rgba(0,0,0,0)",
-                        }}
-                        config={{ displayModeBar: false, responsive: true }}
-                        style={{ width: "100%", height: "420px" }}
-                        useResizeHandler
-                      />
-                    ) : (
-                      <p className="dashboard-card__empty">
-                        No Plotly data for this period.
-                      </p>
-                    )}
+                          )}
+                          layout={{
+                            ...chartQuery.data.plotly.layout,
+                            autosize: true,
+                            showlegend: true,
+                            legend: {
+                              ...chartQuery.data.plotly.layout.legend,
+                              itemclick: false,
+                              itemdoubleclick: false,
+                            },
+                            paper_bgcolor: "rgba(0,0,0,0)",
+                            plot_bgcolor: "rgba(0,0,0,0)",
+                          }}
+                          config={{ displayModeBar: false, responsive: true }}
+                          style={{ width: "100%", height: "420px" }}
+                          useResizeHandler
+                        />
+                      )}
+                    </ChartState>
                   </div>
                 </CustomDashboardChart>
               </article>
@@ -298,24 +322,24 @@ export function DashboardClient({
                     <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
                   </div>
                   <div className="dashboard-card__chart">
-                    {sectorQuery.isLoading ? (
-                      <p className="dashboard-card__empty">
-                        Loading sector chart…
-                      </p>
-                    ) : sectorQuery.isError ? (
-                      <p className="dashboard-card__empty">
-                        Unable to load sector data.
-                      </p>
-                    ) : sectorQuery.data ? (
-                      <SpendBySectorChart
-                        chart={sectorQuery.data}
-                        dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-                      />
-                    ) : (
-                      <p className="dashboard-card__empty">
-                        No data for this period.
-                      </p>
-                    )}
+                    <ChartState
+                      isLoading={sectorQuery.isLoading}
+                      isError={sectorQuery.isError}
+                      isEmpty={!sectorQuery.data}
+                      loadingLabel="Loading sector chart…"
+                      errorLabel="Unable to load sector data."
+                      emptyLabel="No data for this period."
+                    >
+                      {sectorQuery.data && (
+                        <SpendBySectorChart
+                          chart={sectorQuery.data}
+                          dateRangeLabel={buildPeriodRangeLabel(
+                            period,
+                            yearType,
+                          )}
+                        />
+                      )}
+                    </ChartState>
                   </div>
                 </CustomDashboardChart>
               </article>
@@ -332,22 +356,24 @@ export function DashboardClient({
                       <h2>Spend by BGE</h2>
                     </div>
                     <div className="dashboard-card__chart">
-                      {bgeQuery.isLoading ? (
-                        <p className="dashboard-card__empty">Loading BGE chart…</p>
-                      ) : bgeQuery.isError ? (
-                        <p className="dashboard-card__empty">
-                          Unable to load BGE data.
-                        </p>
-                      ) : bgeQuery.data ? (
-                        <SpendByBgeChart
-                          chart={bgeQuery.data}
-                          dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-                        />
-                      ) : (
-                        <p className="dashboard-card__empty">
-                          No data for this period.
-                        </p>
-                      )}
+                      <ChartState
+                        isLoading={bgeQuery.isLoading}
+                        isError={bgeQuery.isError}
+                        isEmpty={!bgeQuery.data}
+                        loadingLabel="Loading BGE chart…"
+                        errorLabel="Unable to load BGE data."
+                        emptyLabel="No data for this period."
+                      >
+                        {bgeQuery.data && (
+                          <SpendByBgeChart
+                            chart={bgeQuery.data}
+                            dateRangeLabel={buildPeriodRangeLabel(
+                              period,
+                              yearType,
+                            )}
+                          />
+                        )}
+                      </ChartState>
                     </div>
                   </CustomDashboardChart>
                 </article>
