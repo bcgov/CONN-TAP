@@ -73,6 +73,11 @@ describe("SpendBySectorChart", () => {
     expect(screen.getByText(/School Districts = 60% \(\$18M\)/)).toBeInTheDocument();
   });
 
+  it("renders nothing in the legend when recharts supplies no payload", () => {
+    render(<SpendBySectorChart chart={makeChart()} />);
+    expect(captured.legendContent?.({})).toBeNull();
+  });
+
   it("maps the tooltip label through displaySector and includes spend + percentage", () => {
     render(<SpendBySectorChart chart={makeChart()} />);
 
