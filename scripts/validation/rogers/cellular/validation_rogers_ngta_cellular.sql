@@ -1,64 +1,18 @@
 WITH bge_map AS (
 
-    SELECT *
-    FROM (VALUES
-        ('BRITISH COLUMBIA LOTTERY CORPORATION', 'BCLC'),
-        ('BRITISH COLOMBIA LOTTERY CORPORATION', 'BCLC'),
-        ('BC LOTTERY CORPORATION', 'BCLC'),
-        ('BC LOTTERY', 'BCLC'),
-        ('BC HYDRO', 'BC HYDRO'),
-        ('BRITISH COLUMBIA HYDRO', 'BC HYDRO'),
-        ('EDUCATION AND CHILD CARE', 'ECC'),
-        ('FRASER HEALTH AUTHORITY', 'FHA'),
-        ('INTERIOR HEALTH AUTHORITY', 'IHA'),
-        ('NORTHERN HEALTH AUTHORITY', 'NHA'),
-        ('INSURANCE CORPORATION OF BRITISH COLUMB.', 'ICBC'),
-        ('PROVINCIAL HEALTH SERVICES AUTHORITY', 'PHSA'),
-        ('VANCOUVER COASTAL HEALTH AUTHORITY', 'VCHA'),
-        ('PROVIDENCE HEALTH CARE', 'PHC'),
-        ('VANCOUVER ISLAND HEALTH AUTHORITY', 'VIHA'),
-        ('BC GOVERNMENT MINISTRIES', 'GOV BC')
-    ) AS t(raw_bge, mapped_bge)
+    SELECT UPPER(TRIM(bam.raw_name)) AS raw_bge,
+           bam.bge_alias             AS mapped_bge
+    FROM seeds.bge_alias_map AS bam
 
 ),
 
 sub_bge_map AS (
 
-    SELECT *
-    FROM (VALUES
-        ('BC MIN ATTORNEY GENERAL', 'GOV BC'),
-        ('INDIGENOUS RELATIONS AND RECONCILIATION', 'GOV BC'),
-        ('MINISTRY OF CITIZENS SERVICES', 'GOV BC'),
-        ('MINISTRY OF INFRASTRUCTURE', 'GOV BC'),
-        ('MIN OF SOCIAL DEVELOPMENT', 'GOV BC'),
-        ('BC MIN AGRICULTURE & FOOD', 'GOV BC'),
-        ('BC MIN CHILDREN & FAMILY DEVELOPMENT', 'GOV BC'),
-        ('BC MIN EDUCATION & CHILDCARE', 'GOV BC'),
-        ('BC MIN EMERG MGMT & CLIMATE READINESS', 'GOV BC'),
-        ('BC MIN ENERGY & CLIMATE SOLUTIONS', 'GOV BC'),
-        ('BC MIN ENVIRONMENT AND PARKS', 'GOV BC'),
-        ('BC MIN FINANCE', 'GOV BC'),
-        ('BC MIN FORESTS', 'GOV BC'),
-        ('BC MIN HEALTH', 'GOV BC'),
-        ('BC MIN HOUSING & MUNICIPAL AFFAIRS', 'GOV BC'),
-        ('BC MIN JOBS & ECONOMIC GROWTH', 'GOV BC'),
-        ('BC MIN LABOUR', 'GOV BC'),
-        ('BC MIN MINING & CRITICAL MINERALS', 'GOV BC'),
-        ('BC MIN POST-SECONDARY ED & FUTURE SKILLS', 'GOV BC'),
-        ('BC MIN PUBLIC SAFETY & SOLICITOR GEN', 'GOV BC'),
-        ('BC MIN SOCIAL DEV & POVERTY REDUCTION', 'GOV BC'),
-        ('BC MIN TOURISM, ARTS, CULTURE, AND SPORT', 'GOV BC'),
-        ('BC MIN TRANSPORTATION & TRANSIT', 'GOV BC'),
-        ('BC MIN WATER LAND & RESOURCE STEWARD', 'GOV BC'),
-        ('BC OFFICE OF THE PREMIER', 'GOV BC'),
-        ('BC PUBLIC SERVICE AGENCY', 'GOV BC'),
-        ('BC ASSESSMENT', 'GOV BC'),
-        ('BC LDB', 'GOV BC'),
-        ('BC FAMILY MAINTENANCE AGENCY LTD.', 'GOV BC'),
-        ('BC FINANCIAL SERVICES AUTHORITY', 'GOV BC'),
-        ('POWERTECH', 'BC HYDRO'),
-        ('POWER EX', 'BC HYDRO')
-    ) AS t(sub_bge, expected_bge)
+    SELECT UPPER(TRIM(sbam.raw_name)) AS sub_bge,
+           b.code                     AS expected_bge
+    FROM seeds.sub_bge_alias_map AS sbam
+    JOIN reference_data.sub_bge  AS sb ON sb.code  = sbam.sub_bge_alias
+    JOIN reference_data.bge      AS b  ON b.id     = sb.bge_id
 
 ),
 
@@ -238,3 +192,181 @@ GROUP BY
 ORDER BY
     issue_type,
     issue_count DESC;
+
+
+-- =============================================
+-- NEW BGE / SUB-BGE DETECTION
+-- Flags BGEs and Sub BGEs that are new, unrecognized, removed, or still absent.
+-- Statuses:
+--   Newly Appeared    - in current month, not in prior month, recognized in seeds
+--   Unrecognized      - in current month, not in seeds (regardless of prior month)
+--   New + Unrecognized- in current month, not in prior month, not in seeds
+--   Removed           - in prior month, not in current month
+--   Still Removed     - absent in both prior and current month (was removed last month)
+-- =============================================
+
+WITH bge_known AS (
+
+    SELECT UPPER(TRIM(bam.raw_name)) AS raw_name
+    FROM seeds.bge_alias_map    AS bam
+    JOIN reference_data.bge     AS b ON b.code = bam.bge_alias
+
+),
+
+sub_bge_known AS (
+
+    SELECT UPPER(TRIM(sbam.raw_name)) AS raw_name
+    FROM seeds.sub_bge_alias_map AS sbam
+    JOIN reference_data.sub_bge  AS sb ON sb.code = sbam.sub_bge_alias
+
+),
+
+invoice_months AS (
+    SELECT
+        MAX(date_trunc('month', invoice_date::date))                          AS current_month,
+        MAX(date_trunc('month', invoice_date::date)) - interval '1 month'    AS prior_month,
+        MAX(date_trunc('month', invoice_date::date)) - interval '2 months'   AS two_months_ago
+    FROM raw_data.raw_rogers_spend_cellular
+    WHERE invoice_date IS NOT NULL
+),
+
+current_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.bge)) AS bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.bge IS NOT NULL
+      AND TRIM(r.bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.current_month
+),
+
+prior_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.bge)) AS bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.bge IS NOT NULL
+      AND TRIM(r.bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.prior_month
+),
+
+current_sub_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.sub_bge)) AS sub_bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.sub_bge IS NOT NULL
+      AND TRIM(r.sub_bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.current_month
+),
+
+prior_sub_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.sub_bge)) AS sub_bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.sub_bge IS NOT NULL
+      AND TRIM(r.sub_bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.prior_month
+),
+
+two_months_ago_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.bge)) AS bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.bge IS NOT NULL
+      AND TRIM(r.bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.two_months_ago
+),
+
+two_months_ago_sub_bges AS (
+    SELECT DISTINCT UPPER(TRIM(r.sub_bge)) AS sub_bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+    CROSS JOIN invoice_months m
+    WHERE r.sub_bge IS NOT NULL
+      AND TRIM(r.sub_bge) <> ''
+      AND date_trunc('month', r.invoice_date::date) = m.two_months_ago
+)
+
+SELECT
+    m.current_month::date AS current_month,
+    'BGE'                 AS entity_type,
+    cb.bge_norm           AS raw_value,
+    CASE
+        WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+         AND NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
+            THEN 'New + Unrecognized'
+        WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+            THEN 'Unrecognized'
+        WHEN NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
+            THEN 'Newly Appeared'
+    END AS status
+FROM current_bges cb
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+   OR NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
+
+UNION ALL
+
+SELECT
+    m.current_month::date  AS current_month,
+    'Sub BGE'              AS entity_type,
+    csb.sub_bge_norm       AS raw_value,
+    CASE
+        WHEN NOT EXISTS (SELECT 1 FROM sub_bge_known  k   WHERE k.raw_name       = csb.sub_bge_norm)
+         AND NOT EXISTS (SELECT 1 FROM prior_sub_bges psb WHERE psb.sub_bge_norm = csb.sub_bge_norm)
+            THEN 'New + Unrecognized'
+        WHEN NOT EXISTS (SELECT 1 FROM sub_bge_known  k   WHERE k.raw_name       = csb.sub_bge_norm)
+            THEN 'Unrecognized'
+        WHEN NOT EXISTS (SELECT 1 FROM prior_sub_bges psb WHERE psb.sub_bge_norm = csb.sub_bge_norm)
+            THEN 'Newly Appeared'
+    END AS status
+FROM current_sub_bges csb
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM sub_bge_known  k   WHERE k.raw_name       = csb.sub_bge_norm)
+   OR NOT EXISTS (SELECT 1 FROM prior_sub_bges psb WHERE psb.sub_bge_norm = csb.sub_bge_norm)
+
+UNION ALL
+
+SELECT
+    m.current_month::date AS current_month,
+    'BGE'                 AS entity_type,
+    pb.bge_norm           AS raw_value,
+    'Removed'             AS status
+FROM prior_bges pb
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM current_bges cb WHERE cb.bge_norm = pb.bge_norm)
+
+UNION ALL
+
+SELECT
+    m.current_month::date AS current_month,
+    'Sub BGE'             AS entity_type,
+    psb.sub_bge_norm      AS raw_value,
+    'Removed'             AS status
+FROM prior_sub_bges psb
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM current_sub_bges csb WHERE csb.sub_bge_norm = psb.sub_bge_norm)
+
+UNION ALL
+
+-- Still Removed: absent in prior month AND still absent in current month
+SELECT
+    m.current_month::date AS current_month,
+    'BGE'                 AS entity_type,
+    tma.bge_norm          AS raw_value,
+    'Still Removed'       AS status
+FROM two_months_ago_bges tma
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM prior_bges   pb WHERE pb.bge_norm  = tma.bge_norm)
+  AND NOT EXISTS (SELECT 1 FROM current_bges cb WHERE cb.bge_norm  = tma.bge_norm)
+
+UNION ALL
+
+SELECT
+    m.current_month::date  AS current_month,
+    'Sub BGE'              AS entity_type,
+    tma.sub_bge_norm       AS raw_value,
+    'Still Removed'        AS status
+FROM two_months_ago_sub_bges tma
+CROSS JOIN invoice_months m
+WHERE NOT EXISTS (SELECT 1 FROM prior_sub_bges   psb WHERE psb.sub_bge_norm = tma.sub_bge_norm)
+  AND NOT EXISTS (SELECT 1 FROM current_sub_bges csb WHERE csb.sub_bge_norm = tma.sub_bge_norm)
+
+ORDER BY entity_type, status, raw_value;
