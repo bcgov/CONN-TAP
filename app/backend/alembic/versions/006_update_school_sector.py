@@ -1,7 +1,7 @@
 """Move the School Districts BGE under the Gov & ECC sector.
 
-Revision ID: 005_update_school_sector
-Revises: 004_reference_data_schema
+Revision ID: 006_update_school_sector
+Revises: 005_add_missing_sub_bge
 Create Date: 2026-07-03
 
 """
@@ -9,8 +9,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "005_update_school_sector"
-down_revision: Union[str, Sequence[str], None] = "004_reference_data_schema"
+revision: str = "006_update_school_sector"
+down_revision: Union[str, Sequence[str], None] = "005_add_missing_sub_bge"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
