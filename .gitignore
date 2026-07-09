@@ -59,6 +59,7 @@ source/
 scripts/spend_tracking.xlsx
 scripts/telus_ngta_spend.xlsx
 scripts/tsma_other_spend.xlsx
+scripts/telus_unmatched_spend.xlsx
 scripts/~$*.xlsx
 
 # ---------------------------------------------------------------------------
