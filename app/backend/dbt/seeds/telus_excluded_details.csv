@@ -1,0 +1,22 @@
+detail_description,exclusion_reason
+bc pst,provincial sales tax
+b.c. pst adjustment,provincial sales tax
+bus. services gst,goods and services tax
+cps gst 100652692,goods and services tax
+cps gst adjustment 362037,goods and services tax
+cps pst british columbia 7%,provincial sales tax
+fp gst credit,goods and services tax
+fp pst credit,provincial sales tax
+gst,goods and services tax
+gst adj,goods and services tax
+gst adjustment,goods and services tax
+gst/hst,goods and services tax / harmonized sales tax
+gst/hst adjustment,goods and services tax / harmonized sales tax
+gst tax adjustment,goods and services tax
+pq pst,provincial sales tax (Quebec)
+pst,provincial sales tax
+pst adjustment,provincial sales tax
+pst-bc,provincial sales tax (BC)
+pst-bc adj,provincial sales tax (BC)
+pst-mb,provincial sales tax (Manitoba)
+pst-qc,provincial sales tax (Quebec)

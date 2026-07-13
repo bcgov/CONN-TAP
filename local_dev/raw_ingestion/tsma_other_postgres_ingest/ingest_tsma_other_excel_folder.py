@@ -7,7 +7,7 @@ WLAN / Wi‑Fi wireline-shaped extracts belong in ``tsma/wireline/`` and ``raw_d
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/tsma_other_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_other_postgres_ingest/schema.sql
+  cd app/backend && alembic upgrade head   # creates raw_data (see alembic/raw_data/tsma_other_postgres.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
@@ -45,7 +45,7 @@ def _fq(ident: str) -> str:
     return f"{PG_SCHEMA}.{ident}"
 
 
-# Wireline-shaped columns (must match schema.sql insert order).
+# Wireline-shaped columns (must match alembic/raw_data/tsma_other_postgres.sql insert order).
 ROW_COLS = [
     "ingestion_run_id",
     "month_id",

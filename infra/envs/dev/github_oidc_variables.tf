@@ -6,7 +6,7 @@ variable "github_owner" {
 
 variable "github_repository" {
   type        = string
-  default     = "Data-Management-Platform"
+  default     = "CONN-TAP"
   description = "GitHub repository name (without owner prefix)."
 }
 

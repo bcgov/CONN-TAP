@@ -4,7 +4,7 @@ Load NGTA Rogers / Telus pricebooks from a folder into Postgres raw tables.
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/ngta_pricebooks_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/raw_ingestion/ngta_pricebooks_ingest/schema.sql
+  cd app/backend && alembic upgrade head   # creates raw_data (see alembic/raw_data/ngta_pricebooks.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta

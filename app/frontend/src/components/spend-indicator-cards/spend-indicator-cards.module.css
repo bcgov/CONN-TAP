@@ -1,0 +1,76 @@
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.dateRange {
+  text-align: center;
+  margin: 0 0 0.75rem;
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  font-size: 0.875rem;
+}
+
+.cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  flex: 1;
+  min-width: 160px;
+  padding: 1.25rem 1.5rem 1.125rem;
+  background: var(--color-surface-white);
+  border: 1px solid var(--surface-color-border-light, var(--color-border-light));
+  border-left: 4px solid var(--surface-color-background-dark-blue, var(--color-bg-dark-blue));
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.11);
+  transform: translateY(-1px);
+}
+
+.cardLabel {
+  margin: 0 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cardValue {
+  margin: 0;
+  font: var(--typography-bold-h3, 700 1.75rem / 1.2 system-ui);
+  color: var(--typography-color-primary, var(--color-text-primary));
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.cardLoading {
+  border-left-color: var(--surface-color-border-light, var(--color-border-light));
+  pointer-events: none;
+}
+
+.cardLoading .cardLabel,
+.cardLoading .cardValue {
+  border-radius: 0.25rem;
+  color: transparent;
+  background: linear-gradient(90deg, var(--color-shimmer-base) 25%, var(--color-shimmer-shine) 50%, var(--color-shimmer-base) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.cardLoading .cardLabel {
+  width: 60%;
+}
+
+.cardLoading .cardValue {
+  width: 80%;
+}

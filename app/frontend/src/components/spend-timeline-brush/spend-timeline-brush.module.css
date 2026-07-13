@@ -1,0 +1,57 @@
+.container {
+  padding: 1rem 1rem 0.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--color-surface-white);
+  border: 1px solid var(--surface-color-border-light, var(--color-border-light));
+  border-radius: 0.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title {
+  font: var(--typography-bold-small-body, 700 0.875rem / 1.4 system-ui);
+  color: var(--typography-color-primary, var(--color-text-primary));
+  white-space: nowrap;
+}
+
+.range {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-pill-text);
+  background: var(--color-pill-bg);
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.75rem;
+  white-space: nowrap;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--typography-color-secondary, var(--color-text-hint));
+  white-space: nowrap;
+}
+
+.chart {
+  cursor: crosshair;
+  user-select: none;
+  outline: none;
+}
+
+.chart :global(.recharts-wrapper),
+.chart :global(.recharts-wrapper:focus),
+.chart :global(.recharts-wrapper:focus-visible),
+.chart :global(.recharts-surface),
+.chart :global(.recharts-wrapper svg) {
+  outline: none !important;
+}

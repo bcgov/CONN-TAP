@@ -4,7 +4,7 @@ Load TSMA / TSMA lite cost Excel workbooks from a folder into Postgres raw table
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/tsma_postgres_ingest/requirements.txt
-  psql "$DATABASE_URL" -f local_dev/raw_ingestion/tsma_postgres_ingest/schema.sql
+  cd app/backend && alembic upgrade head   # creates raw_data (see alembic/raw_data/tsma_postgres.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
@@ -43,7 +43,7 @@ def _fq(ident: str) -> str:
     return f"{PG_SCHEMA}.{ident}"
 
 
-# --- Column lists (must match schema.sql insert column order) ---
+# --- Column lists (must match alembic/raw_data/tsma_postgres.sql insert column order) ---
 
 TSMA_WIRELESS_COLS = [
     "ingestion_run_id",

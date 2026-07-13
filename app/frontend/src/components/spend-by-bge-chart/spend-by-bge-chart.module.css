@@ -1,0 +1,30 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dateRange {
+  display: inline-block;
+  align-self: flex-start;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-pill-text);
+  background: var(--color-pill-bg);
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.75rem;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  margin: 0;
+}
+
+.empty {
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  font-size: 0.875rem;
+  padding: 2rem 0;
+  text-align: center;
+}

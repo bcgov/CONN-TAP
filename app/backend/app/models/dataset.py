@@ -4,10 +4,10 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import AppBase
 
 
-class Dataset(Base):
+class Dataset(AppBase):
     __tablename__ = "datasets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

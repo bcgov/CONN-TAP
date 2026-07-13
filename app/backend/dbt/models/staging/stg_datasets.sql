@@ -5,4 +5,4 @@ select
     name,
     source,
     created_at
-from {{ source('public', 'datasets') }}
+from {{ source('app', 'datasets') }}

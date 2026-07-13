@@ -5,8 +5,8 @@
 module "postgres_bastion" {
   source = "../../modules/ssm_rds_bastion"
 
-  name_prefix   = local.rds_resource_prefix
-  vpc_id        = data.aws_vpc.workload.id
+  name_prefix = local.rds_resource_prefix
+  vpc_id      = data.aws_vpc.workload.id
   # subnet_id     = data.aws_subnet.management_a.id
   subnet_id     = data.aws_subnet.app_a.id
   instance_type = "t3.micro"

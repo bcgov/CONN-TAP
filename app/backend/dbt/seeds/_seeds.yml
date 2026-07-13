@@ -1,0 +1,20 @@
+version: 2
+
+seeds:
+  - name: bge_alias_map
+    description: Maps raw organization name spellings/variants to a canonical BGE code.
+    columns:
+      - name: bge_alias
+        tests:
+          - relationships:
+              to: source('reference_data', 'bge')
+              field: code
+
+  - name: sub_bge_alias_map
+    description: Maps raw sub-organization name spellings/variants to a canonical sub_bge code.
+    columns:
+      - name: sub_bge_alias
+        tests:
+          - relationships:
+              to: source('reference_data', 'sub_bge')
+              field: code

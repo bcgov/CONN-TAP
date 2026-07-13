@@ -39,6 +39,7 @@ override.tf.json
 **.sh
 *.sh
 **.zip
+infra/modules/ngta_ingest_lambda/.build/
 
 *.tgz
 
@@ -46,6 +47,9 @@ infra/test/
 **.DS_Store
 
 **/.env
+
+# Python bytecode caches (any directory named __pycache__)
+**/__pycache__/
 
 check_and_generate_fix_commands.py
 
@@ -58,13 +62,14 @@ scripts/telus_ngta_spend.xlsx
 scripts/tsma_other_spend.xlsx
 scripts/~$*.xlsx
 
+# SonarCloud / CI test reports
+reports/
+
 # ---------------------------------------------------------------------------
 # app/ — local application stack (FastAPI + Next.js + Postgres)
 # ---------------------------------------------------------------------------
 
 # Python / FastAPI
-app/backend/__pycache__/
-app/backend/**/__pycache__/
 app/backend/**/*.pyc
 app/backend/**/*.pyo
 app/backend/.venv/
@@ -89,6 +94,8 @@ app/frontend/out/
 app/frontend/.turbo/
 app/frontend/.swc/
 app/frontend/coverage/
+app/frontend/playwright-report/
+app/frontend/test-results/
 app/frontend/next-env.d.ts
 app/frontend/*.tsbuildinfo
 
@@ -115,3 +122,5 @@ app/**/*.log
 !app/**/next.config.json
 !app/**/*.sh
 
+/.pnpm-store
+/.venv

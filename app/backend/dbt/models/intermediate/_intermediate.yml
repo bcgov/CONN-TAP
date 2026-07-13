@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: int_telus_ngta_spend
+    description: Telus NGTA spend after applying section/detail/category exclusion rules.
+
+  - name: int_service_spend_line_items
+    description: >
+      Unioned spend line items across all vendors, with org/sub-org aliases
+      resolved and reference data joined to FK ids. Promoted to the tested grain
+      by core.fct_service_spend; keys are tested there.
