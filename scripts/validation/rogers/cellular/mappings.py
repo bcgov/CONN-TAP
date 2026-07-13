@@ -1,83 +1,48 @@
 # mappings.py
+#
+# BGE_MAP and SUB_BGE_TO_BGE are loaded from the dbt seed CSVs and reference
+# SQL so this script stays in sync with the rest of the platform automatically.
 
-BGE_MAP = {
+import csv
+import re
+from pathlib import Path
 
-    "BRITISH COLUMBIA LOTTERY CORPORATION": "BCLC",
-    "BRITISH COLOMBIA LOTTERY CORPORATION": "BCLC",
-    "BC LOTTERY CORPORATION": "BCLC",
-    "BC LOTTERY": "BCLC",
+_REPO_ROOT = Path(__file__).parents[4]
+_SEEDS_DIR = _REPO_ROOT / "app" / "backend" / "dbt" / "seeds"
+_REF_DIR   = _REPO_ROOT / "app" / "backend" / "alembic" / "reference_data"
 
-    "BC HYDRO": "BC HYDRO",
-    "BRITISH COLUMBIA HYDRO": "BC HYDRO",
 
-    "EDUCATION AND CHILD CARE": "ECC",
+def _load_bge_map() -> dict:
+    """raw BGE name → BGE code, from bge_alias_map.csv"""
+    path = _SEEDS_DIR / "bge_alias_map.csv"
+    with open(path, newline="", encoding="utf-8") as f:
+        return {row["raw_name"]: row["bge_alias"] for row in csv.DictReader(f)}
 
-    "FRASER HEALTH AUTHORITY": "FHA",
-    "INTERIOR HEALTH AUTHORITY": "IHA",
-    "NORTHERN HEALTH AUTHORITY": "NHA",
 
-    "INSURANCE CORPORATION OF BRITISH COLUMB.": "ICBC",
+def _load_sub_bge_to_bge() -> dict:
+    """raw SUB-BGE name → BGE code, built from sub_bge_alias_map.csv + sub_bge.sql"""
 
-    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
+    # Step 1: raw sub-BGE name → canonical sub-BGE code
+    alias_path = _SEEDS_DIR / "sub_bge_alias_map.csv"
+    with open(alias_path, newline="", encoding="utf-8") as f:
+        raw_to_canonical = {
+            row["raw_name"]: row["sub_bge_alias"] for row in csv.DictReader(f)
+        }
 
-    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
-    
-    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
+    # Step 2: canonical sub-BGE code → BGE code (parsed from sub_bge.sql INSERTs)
+    sql_text = (_REF_DIR / "sub_bge.sql").read_text(encoding="utf-8")
+    pattern = re.compile(
+        r"\('([^']+)',\s*'[^']*',\s*\(SELECT id FROM reference_data\.bge WHERE code = '([^']+)'\)"
+    )
+    canonical_to_bge = {m.group(1): m.group(2) for m in pattern.finditer(sql_text)}
 
-    "BC GOVERNMENT MINISTRIES": "GOV BC",
-}
+    # Step 3: combine
+    return {
+        raw: canonical_to_bge[canonical]
+        for raw, canonical in raw_to_canonical.items()
+        if canonical in canonical_to_bge
+    }
 
-# ======== SUB-BGE → BGE CONTROLLED MAP ==============================
 
-SUB_BGE_TO_BGE = {
-
-    # GOV BC
-    "BC MIN ATTORNEY GENERAL": "GOV BC",
-    "INDIGENOUS RELATIONS AND RECONCILIATION": "GOV BC",
-    "MINISTRY OF CITIZENS SERVICES": "GOV BC",
-    "MINISTRY OF INFRASTRUCTURE": "GOV BC",
-    "MIN OF SOCIAL DEVELOPMENT": "GOV BC",
-    "BC MIN AGRICULTURE & FOOD": "GOV BC",
-    "BC MIN CHILDREN & FAMILY DEVELOPMENT": "GOV BC",
-    "BC MIN CITIZENS' SERVICES": "GOV BC",
-    "BC MIN EDUCATION & CHILDCARE": "GOV BC",
-    "BC MIN EMERG MGMT & CLIMATE READINESS": "GOV BC",
-    "BC MIN ENERGY & CLIMATE SOLUTIONS": "GOV BC",
-    "BC MIN ENVIRONMENT AND PARKS": "GOV BC",
-    "BC MIN FINANCE": "GOV BC",
-    "BC MIN FORESTS": "GOV BC",
-    "BC MIN HEALTH": "GOV BC",
-    "BC MIN HOUSING & MUNICIPAL AFFAIRS": "GOV BC",
-    "BC MIN JOBS & ECONOMIC GROWTH": "GOV BC",
-    "BC MIN LABOUR": "GOV BC",
-    "BC MIN MINING & CRITICAL MINERALS": "GOV BC",
-    "BC MIN POST-SECONDARY ED & FUTURE SKILLS": "GOV BC",
-    "BC MIN PUBLIC SAFETY & SOLICITOR GEN": "GOV BC",
-    "BC MIN SOCIAL DEV & POVERTY REDUCTION": "GOV BC",
-    "BC MIN TOURISM, ARTS, CULTURE, AND SPORT": "GOV BC",
-    "BC MIN TRANSPORTATION & TRANSIT": "GOV BC",
-    "BC MIN WATER LAND & RESOURCE STEWARD": "GOV BC",
-    "BC OFFICE OF THE PREMIER": "GOV BC",
-    "BC PUBLIC SERVICE AGENCY": "GOV BC",
-    "BC ASSESSMENT": "GOV BC",
-    "BC LDB": "GOV BC",
-    "BC FAMILY MAINTENANCE AGENCY LTD.": "GOV BC",
-    "BC FINANCIAL SERVICES AUTHORITY": "GOV BC",
-
-    "BC MIN ENERGY AND CLIMATE SOLUTIONS": "GOV BC",
-    "BC MIN HOUSING AND MUNICIPAL AFFAIRS": "GOV BC",
-    "HOUSING AND MUNICIPAL AFFAIRS": "GOV BC",
-    "BC MIN INDIGENOUS RELATIONS & RECONCIL.": "GOV BC",
-    "BC MIN JOBS AND ECONOMIC GROWTH": "GOV BC",
-    "JOB ECONOMIC DEVELOPMENT AND INNOVATION": "GOV BC",
-    "TRANSPORTATION AND TRANSIT": "GOV BC",
-    "BC FINANCIAL SERVICE AUTH.": "GOV BC",
-    "MIN OF FINANCE BC": "GOV BC",
-    "OFFICE OF THE PREMIER": "GOV BC",
-    "LAND AND WATER BC INC": "GOV BC",
-
-    "PROVIDENCE HEALTH CARE": "VCHA",
-    # BC HYDRO
-    "POWERTECH": "BC HYDRO",
-    "POWER EX": "BC HYDRO",
-}
+BGE_MAP        = _load_bge_map()
+SUB_BGE_TO_BGE = _load_sub_bge_to_bge()

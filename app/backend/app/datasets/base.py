@@ -87,6 +87,8 @@ class DatasetService(ABC):
     id: ClassVar[str]
     name: ClassVar[str] = ""
     description: ClassVar[str] = ""
+    #Client roles allowed to view this dataset. Empty tuple = any authorized user.
+    required_roles: ClassVar[tuple[str, ...]] = ()
 
     #: Path to the dataset's directory. Set by the registry.
     module_dir: Path
@@ -129,6 +131,7 @@ class DatasetService(ABC):
             "filters": self.config.get("filters", []),
             "queries": sorted(self.queries),
             "config": self.config,
+            "requiredRoles": list(self.required_roles),
         }
 
     # ---- subclass contract --------------------------------------------------

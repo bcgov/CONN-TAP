@@ -2,10 +2,11 @@
 from io import StringIO
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiError
 from app.db.session import get_db
 from app.models.dataset import Dataset
 from app.schemas.dataset import DatasetCreate, DatasetRead
@@ -31,7 +32,7 @@ def create_dataset(payload: DatasetCreate, db: Session = Depends(get_db)) -> Dat
 def get_dataset(dataset_id: int, db: Session = Depends(get_db)) -> Dataset:
     dataset = db.get(Dataset, dataset_id)
     if dataset is None:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+        raise ApiError(404, "Dataset not found")
     return dataset
 
 

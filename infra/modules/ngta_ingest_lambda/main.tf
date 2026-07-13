@@ -37,6 +37,7 @@ resource "aws_iam_role_policy" "inline" {
           "arn:aws:s3:::${var.ngta_raw_bucket_name}/tsma_lite/*",
           "arn:aws:s3:::${var.ngta_raw_bucket_name}/tsma_other/*",
           "arn:aws:s3:::${var.ngta_raw_bucket_name}/ngta/*",
+          "arn:aws:s3:::${var.ngta_raw_bucket_name}/pricebooks/*",
         ]
       },
       {
@@ -71,12 +72,27 @@ data "external" "layer_build" {
   }
 }
 
-resource "aws_lambda_layer_version" "deps" {
-  layer_name          = "${var.name_prefix}-ngta-ingest-deps"
-  filename            = local.layer_zip
-  compatible_runtimes = ["python3.12"]
+resource "aws_s3_object" "layer" {
+  # The dependency layer exceeds Lambda's 50 MB direct-upload (filename) limit,
+  # so it must be staged in S3 and referenced via s3_bucket/s3_key. The key uses
+  # a prefix that does not match any aws_s3_bucket_notification filter below, so
+  # uploading it never triggers the ingest Lambda.
+  bucket = var.ngta_raw_bucket_name
+  key    = "_lambda_artifacts/${var.name_prefix}-ngta-ingest-deps.zip"
+  source = local.layer_zip
+  etag   = filemd5(local.layer_zip)
 
   depends_on = [data.external.layer_build]
+}
+
+resource "aws_lambda_layer_version" "deps" {
+  layer_name          = "${var.name_prefix}-ngta-ingest-deps"
+  s3_bucket           = aws_s3_object.layer.bucket
+  s3_key              = aws_s3_object.layer.key
+  source_code_hash    = filebase64sha256(local.layer_zip)
+  compatible_runtimes = ["python3.12"]
+
+  depends_on = [aws_s3_object.layer]
 }
 
 # ---------------------------------------------------------------------------
@@ -102,6 +118,57 @@ data "archive_file" "function" {
   source {
     content  = file("${var.repo_root}/local_dev/raw_ingestion/tsma_other_postgres_ingest/ingest_tsma_other_excel_folder.py")
     filename = "ingest_tsma_other_excel_folder.py"
+  }
+
+  # Pricebook ingestion package — preserve the rogers/ and telus/ package layout
+  # so the package's root-relative imports (common, rogers, telus) resolve.
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/common.py")
+    filename = "common.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/__init__.py")
+    filename = "rogers/__init__.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/ingest.py")
+    filename = "rogers/ingest.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/__init__.py")
+    filename = "rogers/parsers/__init__.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/cellular.py")
+    filename = "rogers/parsers/cellular.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/data.py")
+    filename = "rogers/parsers/data.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/professional_services.py")
+    filename = "rogers/parsers/professional_services.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/voice.py")
+    filename = "rogers/parsers/voice.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/__init__.py")
+    filename = "telus/__init__.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/ingest.py")
+    filename = "telus/ingest.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/excel.py")
+    filename = "telus/excel.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/catalogues.py")
+    filename = "telus/catalogues.py"
   }
 }
 
@@ -219,6 +286,22 @@ resource "aws_s3_bucket_notification" "triggers" {
     lambda_function_arn = aws_lambda_function.this.arn
     events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
     filter_prefix       = "ngta/rogers/"
+    filter_suffix       = ".xlsx"
+  }
+
+  lambda_function {
+    id                  = "pricebook-rogers-ingest"
+    lambda_function_arn = aws_lambda_function.this.arn
+    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
+    filter_prefix       = "pricebooks/rogers/"
+    filter_suffix       = ".pdf"
+  }
+
+  lambda_function {
+    id                  = "pricebook-telus-ingest"
+    lambda_function_arn = aws_lambda_function.this.arn
+    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
+    filter_prefix       = "pricebooks/telus/"
     filter_suffix       = ".xlsx"
   }
 
