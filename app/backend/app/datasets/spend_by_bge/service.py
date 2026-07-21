@@ -14,6 +14,7 @@ class Service(DatasetService):
     id = "spend-by-bge"
     name = "Spend by BGE"
     description = "Total telecom spend aggregated by business government entity — used by the BGE bar chart."
+    required_roles = ("global_admin",)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

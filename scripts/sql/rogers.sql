@@ -54,7 +54,7 @@ src AS (
   SELECT
     c.bge,
     c.sub_bge,
-    date_trunc('month', COALESCE(c.invoice_date, r.source_period))::date AS month_start,
+    (date_trunc('month', COALESCE(c.invoice_date, r.source_period)) - interval '1 month')::date AS month_start,
     COALESCE(c.hardware, 0)::numeric AS amount,
     'cellular_hardware'::text AS bucket
   FROM raw_data.raw_rogers_spend_cellular c
@@ -66,7 +66,7 @@ src AS (
   SELECT
     c.bge,
     c.sub_bge,
-    date_trunc('month', COALESCE(c.invoice_date, r.source_period))::date AS month_start,
+    (date_trunc('month', COALESCE(c.invoice_date, r.source_period)) - interval '1 month')::date AS month_start,
     COALESCE(c.billed_amount_pre_tax, 0)::numeric
       - COALESCE(c.hardware, 0)::numeric AS amount,
     'cellular_plans'::text AS bucket

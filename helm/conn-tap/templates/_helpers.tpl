@@ -39,6 +39,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "conn-tap.backendName" .) .Values.backend.existingSecret -}}
 {{- end -}}
 
+{{- define "conn-tap.backendConfigMapData" -}}
+{{- range $key, $value := .Values.backend.env }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end -}}
+
 {{- define "conn-tap.frontendSecretName" -}}
 {{- default (include "conn-tap.frontendName" .) .Values.frontend.existingSecret -}}
 {{- end -}}

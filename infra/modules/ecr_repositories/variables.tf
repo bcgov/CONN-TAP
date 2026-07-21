@@ -30,6 +30,12 @@ variable "untagged_image_expire_after_days" {
   description = "Delete untagged images older than this many days."
 }
 
+variable "tagged_image_expire_after_days" {
+  type        = number
+  default     = null
+  description = "When set, delete tagged images older than this many days. Use for immutable prod registries to expire stale release tags."
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

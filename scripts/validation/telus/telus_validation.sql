@@ -286,11 +286,10 @@ AS $$
 $$;
 
 -- Requires p_statement_month (one month only). Pass any date in that month (e.g. date '2026-03-15').
--- Fails when no sheet_name (for rows in that month) contains one of the expected BGE tokens.
--- MOE and ECC are one requirement: if either appears in any sheet name, both pass; otherwise
--- missing_bge is reported once as 'MOE or ECC'.
--- Most tokens use case-insensitive substring match; SD uses a token-style match (not surrounded
--- by letters/digits) so it does not match inside longer words (e.g. USED).
+-- Fails when no sheet_name (for rows in that month) matches any alias for an expected BGE.
+-- BGEs and aliases are sourced from reference_data.bge joined to seeds.bge_alias_map, so the
+-- list stays in sync with reference data automatically (including MOE → ECC aliasing).
+-- SD aliases use a word-boundary regex to avoid matching inside longer tokens (e.g. SCHLDIST).
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_all_bges_in_sheets (
   p_statement_month date
@@ -314,74 +313,26 @@ BEGIN
     FROM raw_data.raw_telus_spend AS t
     WHERE t.statement_date IS NOT NULL
       AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
-  ),
-  required AS (
-    SELECT
-      u.bge,
-      u.ord
-    FROM unnest(
-      ARRAY[
-        'BCH'::text,
-        'BCLC',
-        'FHA',
-        'FNHA',
-        'GBC',
-        'ICBC',
-        'IHA',
-        'NHA',
-        'PHSA',
-        'SD',
-        'VCHA',
-        'VIHA',
-        'WSBC',
-        'BCA'
-      ]
-    ) WITH ORDINALITY AS u (bge, ord)
-  ),
-  missing_rows AS (
-    SELECT
-      EXTRACT(YEAR FROM date_trunc('month', p_statement_month))::int AS contradiction_year,
-      EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
-      r.bge AS missing_bge,
-      r.ord AS sort_ord
-    FROM required AS r
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM base AS b
-      WHERE b.sheet_name IS NOT NULL
-        AND b.sheet_name <> ''
-        AND (
-          r.bge = 'SD'
-          AND b.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])'
-          OR r.bge <> 'SD'
-          AND b.sheet_name ILIKE '%' || r.bge || '%'
-        )
-    )
-
-    UNION ALL
-
-    SELECT
-      EXTRACT(YEAR FROM date_trunc('month', p_statement_month))::int,
-      EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int,
-      'MOE or ECC'::text,
-      8
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM base AS b
-      WHERE b.sheet_name IS NOT NULL
-        AND b.sheet_name <> ''
-        AND (
-          b.sheet_name ILIKE '%ECC%'
-          OR b.sheet_name ILIKE '%MOE%'
-        )
-    )
+      AND trim(both FROM t.sheet_name) IS NOT NULL
+      AND trim(both FROM t.sheet_name) <> ''
   )
   SELECT
-    m.contradiction_year,
-    m.contradiction_month,
-    m.missing_bge
-  FROM missing_rows AS m
-  ORDER BY m.sort_ord, m.missing_bge;
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int AS contradiction_year,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
+    b.code AS missing_bge
+  FROM reference_data.bge AS b
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM base AS sh
+    JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
+    WHERE (
+      bam.raw_name = 'SD'
+      AND sh.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])'
+      OR bam.raw_name <> 'SD'
+      AND sh.sheet_name ILIKE '%' || bam.raw_name || '%'
+    )
+  )
+  ORDER BY b.code;
 END;
 $$;
 
@@ -548,8 +499,9 @@ $$;
 
 -- Rows that match on every column except raw_id, ingestion_run_id, and extras, within the same
 -- sheet_name and calendar month of statement_date, are duplicates. Rows with amount NULL or 0
--- are excluded before duplicate detection. Returns one row per sheet_name + month with how many
--- distinct duplicate signatures exist and total row count in those groups (all copies).
+-- are excluded before duplicate detection, as are rows in categories excluded from totals
+-- (payment, payments, amount due from last bill, taxes). Returns one row per sheet_name + month
+-- with how many distinct duplicate signatures exist and total row count in those groups (all copies).
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_duplicate_rows_by_sheet_and_month (
@@ -570,6 +522,9 @@ AS $$
     FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
+      AND lower(trim(both FROM COALESCE(t.statement_category, ''))) NOT IN (
+        'payment', 'payments', 'amount due from last bill', 'taxes'
+      )
       AND (
         p_statement_month IS NULL
         OR (
@@ -624,9 +579,9 @@ AS $$
     sheet_name NULLS LAST;
 $$;
 
--- Same duplicate detection as telus_raw_validate_duplicate_rows_by_sheet_and_month, plus
--- duplicate_amount_sum (sum of amount over every row in duplicate groups). Sorted by sheet_name
--- for easier visual review, then statement month.
+-- Same duplicate detection as telus_raw_validate_duplicate_rows_by_sheet_and_month (same category
+-- exclusions apply), plus duplicate_amount_sum (sum of amount over every row in duplicate groups).
+-- Sorted by sheet_name for easier visual review, then statement month.
 
 CREATE OR REPLACE FUNCTION telus_raw_summarize_duplicate_rows_by_sheet_and_month (
   p_statement_month date DEFAULT NULL
@@ -647,6 +602,9 @@ AS $$
     FROM raw_data.raw_telus_spend AS t
     WHERE t.amount IS NOT NULL
       AND t.amount <> 0
+      AND lower(trim(both FROM COALESCE(t.statement_category, ''))) NOT IN (
+        'payment', 'payments', 'amount due from last bill', 'taxes'
+      )
       AND (
         p_statement_month IS NULL
         OR (
@@ -700,4 +658,95 @@ AS $$
   ORDER BY
     d.sheet_name NULLS LAST,
     d.stmt_month NULLS LAST;
+$$;
+
+-- Detects sheet names that were added or removed compared to the prior month.
+-- Returns one row per changed sheet with change_type 'added' or 'removed'.
+-- Comparison is case-insensitive. All sheet names — whether in the known BGE list or not — are
+-- included; use telus_raw_validate_all_bges_in_sheets to check for missing known BGEs separately.
+-- p_statement_month is required — pass any date within the target month.
+
+DROP FUNCTION IF EXISTS telus_raw_validate_new_bges_in_sheets (date);
+CREATE OR REPLACE FUNCTION telus_raw_validate_new_bges_in_sheets (
+  p_statement_month date
+)
+RETURNS TABLE (
+  contradiction_year  int,
+  contradiction_month int,
+  sheet_name          text,
+  status              text
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF p_statement_month IS NULL THEN
+    RAISE EXCEPTION 'telus_raw_validate_new_bges_in_sheets: p_statement_month is required';
+  END IF;
+
+  RETURN QUERY
+  WITH current_sheets AS (
+    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
+      AND trim(both FROM t.sheet_name) IS NOT NULL
+      AND trim(both FROM t.sheet_name) <> ''
+  ),
+  prior_sheets AS (
+    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '1 month')
+      AND trim(both FROM t.sheet_name) IS NOT NULL
+      AND trim(both FROM t.sheet_name) <> ''
+  )
+  -- Current month: newly appeared and/or unrecognized sheets
+  SELECT
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int AS contradiction_year,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
+    cs.sheet_name AS sheet_name,
+    CASE
+      WHEN NOT EXISTS (
+             SELECT 1 FROM seeds.bge_alias_map AS bam
+             WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
+                OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
+           )
+       AND NOT EXISTS (
+             SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name)
+           )
+        THEN 'New + Unrecognized'
+      WHEN NOT EXISTS (
+             SELECT 1 FROM seeds.bge_alias_map AS bam
+             WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
+                OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
+           )
+        THEN 'Unrecognized'
+      ELSE 'Newly Appeared'
+    END AS status
+  FROM current_sheets AS cs
+  WHERE NOT EXISTS (
+          SELECT 1 FROM seeds.bge_alias_map AS bam
+          WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
+             OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
+        )
+     OR NOT EXISTS (
+          SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name)
+        )
+
+  UNION ALL
+
+  -- Prior month: sheets that have disappeared
+  SELECT
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int,
+    ps.sheet_name,
+    'Removed'::text
+  FROM prior_sheets AS ps
+  WHERE NOT EXISTS (
+    SELECT 1 FROM current_sheets AS cs WHERE lower(cs.sheet_name) = lower(ps.sheet_name)
+  )
+
+  ORDER BY status, sheet_name;
+END;
 $$;

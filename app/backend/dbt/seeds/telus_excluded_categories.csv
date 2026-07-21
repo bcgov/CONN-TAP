@@ -1,0 +1,5 @@
+statement_category,exclusion_reason
+payment,payment row not a charge
+payments,payment row not a charge
+amount due from last bill,carry-forward balance not a charge
+taxes,tax category row

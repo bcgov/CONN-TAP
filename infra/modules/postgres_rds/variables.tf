@@ -23,7 +23,7 @@ variable "allowed_security_group_ids" {
 
 variable "engine_version" {
   type        = string
-  default     = "16.6"
+  default     = "16.14"
   description = "RDS PostgreSQL EngineVersion (must exist in the target region; see aws rds describe-db-engine-versions)."
 }
 

@@ -43,29 +43,30 @@ def build_bar_result(dataset_id: str, df: pd.DataFrame, filters: Filters) -> Dat
             },
         )
 
-    # Pivot: {org_name: {vendor: spend_millions}}
-    # Normalize vendor casing (DB may return "telus" instead of "TELUS")
+    # Pivot keyed by bge_code; also track full name per code
     pivot: dict[str, dict[str, float]] = {}
+    code_to_name: dict[str, str] = {}
     for row in df.itertuples(index=False):
-        org = str(row.organization_name)
+        code = str(row.bge_code)
+        code_to_name[code] = str(row.organization_name)
         raw_vendor = str(row.vendor)
         vendor = _VENDOR_NORM.get(raw_vendor.lower(), raw_vendor)
-        pivot.setdefault(org, {})[vendor] = pivot.get(org, {}).get(vendor, 0.0) + to_float(row.spend_millions)
+        pivot.setdefault(code, {})[vendor] = pivot.get(code, {}).get(vendor, 0.0) + to_float(row.spend_millions)
 
     grand_total = sum(v for org_data in pivot.values() for v in org_data.values())
     vendors = list(PROVIDER_ORDER)
 
     chart_data = []
-    for org in BGE_ORDER:
-        if org not in pivot:
+    for code in BGE_ORDER:
+        if code not in pivot:
             continue
-        entry: dict = {"organization_name": org}
+        entry: dict = {"bge_code": code, "organization_name": code_to_name.get(code, code)}
         for vendor in vendors:
-            entry[vendor] = round(pivot[org].get(vendor, 0.0), 6)
+            entry[vendor] = round(pivot[code].get(vendor, 0.0), 6)
         chart_data.append(entry)
-    for org, org_data in pivot.items():
-        if org not in BGE_ORDER:
-            entry = {"organization_name": org}
+    for code, org_data in pivot.items():
+        if code not in BGE_ORDER:
+            entry = {"bge_code": code, "organization_name": code_to_name.get(code, code)}
             for vendor in vendors:
                 entry[vendor] = round(org_data.get(vendor, 0.0), 6)
             chart_data.append(entry)

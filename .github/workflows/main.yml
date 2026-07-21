@@ -19,10 +19,16 @@ jobs:
       security-events: write
     uses: ./.github/workflows/check-conventional-commits.yml
 
-  run-tests:
+  run-unit-tests:
     permissions:
       contents: read
       actions: read
       id-token: write
-    uses: ./.github/workflows/run-tests.yml
+    uses: ./.github/workflows/run-unit-tests.yml
+    secrets: inherit
+
+  run-e2e-tests:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/run-e2e-tests.yml
     secrets: inherit

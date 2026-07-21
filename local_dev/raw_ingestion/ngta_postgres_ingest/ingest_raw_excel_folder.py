@@ -27,6 +27,7 @@ Layout:
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
 import re
@@ -38,10 +39,13 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Literal, Optional, TextIO
 
+import openpyxl
+
 import pandas as pd
 import psycopg
 
 PG_SCHEMA = "raw_data"
+TELUS_CHUNK_SIZE = 10_000
 
 
 def _fq(ident: str) -> str:
@@ -506,50 +510,68 @@ def rogers_feed_from_path(
     return None
 
 
+def process_telus_chunk(
+    raw_rows: list[tuple],
+    headers: tuple,
+    sheet_name: str,
+    run_id: Any,
+) -> list[tuple]:
+    df = pd.DataFrame(raw_rows, columns=headers, dtype=object)
+    df = clean_frame(df)
+    if df.empty:
+        return []
+
+    df = df.rename(columns=canonical_header)
+    df = df[[c for c in df.columns if c]]
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    known = TELUS_DB_FIELDS | {"sheet_name", "ingestion_run_id", "extras"}
+    extra_cols = [c for c in df.columns if c not in known]
+    if extra_cols:
+        def extras(row):
+            d = {
+                k: row[k]
+                for k in extra_cols
+                if row[k] is not None and not (isinstance(row[k], float) and pd.isna(row[k]))
+            }
+            return json.dumps(d) if d else None
+        df["extras"] = df[extra_cols].apply(extras, axis=1)
+    else:
+        df["extras"] = None
+
+    for dc in TELUS_DATES:
+        if dc in df.columns:
+            parsed = pd.to_datetime(df[dc], errors="coerce")
+            df[dc] = [v.date() if pd.notna(v) else None for v in parsed]
+
+    if "amount" in df.columns:
+        df["amount"] = df["amount"].apply(as_money)
+
+    for col in (TELUS_DB_FIELDS - TELUS_DATES - {"amount"}) & set(df.columns):
+        non_null = df[col].notna()
+        if non_null.any():
+            converted = df.loc[non_null, col].astype(str).str.strip()
+            df.loc[non_null, col] = converted.where(converted != "", other=None)
+        df.loc[~non_null, col] = None
+
+    df["sheet_name"] = str(sheet_name)
+    df["ingestion_run_id"] = run_id
+
+    for col in TELUS_COLS:
+        if col not in df.columns:
+            df[col] = None
+
+    df = df[TELUS_COLS].where(df[TELUS_COLS].notna(), other=None)
+    return list(df.itertuples(index=False, name=None))
+
+
 def insert_telus_workbook(
     conn: Optional[psycopg.Connection],
     path: Path,
     source_period: Optional[date],
     dry_run: bool,
 ) -> int:
-    xl = pd.ExcelFile(path)
-    batches: list[tuple[Any, ...]] = []
-
-    for sheet_name in xl.sheet_names:
-        df = pd.read_excel(xl, sheet_name=sheet_name, dtype=object)
-        df = clean_frame(df)
-        if df.empty:
-            continue
-        colmap = {c: canonical_header(c) for c in df.columns}
-        for _, row in df.iterrows():
-            vals: dict[str, Any] = {
-                "ingestion_run_id": None,
-                "sheet_name": str(sheet_name),
-            }
-            extras_payload: dict[str, Any] = {}
-            for excel_col, db in colmap.items():
-                if not db:
-                    continue
-                val = row.get(excel_col)
-                if db in TELUS_DB_FIELDS:
-                    if db in TELUS_DATES:
-                        vals[db] = as_date(val)
-                    elif db == "amount":
-                        vals[db] = as_money(val)
-                    else:
-                        vals[db] = as_text(val)
-                else:
-                    if val is not None and not (isinstance(val, float) and pd.isna(val)):
-                        extras_payload[str(excel_col)] = (
-                            val if isinstance(val, (str, int, float)) else str(val)
-                        )
-            vals["extras"] = json.dumps(extras_payload) if extras_payload else None
-            batches.append(tuple(vals.get(c) for c in TELUS_COLS))
-
-    row_total = len(batches)
-    if dry_run:
-        return row_total
-    if conn is None:
+    if not dry_run and conn is None:
         raise ValueError("Postgres connection required unless --dry-run")
 
     sql = (
@@ -559,35 +581,62 @@ def insert_telus_workbook(
         + ", ".join(["%s"] * len(TELUS_COLS))
         + ")"
     )
+
+    run_id = None
+    row_total = 0
+
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                INSERT INTO {_fq('ingestion_run')} (provider, source_object_uri, source_period, status)
-                VALUES (%s, %s, %s, 'running')
-                RETURNING ingestion_run_id
-                """,
-                ("telus", path.resolve().as_uri(), source_period),
-            )
-            run_id = cur.fetchone()[0]
-            final_rows = []
-            for tup in batches:
-                lst = list(tup)
-                lst[0] = run_id
-                final_rows.append(tuple(lst))
-            cur.executemany(sql, final_rows)
-            cur.execute(
-                f"""
-                UPDATE {_fq('ingestion_run')}
-                SET finished_at = now(), status = 'completed',
-                    row_counts_raw = %s::jsonb
-                WHERE ingestion_run_id = %s
-                """,
-                (json.dumps({"raw_telus_spend": row_total}), run_id),
-            )
-        conn.commit()
+        if not dry_run:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    INSERT INTO {_fq('ingestion_run')} (provider, source_object_uri, source_period, status)
+                    VALUES (%s, %s, %s, 'running')
+                    RETURNING ingestion_run_id
+                    """,
+                    ("telus", path.resolve().as_uri(), source_period),
+                )
+                run_id = cur.fetchone()[0]
+            conn.commit()
+
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        try:
+            for ws in wb.worksheets:
+                sheet_name = ws.title
+                rows_iter = ws.iter_rows(values_only=True)
+                headers = next(rows_iter, None)
+                if headers is None:
+                    continue
+
+                for chunk in iter(lambda: list(itertools.islice(rows_iter, TELUS_CHUNK_SIZE)), []):
+                    batch = process_telus_chunk(chunk, headers, sheet_name, run_id)
+                    row_total += len(batch)
+                    if not dry_run and batch:
+                        with conn.cursor() as cur:
+                            cur.executemany(sql, batch)
+                        conn.commit()
+        finally:
+            wb.close()
+
+        if not dry_run and run_id is not None:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    UPDATE {_fq('ingestion_run')}
+                    SET finished_at = now(), status = 'completed',
+                        row_counts_raw = %s::jsonb
+                    WHERE ingestion_run_id = %s
+                    """,
+                    (json.dumps({"raw_telus_spend": row_total}), run_id),
+                )
+            conn.commit()
+
     except Exception:
-        conn.rollback()
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         raise
     return row_total
 

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import urllib.parse
 from pathlib import Path
 
 import boto3
@@ -13,6 +14,11 @@ from ingest_raw_excel_folder import (
     insert_rogers_voice_workbook,
 )
 from ingest_tsma_other_excel_folder import insert_workbook as insert_tsma_other_workbook
+
+# Pricebook ingestion package (ngta_pricebooks_ingest) — packaged at the zip
+# root, so its root-relative imports (common, rogers, telus) resolve normally.
+from rogers import process_pdf as process_rogers_pricebook
+from telus import process_file as process_telus_pricebook
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,8 +40,13 @@ def _get_dsn() -> str:
     return _cached_dsn
 
 
+def _normalize_s3_key(key: str) -> str:
+    return urllib.parse.unquote_plus(key)
+
+
 def _download(bucket: str, key: str) -> Path:
-    tmp_path = Path(f"/tmp/{key.split('/')[-1]}")
+    filename = _normalize_s3_key(key.split("/")[-1])
+    tmp_path = Path(f"/tmp/{filename}")
     logger.info("Downloading s3://%s/%s", bucket, key)
     s3_client.download_file(
         bucket,
@@ -62,19 +73,23 @@ def _download(bucket: str, key: str) -> Path:
 #
 #   tsma_other/managed_security/ → tsma_other_managed_security
 #   tsma_other/managed_router/   → tsma_other_managed_router
+#
+#   pricebooks/rogers/      → NGTA Rogers pricebooks (PDF; feed inferred from filename)
+#   pricebooks/telus/       → NGTA Telus pricebooks (Excel; catalogue inferred from filename)
 # ---------------------------------------------------------------------------
 
 def _handle_tsma(bucket: str, key: str) -> None:
-    feed_map = {
-        ("tsma",      "wireless"): "tsma_wireless",
-        ("tsma",      "wireline"): "tsma_wireline",
-        ("tsma",      "master"):   "tsma_master",
-        ("tsma_lite", "wireless"): "tsma_lite_wireless",
-        ("tsma_lite", "wireline"): "tsma_lite_wireline",
-    }
+    # tsma_lite entries first — otherwise "tsma" + "wireless" matches tsma/tsma_lite/wireless/...
+    feed_map = [
+        (("tsma_lite", "wireless"), "tsma_lite_wireless"),
+        (("tsma_lite", "wireline"), "tsma_lite_wireline"),
+        (("tsma",      "wireless"), "tsma_wireless"),
+        (("tsma",      "wireline"), "tsma_wireline"),
+        (("tsma",      "master"),   "tsma_master"),
+    ]
     parts = [p.casefold() for p in key.split("/")]
     feed = next(
-        (v for (a, b), v in feed_map.items() if a in parts and b in parts),
+        (v for (a, b), v in feed_map if a in parts and b in parts),
         None,
     )
     if not feed:
@@ -156,12 +171,38 @@ def _handle_tsma_other(bucket: str, key: str) -> None:
 # Router — maps S3 key prefix to handler
 # ---------------------------------------------------------------------------
 
+def _handle_pricebook_rogers(bucket: str, key: str) -> None:
+    tmp_path = _download(bucket, key)
+    try:
+        with psycopg.connect(_get_dsn()) as conn:
+            n, table = process_rogers_pricebook(
+                conn=conn, path=tmp_path, source_period=None, dry_run=False,
+            )
+        logger.info("Ingested %s rows from %s (Pricebook Rogers -> %s)", n, key, table)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _handle_pricebook_telus(bucket: str, key: str) -> None:
+    tmp_path = _download(bucket, key)
+    try:
+        with psycopg.connect(_get_dsn()) as conn:
+            n, table = process_telus_pricebook(
+                conn=conn, path=tmp_path, source_period=None, dry_run=False,
+            )
+        logger.info("Ingested %s rows from %s (Pricebook Telus -> %s)", n, key, table)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 _ROUTES = [
     ("tsma/",                   _handle_tsma),
     ("tsma_lite/",              _handle_tsma),
     ("tsma_other/",             _handle_tsma_other),
     ("ngta/telus/",             _handle_ngta_telus),
     ("ngta/rogers/",            _handle_ngta_rogers),
+    ("pricebooks/rogers/",      _handle_pricebook_rogers),
+    ("pricebooks/telus/",       _handle_pricebook_telus),
 ]
 
 
@@ -176,7 +217,7 @@ def lambda_handler(event, context):
 
     for record in event.get("Records", []):
         bucket = record["s3"]["bucket"]["name"]
-        key = record["s3"]["object"]["key"].replace("+", " ")
+        key = _normalize_s3_key(record["s3"]["object"]["key"])
 
         handler = next((h for prefix, h in _ROUTES if key.startswith(prefix)), None)
         if handler is None:

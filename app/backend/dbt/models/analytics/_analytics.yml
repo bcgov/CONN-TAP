@@ -1,0 +1,69 @@
+version: 2
+
+# These models are an API contract: the FastAPI datasets layer queries them by
+# name and column. Do not rename them or change their output columns without
+# updating app/backend/app/datasets/*/queries.sql in lockstep.
+models:
+  - name: period_vendor_spend
+    description: Spend aggregated by period and provider. Source for isp_spend_indicators.
+    columns:
+      - name: provider_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'provider')
+              field: id
+      - name: fiscal_year
+        tests: [not_null]
+      - name: fiscal_quarter
+        tests: [not_null]
+      - name: spend_amount
+        tests: [not_null]
+
+  - name: service_category_vendor_spend
+    description: >
+      Spend aggregated by period, provider, and service category. Source for
+      service_category_spend_plotly and total_spend_over_time.
+    columns:
+      - name: provider_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'provider')
+              field: id
+      - name: service_category_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'service_category')
+              field: id
+      - name: fiscal_year
+        tests: [not_null]
+      - name: fiscal_quarter
+        tests: [not_null]
+      - name: spend_amount
+        tests: [not_null]
+
+  - name: bge_vendor_spend
+    description: >
+      Spend aggregated by period, provider, and bge_id. Serves both spend_by_bge and
+      spend_by_sector; the API resolves bge.name and bge.sector_id live.
+    columns:
+      - name: provider_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'provider')
+              field: id
+      - name: bge_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'bge')
+              field: id
+      - name: fiscal_year
+        tests: [not_null]
+      - name: fiscal_quarter
+        tests: [not_null]
+      - name: spend_amount
+        tests: [not_null]

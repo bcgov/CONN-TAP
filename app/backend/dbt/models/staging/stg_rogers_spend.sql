@@ -6,7 +6,7 @@ select
     'raw_rogers_spend_cellular'::text as source_table,
     c.raw_id,
     c.ingestion_run_id,
-    date_trunc('month', coalesce(c.invoice_date, r.source_period))::date as month_start,
+    (date_trunc('month', coalesce(c.invoice_date, r.source_period)) - interval '1 month')::date as month_start,
     case
         when lower(nullif(trim(regexp_replace(c.bge, '[\x00-\x1f\x7f]', '', 'g')), '')) like '%school district%'
             then 'School Districts'
@@ -37,7 +37,7 @@ select
         else nullif(trim(regexp_replace(v.bge, '[\x00-\x1f\x7f]', '', 'g')), '')
     end as organization_name,
     nullif(trim(regexp_replace(v.sub_bge, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
-    lower(nullif(trim(regexp_replace(v.productline, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_family,
+    coalesce(lower(nullif(trim(regexp_replace(v.productline, '[\x00-\x1f\x7f]', '', 'g')), '')), 'other') as source_service_family,
     lower(nullif(trim(regexp_replace(coalesce(v.charge_description, v.service_component, v.producttype), '[\x00-\x1f\x7f]', '', 'g')), ''))
         as source_service_description,
     'billed_amount_pre_tax'::text as source_amount_name,

@@ -8,6 +8,7 @@ with normalized as (
         nullif(trim(regexp_replace(t.sheet_name, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
         lower(nullif(trim(regexp_replace(t.source, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_family,
         lower(nullif(trim(regexp_replace(t.statement_category, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_category,
+        lower(nullif(trim(regexp_replace(t.statement_section, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_section,
         lower(nullif(trim(regexp_replace(t.detail_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
         case
             when nullif(trim(t.source_id::text), '') ~ '^-?[0-9]+(\.[0-9]+)?$'
@@ -31,6 +32,7 @@ select
     source_service_description,
     source_service_id,
     statement_category,
+    statement_section,
     'amount'::text as source_amount_name,
     spend_amount
 from normalized
