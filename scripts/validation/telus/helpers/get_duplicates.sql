@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION telus_raw_get_duplicate_rows (
   p_year int,
   p_month int
 )
-RETURNS SETOF raw_telus_spend
+RETURNS SETOF raw_data.raw_telus_spend
 LANGUAGE sql
 STABLE
 AS $$
@@ -64,7 +64,7 @@ AS $$
           t.source,
           t.source_id
       ) AS _dup_row_count
-    FROM raw_telus_spend AS t
+    FROM raw_data.raw_telus_spend AS t
     WHERE t.sheet_name IS NOT DISTINCT FROM p_sheet_name
       AND t.statement_date IS NOT NULL
       AND date_trunc('month', t.statement_date) = make_date(p_year, p_month, 1)

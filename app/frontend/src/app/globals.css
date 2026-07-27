@@ -297,6 +297,10 @@ body.telecom-landing {
   gap: 1.5rem;
 }
 
+.dashboard-chart-grid + .dashboard-chart-grid {
+  margin-top: 1.5rem;
+}
+
 .dashboard-chart-grid--full {
   grid-template-columns: 1fr;
 }

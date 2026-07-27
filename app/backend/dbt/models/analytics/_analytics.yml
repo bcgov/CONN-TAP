@@ -67,3 +67,47 @@ models:
         tests: [not_null]
       - name: spend_amount
         tests: [not_null]
+
+  - name: bge_service_category_spend
+    description: >
+      Spend aggregated by period, provider, bge_id, sub_bge_id, and
+      service_category_id. Source for spend_summary (the BGE / Sub-org / SD summary
+      table); the API rolls the sub_bge hierarchy and resolves names/entity_type live.
+      sub_bge_id is nullable (spend booked directly at the BGE). source_group
+      ('tsma' | 'ngta') lets the API split the BGE-direct "extra" by source family.
+    columns:
+      - name: source_group
+        description: "TSMA (tsma + tsma_other) vs NGTA (rogers / telus); splits the BGE-direct extra."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['tsma', 'ngta']
+      - name: provider_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'provider')
+              field: id
+      - name: bge_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'bge')
+              field: id
+      - name: sub_bge_id
+        tests:
+          - relationships:
+              to: source('reference_data', 'sub_bge')
+              field: id
+      - name: service_category_id
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'service_category')
+              field: id
+      - name: fiscal_year
+        tests: [not_null]
+      - name: fiscal_quarter
+        tests: [not_null]
+      - name: spend_amount
+        tests: [not_null]

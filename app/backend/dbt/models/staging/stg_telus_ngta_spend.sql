@@ -6,6 +6,8 @@ with normalized as (
         t.ingestion_run_id,
         date_trunc('month', t.statement_date)::date as month_start,
         nullif(trim(regexp_replace(t.sheet_name, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+        -- account_description is Telus's sub-organization (billing account); resolved to a sub_bge downstream.
+        nullif(trim(regexp_replace(t.account_description, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
         lower(nullif(trim(regexp_replace(t.source, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_family,
         lower(nullif(trim(regexp_replace(t.statement_category, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_category,
         lower(nullif(trim(regexp_replace(t.statement_section, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_section,
@@ -26,8 +28,8 @@ select
     raw_id,
     ingestion_run_id,
     month_start,
-    organization_name,
-    null::text as sub_organization_name,
+    bm.bge_alias as organization_name,
+    sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
     source_service_description,
     source_service_id,
@@ -36,3 +38,5 @@ select
     'amount'::text as source_amount_name,
     spend_amount
 from normalized
+left join {{ ref('bge_alias_map') }} bm on {{ norm_key('bm.raw_name') }} = {{ norm_key('normalized.organization_name') }}
+left join {{ ref('sub_bge_alias_map') }} sbm on {{ norm_key('sbm.raw_name') }} = {{ norm_key('normalized.sub_organization_name') }}
