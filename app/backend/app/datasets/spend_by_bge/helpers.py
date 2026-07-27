@@ -17,7 +17,6 @@ BGE_ORDER = (
     "BCLC",
     "BC Hydro",
     "WSBC",
-    "ECC",
     "FHA",
     "NHA",
     "ICBC",

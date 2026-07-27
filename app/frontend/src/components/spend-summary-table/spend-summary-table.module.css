@@ -1,0 +1,131 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dateRange {
+  display: inline-block;
+  align-self: flex-start;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-pill-text);
+  background: var(--color-pill-bg);
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.75rem;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+/* Reserve a consistent height for the header label area (top-aligned) so the
+   column-filter inputs line up on the same row across every column, even when a
+   header like "Other Professional Services" wraps to two lines. */
+.wrapper :global(.Mui-TableHeadCell-Content) {
+  align-items: flex-start;
+  min-height: 2.9rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--typography-color-primary, var(--color-text-primary));
+}
+
+.table thead th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-link);
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-medium);
+  white-space: nowrap;
+}
+
+.table tbody th,
+.table tbody td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+}
+
+.entityCol {
+  min-width: 16rem;
+}
+
+.entityCell {
+  font-weight: 400;
+  text-align: left;
+}
+
+.numCol {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bgeRow {
+  background: var(--color-bg-light-gray);
+}
+
+.bgeRow th,
+.bgeRow td {
+  font-weight: 700;
+}
+
+.totalCell {
+  font-weight: 700;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+}
+
+.toggleSpacer {
+  display: inline-block;
+  width: 16px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+/* Expand/collapse control: a "+" when collapsed, "−" when expanded, replacing
+   MRT's default rotating chevron. */
+.expandToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.25rem;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+}
+
+/* Translucent darken so the hover reads on both white rows and the light-gray
+   BGE rows (a solid light-gray token would be invisible on the BGE rows). */
+.expandToggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.empty {
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  font-size: 0.875rem;
+  padding: 2rem 0;
+  text-align: center;
+}

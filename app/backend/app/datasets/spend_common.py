@@ -20,7 +20,7 @@ class Filters(BaseModel):
 
     @field_validator("period", mode="before")
     @classmethod
-    def parse_period_list(cls, value: Any) -> list[str] | None:
+    def parse_str_list(cls, value: Any) -> list[str] | None:
         if value is None or value == "" or value == []:
             return None
         if isinstance(value, list):

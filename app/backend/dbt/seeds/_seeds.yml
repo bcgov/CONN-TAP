@@ -6,15 +6,22 @@ seeds:
     columns:
       - name: bge_alias
         tests:
+          # Every alias must resolve to a real BGE code -- except 'ECC'. Reports label
+          # Education & Child Care at BGE level, but our system has no ECC BGE:
+          # int_service_spend_line_items remaps 'ECC' to the Gov BC BGE + the
+          # Education and Child Care sub_bge, so the alias is intentionally unresolved here.
           - relationships:
               to: source('reference_data', 'bge')
               field: code
+              config:
+                where: "bge_alias <> 'ECC'"
 
   - name: sub_bge_alias_map
     description: Maps raw sub-organization name spellings/variants to a canonical sub_bge code.
     columns:
+      # Integrity runs the other way: reference_data.sub_bge asserts every code has
+      # an alias here (see sources.yml). We intentionally do NOT require every alias
+      # to resolve to a sub_bge — aliases are maintained from the list, not provider
+      # data, so an alias for a not-yet-loaded / retired entity is allowed.
       - name: sub_bge_alias
-        tests:
-          - relationships:
-              to: source('reference_data', 'sub_bge')
-              field: code
+        description: Canonical sub_bge code this raw spelling resolves to.
