@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserCircle2 } from "lucide-react";
+import { ConfidentialityBanner } from "@/components/confidentiality-banner";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
@@ -169,204 +170,172 @@ export function DashboardClient({
   }, []);
 
   return (
-    <div className="dashboard-shell">
-      <DashboardSidebar />
+    <div className="dashboard-page">
+      <ConfidentialityBanner />
+      <div className="dashboard-shell">
+        <DashboardSidebar />
 
-      <div className="dashboard-right">
-        <Header
-          title="Telecom Access Point"
-          skipLinks={[
-            <a key="main" href="#main-content">
-              Skip to main content
-            </a>,
-          ]}
-          logoLinkElement={
-            <Link
-              href="/"
-              title="Government of British Columbia"
-              prefetch={false}
-            />
-          }
-        >
-          <div className="dashboard-header__user">
-            <UserCircle2 size={20} aria-hidden="true" />
-            <span>{displayName}</span>
-            <button
-              onClick={() => {
-                window.location.href = "/auth/logout";
-              }}
-              className="dashboard-header__logout"
-            >
-              Logout
-            </button>
-          </div>
-        </Header>
-
-        <div className="dashboard-content">
-          <main id="main-content" className="dashboard-main">
-            <div className="dashboard-main__header">
-              <div>
-                <Heading level={1}>Telecom Spend Dashboard</Heading>
-                <Heading level={5}>TSMA & NGTA</Heading>
-                <p className="dashboard-main__intro">
-                  Consolidated view of telecom spend across Buyers Group Entities
-                </p>
-              </div>
+        <div className="dashboard-right">
+          <Header
+            title="Telecom Access Point"
+            skipLinks={[
+              <a key="main" href="#main-content">
+                Skip to main content
+              </a>,
+            ]}
+            logoLinkElement={
+              <Link
+                href="/"
+                title="Government of British Columbia"
+                prefetch={false}
+              />
+            }
+          >
+            <div className="dashboard-header__user">
+              <UserCircle2 size={20} aria-hidden="true" />
+              <span>{displayName}</span>
+              <button
+                onClick={() => {
+                  window.location.href = "/auth/logout";
+                }}
+                className="dashboard-header__logout"
+              >
+                Logout
+              </button>
             </div>
-            <hr className="dashboard-main__divider" />
+          </Header>
 
-            <section
-              className="dashboard-controls"
-              aria-label="Spend chart filters"
-            >
-              <label className="dashboard-control">
-                <span>Year type</span>
-                <select
-                  value={yearType}
-                  onChange={(e) => {
-                    setYearType(e.target.value as YearType);
-                    setPeriods([]);
-                  }}
-                >
-                  <option value="fiscal">Fiscal</option>
-                  <option value="calendar">Calendar</option>
-                </select>
-              </label>
-            </section>
-
-            <SpendTimelineBrush
-              key={yearType}
-              chart={timelineQuery.data ?? null}
-              isLoading={timelineQuery.isLoading}
-              onPeriodsChange={setPeriods}
-              yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
-              tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
-            />
-
-            <SpendIndicatorCards
-              indicators={indicatorQuery.data?.indicators ?? []}
-              dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
-              isLoading={indicatorQuery.isLoading}
-            />
-
-            {chartQuery.isError ? (
-              <div className="dashboard-alert" role="alert">
-                Unable to load service category spend data.
+          <div className="dashboard-content">
+            <main id="main-content" className="dashboard-main">
+              <div className="dashboard-main__header">
+                <div>
+                  <Heading level={1}>Telecom Spend Dashboard</Heading>
+                  <Heading level={5}>TSMA & NGTA</Heading>
+                  <p className="dashboard-main__intro">
+                    Consolidated view of telecom spend across Buyers Group Entities
+                  </p>
+                </div>
               </div>
-            ) : null}
+              <hr className="dashboard-main__divider" />
 
-            <section className="dashboard-chart-grid" aria-live="polite">
-              <article className="dashboard-card">
-                <CustomDashboardChart
-                  title="Spend by Service Category"
-                  label="Download spend by service category chart as image"
-                >
-                  <div className="dashboard-card__header">
-                    <h2>Spend by service category</h2>
-                    {buildPeriodRangeLabel(period, yearType) && (
-                      <p className="dashboard-card__date-range">
-                        {buildPeriodRangeLabel(period, yearType)}
-                      </p>
-                    )}
-                    <p>
-                      The chart shows the breakdown of Telecom spend by service
-                      category and highlighting how much is spent with each
-                      provider.
-                    </p>
-                  </div>
-                  <div className="dashboard-card__chart">
-                    <ChartState
-                      isLoading={chartQuery.isLoading}
-                      isEmpty={!chartQuery.data?.plotly}
-                      loadingLabel="Loading Plotly chart..."
-                      emptyLabel="No Plotly data for this period."
-                    >
-                      {chartQuery.data?.plotly && (
-                        <Plot
-                          data={applyOutsideLabels(
-                            chartQuery.data.plotly.data,
-                            new Set(
-                              chartQuery.data.plotly.data.map(
-                                (t) => (t as { name?: string }).name ?? "",
-                              ),
-                            ),
-                          )}
-                          layout={{
-                            ...chartQuery.data.plotly.layout,
-                            autosize: true,
-                            showlegend: true,
-                            legend: {
-                              ...chartQuery.data.plotly.layout.legend,
-                              itemclick: false,
-                              itemdoubleclick: false,
-                            },
-                            paper_bgcolor: "rgba(0,0,0,0)",
-                            plot_bgcolor: "rgba(0,0,0,0)",
-                          }}
-                          config={{ displayModeBar: false, responsive: true }}
-                          style={{ width: "100%", height: "420px" }}
-                          useResizeHandler
-                        />
-                      )}
-                    </ChartState>
-                  </div>
-                </CustomDashboardChart>
-              </article>
+              <section
+                className="dashboard-controls"
+                aria-label="Spend chart filters"
+              >
+                <label className="dashboard-control">
+                  <span>Year type</span>
+                  <select
+                    value={yearType}
+                    onChange={(e) => {
+                      setYearType(e.target.value as YearType);
+                      setPeriods([]);
+                    }}
+                  >
+                    <option value="fiscal">Fiscal</option>
+                    <option value="calendar">Calendar</option>
+                  </select>
+                </label>
+              </section>
 
-              <article className="dashboard-card">
-                <CustomDashboardChart
-                  title="Telecom Spend Share by Sector"
-                  label="Download spend by sector chart as image"
-                >
-                  <div className="dashboard-card__header">
-                    <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
-                  </div>
-                  <div className="dashboard-card__chart">
-                    <ChartState
-                      isLoading={sectorQuery.isLoading}
-                      isError={sectorQuery.isError}
-                      isEmpty={!sectorQuery.data}
-                      loadingLabel="Loading sector chart…"
-                      errorLabel="Unable to load sector data."
-                      emptyLabel="No data for this period."
-                    >
-                      {sectorQuery.data && (
-                        <SpendBySectorChart
-                          chart={sectorQuery.data}
-                          dateRangeLabel={buildPeriodRangeLabel(
-                            period,
-                            yearType,
-                          )}
-                        />
-                      )}
-                    </ChartState>
-                  </div>
-                </CustomDashboardChart>
-              </article>
-            </section>
+              <SpendTimelineBrush
+                key={yearType}
+                chart={timelineQuery.data ?? null}
+                isLoading={timelineQuery.isLoading}
+                onPeriodsChange={setPeriods}
+                yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
+                tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
+              />
 
-            {canAccessBgeData && (
-              <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
+              <SpendIndicatorCards
+                indicators={indicatorQuery.data?.indicators ?? []}
+                dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                isLoading={indicatorQuery.isLoading}
+              />
+
+              {chartQuery.isError ? (
+                <div className="dashboard-alert" role="alert">
+                  Unable to load service category spend data.
+                </div>
+              ) : null}
+
+              <section className="dashboard-chart-grid" aria-live="polite">
                 <article className="dashboard-card">
                   <CustomDashboardChart
-                    title="Spend by BGE"
-                    label="Download spend by BGE chart as image"
+                    title="Spend by Service Category"
+                    label="Download spend by service category chart as image"
                   >
                     <div className="dashboard-card__header">
-                      <h2>Spend by BGE</h2>
+                      <h2>Spend by service category</h2>
+                      {buildPeriodRangeLabel(period, yearType) && (
+                        <p className="dashboard-card__date-range">
+                          {buildPeriodRangeLabel(period, yearType)}
+                        </p>
+                      )}
+                      <p>
+                        The chart shows the breakdown of Telecom spend by service
+                        category and highlighting how much is spent with each
+                        provider.
+                      </p>
                     </div>
                     <div className="dashboard-card__chart">
                       <ChartState
-                        isLoading={bgeQuery.isLoading}
-                        isError={bgeQuery.isError}
-                        isEmpty={!bgeQuery.data}
-                        loadingLabel="Loading BGE chart…"
-                        errorLabel="Unable to load BGE data."
+                        isLoading={chartQuery.isLoading}
+                        isEmpty={!chartQuery.data?.plotly}
+                        loadingLabel="Loading Plotly chart..."
+                        emptyLabel="No Plotly data for this period."
+                      >
+                        {chartQuery.data?.plotly && (
+                          <Plot
+                            data={applyOutsideLabels(
+                              chartQuery.data.plotly.data,
+                              new Set(
+                                chartQuery.data.plotly.data.map(
+                                  (t) => (t as { name?: string }).name ?? "",
+                                ),
+                              ),
+                            )}
+                            layout={{
+                              ...chartQuery.data.plotly.layout,
+                              autosize: true,
+                              showlegend: true,
+                              legend: {
+                                ...chartQuery.data.plotly.layout.legend,
+                                itemclick: false,
+                                itemdoubleclick: false,
+                              },
+                              paper_bgcolor: "rgba(0,0,0,0)",
+                              plot_bgcolor: "rgba(0,0,0,0)",
+                            }}
+                            config={{ displayModeBar: false, responsive: true }}
+                            style={{ width: "100%", height: "420px" }}
+                            useResizeHandler
+                          />
+                        )}
+                      </ChartState>
+                    </div>
+                  </CustomDashboardChart>
+                </article>
+
+                <article className="dashboard-card">
+                  <CustomDashboardChart
+                    title="Telecom Spend Share by Sector"
+                    label="Download spend by sector chart as image"
+                  >
+                    <div className="dashboard-card__header">
+                      <h2>Telecom Spend share by Sector (${sectorTotalLabel}M)</h2>
+                    </div>
+                    <div className="dashboard-card__chart">
+                      <ChartState
+                        isLoading={sectorQuery.isLoading}
+                        isError={sectorQuery.isError}
+                        isEmpty={!sectorQuery.data}
+                        loadingLabel="Loading sector chart…"
+                        errorLabel="Unable to load sector data."
                         emptyLabel="No data for this period."
                       >
-                        {bgeQuery.data && (
-                          <SpendByBgeChart
-                            chart={bgeQuery.data}
+                        {sectorQuery.data && (
+                          <SpendBySectorChart
+                            chart={sectorQuery.data}
                             dateRangeLabel={buildPeriodRangeLabel(
                               period,
                               yearType,
@@ -378,9 +347,44 @@ export function DashboardClient({
                   </CustomDashboardChart>
                 </article>
               </section>
-            )}
-          </main>
-          <MinimalFooter />
+
+              {canAccessBgeData && (
+                <section className="dashboard-chart-grid dashboard-chart-grid--full" aria-live="polite">
+                  <article className="dashboard-card">
+                    <CustomDashboardChart
+                      title="Spend by BGE"
+                      label="Download spend by BGE chart as image"
+                    >
+                      <div className="dashboard-card__header">
+                        <h2>Spend by BGE</h2>
+                      </div>
+                      <div className="dashboard-card__chart">
+                        <ChartState
+                          isLoading={bgeQuery.isLoading}
+                          isError={bgeQuery.isError}
+                          isEmpty={!bgeQuery.data}
+                          loadingLabel="Loading BGE chart…"
+                          errorLabel="Unable to load BGE data."
+                          emptyLabel="No data for this period."
+                        >
+                          {bgeQuery.data && (
+                            <SpendByBgeChart
+                              chart={bgeQuery.data}
+                              dateRangeLabel={buildPeriodRangeLabel(
+                                period,
+                                yearType,
+                              )}
+                            />
+                          )}
+                        </ChartState>
+                      </div>
+                    </CustomDashboardChart>
+                  </article>
+                </section>
+              )}
+            </main>
+            <MinimalFooter />
+          </div>
         </div>
       </div>
     </div>
