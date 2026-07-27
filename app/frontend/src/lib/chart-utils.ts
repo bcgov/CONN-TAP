@@ -96,6 +96,38 @@ export const isBgeChart = (chart: unknown): chart is BgeChart =>
       Array.isArray((chart as BgeChart).data)
   );
 
+export type SummaryCategory = {
+  code: string;
+  name: string;
+};
+
+export type SummaryRow = {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  type: string; // "BGE" | "Sub Org" | "Service Designee"
+  level: number; // 0 | 1 | 2
+  values: Record<string, number>;
+  total: number;
+};
+
+export type SummaryTable = {
+  categories: SummaryCategory[];
+  providers: string[];
+  rows: SummaryRow[];
+  total_millions: number;
+};
+
+export const isSummaryTable = (table: unknown): table is SummaryTable =>
+  Boolean(
+    table &&
+      typeof table === "object" &&
+      "categories" in table &&
+      "rows" in table &&
+      Array.isArray((table as SummaryTable).rows) &&
+      Array.isArray((table as SummaryTable).categories)
+  );
+
 export const VENDOR_COLOURS: Record<string, string> = {
   TELUS: "var(--color-vendor-telus)",
   Rogers: "var(--color-vendor-rogers)",

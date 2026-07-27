@@ -11,6 +11,12 @@ sources:
       - name: sector
       - name: bge
       - name: sub_bge
+        columns:
+          - name: code
+            tests:
+              - relationships:
+                  to: ref('sub_bge_alias_map')
+                  field: sub_bge_alias
       - name: provider
       - name: service_category
       - name: service_code
