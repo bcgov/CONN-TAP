@@ -285,11 +285,27 @@ AS $$
     v.blank_column;
 $$;
 
+-- Case-insensitive "does this sheet name contain the alias as a whole token/phrase" test,
+-- shared by every BGE validator below (all_bges / new_bges / still_missing).
+DROP FUNCTION IF EXISTS telus_bge_alias_matches (text, text);
+CREATE OR REPLACE FUNCTION telus_bge_alias_matches (p_sheet text, p_alias text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT strpos(
+    ' ' || lower(regexp_replace(p_sheet, '[^[:alnum:]]+', ' ', 'g')) || ' ',
+    ' ' || lower(regexp_replace(p_alias, '[^[:alnum:]]+', ' ', 'g')) || ' '
+  ) > 0;
+$$;
+
 -- Requires p_statement_month (one month only). Pass any date in that month (e.g. date '2026-03-15').
 -- Fails when no sheet_name (for rows in that month) matches any alias for an expected BGE.
 -- BGEs and aliases are sourced from reference_data.bge joined to seeds.bge_alias_map, so the
--- list stays in sync with reference data automatically (including MOE → ECC aliasing).
--- SD aliases use a word-boundary regex to avoid matching inside longer tokens (e.g. SCHLDIST).
+-- list stays in sync with reference data automatically. Alias matching goes through
+-- telus_bge_alias_matches (whole-token match). NOTE: '…→ECC' aliases (MOE, etc.) do not join to
+-- any BGE because ECC is not a reference_data.bge code, so a month whose only government sheet is
+-- bare 'MOE' can flag Gov BC as missing.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_all_bges_in_sheets (
   p_statement_month date
@@ -325,12 +341,7 @@ BEGIN
     SELECT 1
     FROM base AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
-    WHERE (
-      bam.raw_name = 'SD'
-      AND sh.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])'
-      OR bam.raw_name <> 'SD'
-      AND sh.sheet_name ILIKE '%' || bam.raw_name || '%'
-    )
+    WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
   )
   ORDER BY b.code;
 END;
@@ -660,11 +671,15 @@ AS $$
     d.stmt_month NULLS LAST;
 $$;
 
--- Detects sheet names that were added or removed compared to the prior month.
--- Returns one row per changed sheet with change_type 'added' or 'removed'.
--- Comparison is case-insensitive. All sheet names — whether in the known BGE list or not — are
--- included; use telus_raw_validate_all_bges_in_sheets to check for missing known BGEs separately.
--- p_statement_month is required — pass any date within the target month.
+-- Detects sheet names that are new and/or unrecognized this month vs. the prior month.
+-- Returns one row per flagged sheet with a status:
+--   'New + Unrecognized' — absent last month AND not a recognized BGE
+--   'Unrecognized'       — present last month but not a recognized BGE
+--   'Newly Appeared'     — new this month but a recognized BGE
+--   'Removed'            — present last month, gone this month
+-- "Recognized" means the sheet matches an alias that resolves to a reference_data.bge code
+-- (or the intentional ECC alias), the same source of truth as telus_raw_validate_all_bges_in_sheets.
+-- Comparison is case-insensitive. p_statement_month is required — pass any date within the target month.
 
 DROP FUNCTION IF EXISTS telus_raw_validate_new_bges_in_sheets (date);
 CREATE OR REPLACE FUNCTION telus_raw_validate_new_bges_in_sheets (
@@ -700,6 +715,16 @@ BEGIN
       AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '1 month')
       AND trim(both FROM t.sheet_name) IS NOT NULL
       AND trim(both FROM t.sheet_name) <> ''
+  ),
+  -- A sheet is "recognized" when it matches an alias that resolves to a real
+  -- reference_data.bge code, or the intentional ECC alias
+  recognized_sheets AS (
+    SELECT DISTINCT cs.sheet_name
+    FROM current_sheets AS cs
+    JOIN seeds.bge_alias_map AS bam
+      ON telus_bge_alias_matches(cs.sheet_name, bam.raw_name)
+    WHERE bam.bge_alias = 'ECC'
+       OR EXISTS (SELECT 1 FROM reference_data.bge AS b WHERE b.code = bam.bge_alias)
   )
   -- Current month: newly appeared and/or unrecognized sheets
   SELECT
@@ -707,32 +732,16 @@ BEGIN
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
     cs.sheet_name AS sheet_name,
     CASE
-      WHEN NOT EXISTS (
-             SELECT 1 FROM seeds.bge_alias_map AS bam
-             WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
-                OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
-           )
-       AND NOT EXISTS (
-             SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name)
-           )
+      WHEN NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
+       AND NOT EXISTS (SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name))
         THEN 'New + Unrecognized'
-      WHEN NOT EXISTS (
-             SELECT 1 FROM seeds.bge_alias_map AS bam
-             WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
-                OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
-           )
+      WHEN NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
         THEN 'Unrecognized'
       ELSE 'Newly Appeared'
     END AS status
   FROM current_sheets AS cs
-  WHERE NOT EXISTS (
-          SELECT 1 FROM seeds.bge_alias_map AS bam
-          WHERE (bam.raw_name = 'SD' AND cs.sheet_name ~* '(^|[^[:alnum:]])SD($|[^[:alnum:]])')
-             OR (bam.raw_name <> 'SD' AND cs.sheet_name ILIKE '%' || bam.raw_name || '%')
-        )
-     OR NOT EXISTS (
-          SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name)
-        )
+  WHERE NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
+     OR NOT EXISTS (SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name))
 
   UNION ALL
 
@@ -748,5 +757,175 @@ BEGIN
   )
 
   ORDER BY status, sheet_name;
+END;
+$$;
+
+-- Sub-BGE counterpart of telus_raw_validate_new_bges_in_sheets, keyed on account_description
+-- (Telus's sub-organization / billing account). Detects account_descriptions that are new
+-- and/or unrecognized this month vs. the prior month. Returns one row per flagged value:
+--   'New + Unrecognized' — absent last month AND not a recognized sub-BGE
+--   'Unrecognized'       — present last month but not a recognized sub-BGE
+--   'Newly Appeared'     — new this month but a recognized sub-BGE
+--   'Removed'            — present last month, gone this month
+-- "Recognized" means account_description matches a known alias in sub_bge_alias_map -- exact
+-- normalized-key equality (norm_key), mirroring the pipeline (stg_telus_ngta_spend), NOT
+-- substring. Recognition is by ALIAS MEMBERSHIP only: we do NOT require the alias to resolve to
+-- a reference_data.sub_bge, because sub_bge_alias_map intentionally carries aliases for retired /
+-- not-yet-loaded sub_bges and those are still "known". So only account_descriptions that match
+-- NO alias are flagged new/unrecognized -- i.e. genuinely new spellings that need mapping.
+-- p_statement_month is required.
+
+DROP FUNCTION IF EXISTS telus_raw_validate_new_sub_bges_in_accounts (date);
+CREATE OR REPLACE FUNCTION telus_raw_validate_new_sub_bges_in_accounts (
+  p_statement_month date
+)
+RETURNS TABLE (
+  contradiction_year  int,
+  contradiction_month int,
+  account_description text,
+  status              text
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF p_statement_month IS NULL THEN
+    RAISE EXCEPTION 'telus_raw_validate_new_sub_bges_in_accounts: p_statement_month is required';
+  END IF;
+
+  RETURN QUERY
+  WITH current_subs AS (
+    SELECT DISTINCT trim(both FROM t.account_description) AS account_description
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
+      AND trim(both FROM t.account_description) IS NOT NULL
+      AND trim(both FROM t.account_description) <> ''
+  ),
+  prior_subs AS (
+    SELECT DISTINCT trim(both FROM t.account_description) AS account_description
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '1 month')
+      AND trim(both FROM t.account_description) IS NOT NULL
+      AND trim(both FROM t.account_description) <> ''
+  ),
+  -- An account_description is "recognized" when its normalized key exactly matches ANY
+  -- sub_bge_alias_map raw_name -- i.e. it is already a known alias. Recognition is by ALIAS
+  -- MEMBERSHIP only: we do NOT additionally require the alias to resolve to a
+  -- reference_data.sub_bge, because sub_bge_alias_map intentionally carries aliases for retired
+  -- / not-yet-loaded sub_bges, and those are still "known" (already mapped) so flagging them
+  -- would be noise. Only account_descriptions that match NO alias are new/unrecognized.
+  -- norm_key: lower -> strip non-ASCII-printable -> collapse whitespace -> trim
+  -- (kept in sync with the norm_key macro used in stg_telus_ngta_spend).
+  recognized_subs AS (
+    SELECT DISTINCT cs.account_description
+    FROM current_subs AS cs
+    JOIN seeds.sub_bge_alias_map AS sbm
+      ON trim(regexp_replace(regexp_replace(lower(sbm.raw_name), '[^\x20-\x7e]', '', 'g'), '\s+', ' ', 'g'))
+       = trim(regexp_replace(regexp_replace(lower(cs.account_description), '[^\x20-\x7e]', '', 'g'), '\s+', ' ', 'g'))
+  )
+  -- Current month: newly appeared and/or unrecognized account_descriptions
+  SELECT
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int AS contradiction_year,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
+    cs.account_description AS account_description,
+    CASE
+      WHEN NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
+       AND NOT EXISTS (SELECT 1 FROM prior_subs AS ps WHERE lower(ps.account_description) = lower(cs.account_description))
+        THEN 'New + Unrecognized'
+      WHEN NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
+        THEN 'Unrecognized'
+      ELSE 'Newly Appeared'
+    END AS status
+  FROM current_subs AS cs
+  WHERE NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
+     OR NOT EXISTS (SELECT 1 FROM prior_subs AS ps WHERE lower(ps.account_description) = lower(cs.account_description))
+
+  UNION ALL
+
+  -- Prior month: account_descriptions that have disappeared
+  SELECT
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int,
+    ps.account_description,
+    'Removed'::text
+  FROM prior_subs AS ps
+  WHERE NOT EXISTS (
+    SELECT 1 FROM current_subs AS cs WHERE lower(cs.account_description) = lower(ps.account_description)
+  )
+
+  ORDER BY status, account_description;
+END;
+$$;
+
+-- Month-over-month persistence of the "expected BGE not reporting" check
+-- (telus_raw_validate_all_bges_in_sheets flags this for a single month). Returns every
+-- reference_data.bge that has no matching sheet_name THIS month, annotated with whether it
+-- was also absent LAST month:
+--   'Still Missing' — absent this month AND last month (was flagged last month, still missing)
+--   'Newly Missing' — absent this month but present last month (newly flagged)
+-- A BGE is "present" in a month when some sheet_name matches one of its aliases, using the
+-- same alias/SD-word-boundary matching and reference_data.bge join as all_bges_in_sheets.
+-- p_statement_month is required — pass any date within the target month.
+
+DROP FUNCTION IF EXISTS telus_raw_validate_still_missing_bges_in_sheets (date);
+CREATE OR REPLACE FUNCTION telus_raw_validate_still_missing_bges_in_sheets (
+  p_statement_month date
+)
+RETURNS TABLE (
+  contradiction_year  int,
+  contradiction_month int,
+  bge_code            text,
+  status              text
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF p_statement_month IS NULL THEN
+    RAISE EXCEPTION 'telus_raw_validate_still_missing_bges_in_sheets: p_statement_month is required';
+  END IF;
+
+  RETURN QUERY
+  WITH current_sheets AS (
+    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
+      AND trim(both FROM t.sheet_name) IS NOT NULL
+      AND trim(both FROM t.sheet_name) <> ''
+  ),
+  prior_sheets AS (
+    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    FROM raw_data.raw_telus_spend AS t
+    WHERE t.statement_date IS NOT NULL
+      AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '1 month')
+      AND trim(both FROM t.sheet_name) IS NOT NULL
+      AND trim(both FROM t.sheet_name) <> ''
+  )
+  SELECT
+    EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int AS contradiction_year,
+    EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
+    b.code AS bge_code,
+    CASE
+      WHEN NOT EXISTS (
+             SELECT 1
+             FROM prior_sheets AS sh
+             JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
+             WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
+           )
+        THEN 'Still Missing'
+      ELSE 'Newly Missing'
+    END AS status
+  FROM reference_data.bge AS b
+  -- Missing this month: no current sheet matches any alias of this BGE
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM current_sheets AS sh
+    JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
+    WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
+  )
+  ORDER BY status, b.code;
 END;
 $$;
