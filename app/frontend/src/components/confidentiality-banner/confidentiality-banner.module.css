@@ -6,12 +6,18 @@
   display: grid;
   grid-template-rows: 1fr;
   opacity: 1;
-  transition: grid-template-rows 1s ease, opacity 1s ease;
+  visibility: visible;
+  pointer-events: auto;
+  transition: grid-template-rows 1s ease, opacity 1s ease, visibility 0s linear 1s;
 }
 
 .collapse[data-dismissed="true"] {
   grid-template-rows: 0fr;
   opacity: 0;
+  /* After the collapse animation, take the banner (and its close button) out of
+     the tab order and block interaction so keyboard users can't focus it. */
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .clip {

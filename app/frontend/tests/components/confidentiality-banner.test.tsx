@@ -14,12 +14,13 @@ describe("ConfidentialityBanner", () => {
 
   it("collapses when the BC Gov close button is clicked", () => {
     const { container } = render(<ConfidentialityBanner />);
-    const collapse = container.firstElementChild as HTMLElement;
+    const collapse = container.querySelector("[data-dismissed]") as HTMLElement | null;
+    expect(collapse).not.toBeNull();
 
-    expect(collapse).toHaveAttribute("data-dismissed", "false");
+    expect(collapse!).toHaveAttribute("data-dismissed", "false");
 
-    fireEvent.click(screen.getByRole("button", { name: "Close this alert" }));
+    fireEvent.click(screen.getByRole("button", { name: /close this alert/i }));
 
-    expect(collapse).toHaveAttribute("data-dismissed", "true");
+    expect(collapse!).toHaveAttribute("data-dismissed", "true");
   });
 });
