@@ -1,5 +1,7 @@
 {{ config(materialized='view') }}
 
+with cleaned as (
+
 select
     'telus'::text as vendor,
     'tsma'::text as source_system,
@@ -101,7 +103,7 @@ select
     ingestion_run_id,
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
-    nullif(trim(regexp_replace(rcid_cust_nm, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+    'Gov BC'::text as organization_name,
     null::text as sub_organization_name,
     'ivr'::text as source_service_family,
     'voice ivr'::text as source_service_description,
@@ -132,3 +134,25 @@ select
     'total'::text as source_amount_name,
     coalesce(total, 0)::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'tsma_mms') }}
+
+)
+
+select
+    vendor,
+    source_system,
+    source_table,
+    raw_id,
+    ingestion_run_id,
+    month_start,
+    bm.bge_alias as organization_name,
+    sbm.sub_bge_alias as sub_organization_name,
+    source_service_family,
+    source_service_description,
+    source_service_id,
+    statement_category,
+    tsma_service_tower,
+    source_amount_name,
+    spend_amount
+from cleaned
+left join {{ ref('bge_alias_map') }} bm on {{ norm_key('bm.raw_name') }} = {{ norm_key('cleaned.organization_name') }}
+left join {{ ref('sub_bge_alias_map') }} sbm on {{ norm_key('sbm.raw_name') }} = {{ norm_key('cleaned.sub_organization_name') }}

@@ -47,6 +47,10 @@ class _DataFrame:
 
 
 _pd.DataFrame = _DataFrame
+# Dataset helpers call ``pd.notna`` to spot missing ids; tests feed ``None`` for
+# those, so identity is a faithful enough stand-in for the real NaN check.
+if not hasattr(_pd, "notna"):
+    _pd.notna = lambda value: value is not None
 
 
 # ---- jwt --------------------------------------------------------------------
@@ -171,6 +175,31 @@ class HTTPBearer:
 _fa_sec.HTTPAuthorizationCredentials = HTTPAuthorizationCredentials
 _fa_sec.HTTPBearer = HTTPBearer
 _fa.security = _fa_sec
+
+
+# ---- pydantic ---------------------------------------------------------------
+_pyd = _ensure("pydantic")
+
+
+class BaseModel:
+    def __init__(self, **kwargs) -> None:
+        self.__dict__.update(kwargs)
+
+    def model_dump(self, *a, **k) -> dict:
+        return dict(self.__dict__)
+
+
+def _field_validator(*a, **k):
+    def decorate(fn):
+        return fn
+
+    return decorate
+
+
+if not hasattr(_pyd, "BaseModel"):
+    _pyd.BaseModel = BaseModel
+if not hasattr(_pyd, "field_validator"):
+    _pyd.field_validator = _field_validator
 
 
 # ---- pydantic_settings ------------------------------------------------------

@@ -60,6 +60,8 @@ source/
 scripts/spend_tracking.xlsx
 scripts/telus_ngta_spend.xlsx
 scripts/tsma_other_spend.xlsx
+scripts/telus_unmatched_spend.xlsx
+scripts/telus_cost_validation.xlsx
 scripts/~$*.xlsx
 
 # SonarCloud / CI test reports
