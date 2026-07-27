@@ -12,17 +12,18 @@ import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
 import { SpendTimelineBrush } from "@/components/spend-timeline-brush";
 import { SpendBySectorChart } from "@/components/spend-by-sector-chart";
 import { SpendByBgeChart } from "@/components/spend-by-bge-chart";
+import { SpendSummaryTable } from "@/components/spend-summary-table";
 import {
   applyOutsideLabels,
   isBgeChart,
   isIndicatorChart,
   isPlotlyChart,
   isSectorChart,
+  isSummaryTable,
   isTimelineChart,
 } from "@/lib/chart-utils";
 import {
   buildPeriodRangeLabel,
-  periodsToYearsQuarters,
   type YearType,
 } from "@/lib/date-utils";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +31,7 @@ import { useEffect, useRef, useState } from "react";
 type DatasetEnvelope = {
   metadata: {
     chart?: unknown;
+    table?: unknown;
   };
 };
 
@@ -89,6 +91,7 @@ export function DashboardClient({
   const [yearType, setYearType] = useState<YearType>("fiscal");
   const [period, setPeriods] = useState<string[]>([]);
   const canAccessBgeData = visibleDatasetIds.includes("spend-by-bge");
+  const canAccessSummary = visibleDatasetIds.includes("spend-summary");
 
   const chartQuery = useQuery({
     queryKey: ["service-category-spend", yearType, period],
@@ -155,6 +158,20 @@ export function DashboardClient({
       return isBgeChart(result.metadata.chart) ? result.metadata.chart : null;
     },
     enabled: canAccessBgeData && period.length > 0,
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["spend-summary", yearType, period],
+    queryFn: async () => {
+      const result = await fetchDataset("spend-summary", {
+        yearType,
+        period,
+      });
+      return isSummaryTable(result.metadata.table)
+        ? result.metadata.table
+        : null;
+    },
+    enabled: canAccessSummary && period.length > 0,
   });
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -378,6 +395,45 @@ export function DashboardClient({
                   </CustomDashboardChart>
                 </article>
               </section>
+            )}
+
+            {canAccessSummary && (
+            <section
+              className="dashboard-chart-grid dashboard-chart-grid--full"
+              aria-live="polite"
+            >
+              <article className="dashboard-card">
+                <CustomDashboardChart title="Spend Summary" downloadable={false}>
+                  <div className="dashboard-card__header">
+                    <h2>Spend summary</h2>
+                    <p>
+                      Telecom spend by BGE, sub-organization, and service
+                      designee, broken out by service category.
+                    </p>
+                  </div>
+                  <div className="dashboard-card__chart">
+                    {summaryQuery.isLoading ? (
+                      <p className="dashboard-card__empty">
+                        Loading summary table…
+                      </p>
+                    ) : summaryQuery.isError ? (
+                      <p className="dashboard-card__empty">
+                        Unable to load summary data.
+                      </p>
+                    ) : summaryQuery.data ? (
+                      <SpendSummaryTable
+                        table={summaryQuery.data}
+                        dateRangeLabel={buildPeriodRangeLabel(period, yearType)}
+                      />
+                    ) : (
+                      <p className="dashboard-card__empty">
+                        No data for this period.
+                      </p>
+                    )}
+                  </div>
+                </CustomDashboardChart>
+              </article>
+            </section>
             )}
           </main>
           <MinimalFooter />

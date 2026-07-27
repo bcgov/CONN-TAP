@@ -1,6 +1,9 @@
 version: 2
 
 models:
+  - name: int_rogers_ngta_spend
+    description: Rogers NGTA spend normalized to the shared line-item shape.
+
   - name: int_telus_ngta_spend
     description: Telus NGTA spend after applying section/detail/category exclusion rules.
 
