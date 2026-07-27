@@ -149,6 +149,7 @@ final AS (
             WHEN missing_bge_issue IS NOT NULL THEN 'Missing BGE'
             WHEN missing_sub_bge_issue IS NOT NULL THEN 'Missing SUB-BGE'
             WHEN mapping_issue IS NOT NULL THEN 'Mapping Issue'
+            WHEN unknown_sub_bge_issue IS NOT NULL THEN 'Unknown SUB-BGE'
             WHEN post_tax_issue IS NOT NULL THEN 'Post-TAX Issue'
             WHEN pre_tax_issue IS NOT NULL THEN 'Pre-TAX Issue'
         END AS issue_type
@@ -370,3 +371,83 @@ WHERE NOT EXISTS (SELECT 1 FROM prior_sub_bges   psb WHERE psb.sub_bge_norm = tm
   AND NOT EXISTS (SELECT 1 FROM current_sub_bges csb WHERE csb.sub_bge_norm = tma.sub_bge_norm)
 
 ORDER BY entity_type, status, raw_value;
+
+
+-- =============================================
+-- MISSING BGE / SUB-BGE DETECTION
+-- Expected (mapped) BGEs and SUB-BGEs from the seeds that never appear anywhere
+-- in the report. This is a set-difference check against the full mapping, mirroring
+-- the Python 'Missing_BGEs' and 'Missing_SUB_BGEs' outputs (expected - reported).
+-- Distinct from 'Missing BGE'/'Missing SUB-BGE' in the summary query above, which
+-- flag row-level NULLs, and from 'Removed' above, which is month-over-month.
+-- =============================================
+
+WITH bge_map AS (
+
+    SELECT UPPER(TRIM(bam.raw_name)) AS raw_bge,
+           bam.bge_alias             AS mapped_bge
+    FROM seeds.bge_alias_map AS bam
+
+),
+
+sub_bge_map AS (
+
+    SELECT UPPER(TRIM(sbam.raw_name)) AS sub_bge,
+           b.code                     AS expected_bge
+    FROM seeds.sub_bge_alias_map AS sbam
+    JOIN reference_data.sub_bge  AS sb ON sb.code  = sbam.sub_bge_alias
+    JOIN reference_data.bge      AS b  ON b.id     = sb.bge_id
+
+),
+
+normalized AS (
+
+    SELECT
+        UPPER(TRIM(r.bge))     AS bge_norm,
+        UPPER(TRIM(r.sub_bge)) AS sub_bge_norm
+    FROM raw_data.raw_rogers_spend_cellular r
+
+),
+
+-- Canonical BGEs actually present in the report (raw BGE mapped via bge_map)
+report_bges AS (
+
+    SELECT DISTINCT bm.mapped_bge AS mapped_bge
+    FROM normalized n
+    JOIN bge_map bm ON n.bge_norm = bm.raw_bge
+
+),
+
+-- SUB-BGEs actually present in the report (normalized)
+report_sub_bges AS (
+
+    SELECT DISTINCT n.sub_bge_norm
+    FROM normalized n
+    WHERE n.sub_bge_norm IS NOT NULL
+      AND n.sub_bge_norm <> ''
+
+)
+
+-- Missing BGEs: expected canonical BGEs absent entirely from the report
+SELECT
+    'BGE'         AS entity_type,
+    eb.mapped_bge AS missing_value,
+    NULL          AS related_bge
+FROM (SELECT DISTINCT mapped_bge FROM bge_map) eb
+WHERE NOT EXISTS (
+    SELECT 1 FROM report_bges rb WHERE rb.mapped_bge = eb.mapped_bge
+)
+
+UNION ALL
+
+-- Missing SUB-BGEs: expected SUB-BGEs absent entirely from the report
+SELECT
+    'Sub BGE'        AS entity_type,
+    esb.sub_bge      AS missing_value,
+    esb.expected_bge AS related_bge
+FROM (SELECT DISTINCT sub_bge, expected_bge FROM sub_bge_map) esb
+WHERE NOT EXISTS (
+    SELECT 1 FROM report_sub_bges rs WHERE rs.sub_bge_norm = esb.sub_bge
+)
+
+ORDER BY entity_type, missing_value;
