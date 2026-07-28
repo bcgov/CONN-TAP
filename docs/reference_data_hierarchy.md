@@ -1,0 +1,135 @@
+# Organization Mapping Hierarchy
+
+`Sector → BGE → Sub-BGE → Service Designee`
+
+**Legend:** 🟪 Sector · 🟦 BGE · 🟩 Sub-org · 🟧 Service Designee
+
+## 🟪 Health Authorities
+- 🟦 Fraser Health Authority
+- 🟦 First Nations Health Authority
+- 🟦 Interior Health Authority
+- 🟦 Northern Health Authority
+- 🟦 Provincial Health Services Authority
+- 🟦 Vancouver Coastal Health + Providence
+  - 🟧 Providence Health Care
+- 🟦 Vancouver Island Health Authority
+
+## 🟪 Crown Corporations
+- 🟦 BC Hydro
+  - 🟧 Powertech Labs
+  - 🟧 Powerex
+- 🟦 BC Lottery Corporation
+- 🟦 WorkSafe BC
+- 🟦 Insurance Corporation of BC
+
+## 🟪 Gov & ECC
+- 🟦 School Districts
+  - 🟧 SD 5 Southeast Kootenay
+  - 🟧 SD 6 Rocky Mountain
+  - 🟧 SD 8 Kootenay Lake
+  - 🟧 SD 10 Arrow Lakes
+  - 🟧 SD 19 Revelstoke
+  - 🟧 SD 20 Kootenay-Columbia
+  - 🟧 SD 22 Vernon
+  - 🟧 SD 23 Central Okanagan
+  - 🟧 SD 27 Cariboo-Chilcotin
+  - 🟧 SD 28 Quesnel
+  - 🟧 SD 33 Chilliwack
+  - 🟧 SD 34 Abbotsford
+  - 🟧 SD 35 Langley
+  - 🟧 SD 36 Surrey
+  - 🟧 SD 37 Delta
+  - 🟧 SD 38 Richmond
+  - 🟧 SD 39 Vancouver
+  - 🟧 SD 40 New Westminster
+  - 🟧 SD 41 Burnaby
+  - 🟧 SD 42 Maple Ridge-Pitt Meadows
+  - 🟧 SD 43 Coquitlam
+  - 🟧 SD 44 North Vancouver
+  - 🟧 SD 45 West Vancouver
+  - 🟧 SD 46 Sunshine Coast
+  - 🟧 SD 47 qathet
+  - 🟧 SD 48 Sea to Sky
+  - 🟧 SD 49 Central Coast
+  - 🟧 SD 50 Haida Gwaii
+  - 🟧 SD 51 Boundary
+  - 🟧 SD 52 Prince Rupert
+  - 🟧 SD 53 Okanagan Similkameen
+  - 🟧 SD 54 Bulkley Valley
+  - 🟧 SD 57 Prince George
+  - 🟧 SD 58 Nicola-Similkameen
+  - 🟧 SD 59 Peace River South
+  - 🟧 SD 60 Peace River North
+  - 🟧 SD 61 Greater Victoria
+  - 🟧 SD 62 Sooke
+  - 🟧 SD 63 Saanich
+  - 🟧 SD 64 Gulf Islands
+  - 🟧 SD 67 Okanagan Skaha
+  - 🟧 SD 68 Nanaimo-Ladysmith
+  - 🟧 SD 69 Qualicum
+  - 🟧 SD 70 Pacific Rim
+  - 🟧 SD 71 Comox Valley
+  - 🟧 SD 72 Campbell River
+  - 🟧 SD 73 Kamloops/Thompson
+  - 🟧 SD 74 Gold Trail
+  - 🟧 SD 75 Mission
+  - 🟧 SD 78 Fraser-Cascade
+  - 🟧 SD 79 Cowichan Valley
+  - 🟧 SD 81 Fort Nelson
+  - 🟧 SD 82 Coast Mountains
+  - 🟧 SD 83 North Okanagan-Shuswap
+  - 🟧 SD 84 Vancouver Island West
+  - 🟧 SD 85 Vancouver Island North
+  - 🟧 SD 87 Stikine
+  - 🟧 SD 91 Nechako Lakes
+  - 🟧 SD 92 Nisga'a
+  - 🟧 SD 93 Conseil scolaire francophone
+- 🟦 Gov BC
+  - 🟩 Agriculture and Food
+  - 🟩 Attorney General
+  - 🟩 Children and Family Development
+  - 🟩 Citizens Services
+    - 🟧 BC Assessment
+    - 🟧 BC Liquor Distribution Branch
+    - 🟧 BC Family Maintenance Agency
+    - 🟧 BC Financial Services Authority
+    - 🟧 BC Housing Management Commission
+    - 🟧 BC Office of Human Rights Commissioner
+    - 🟧 BC Pension
+    - 🟧 Community Living BC
+    - 🟧 Destination BC
+    - 🟧 Elections BC
+    - 🟧 Forest Practice Board
+    - 🟧 Islands Trust Conservancy
+    - 🟧 Legislative Assembly
+    - 🟧 Office of the Auditor General of BC
+    - 🟧 Office of the Information & Privacy Commissioner
+    - 🟧 Office of the Merit Commissioner
+    - 🟧 Office of the Ombudsperson
+    - 🟧 Office of the Police Complaint Commissioner
+    - 🟧 Office of the Representative for Children and Youth
+    - 🟧 Public Guardian and Trustee
+    - 🟧 Royal BC Museum
+    - 🟧 Superior Court Judiciary Branch
+    - 🟧 TI Corp
+  - 🟩 Education and Child Care
+  - 🟩 Emergency Management and Climate Readiness
+  - 🟩 Energy and Climate Solutions
+  - 🟩 Environment and Parks
+  - 🟩 Finance
+  - 🟩 Forests
+  - 🟩 Health
+  - 🟩 Housing and Municipal Affairs
+  - 🟩 Indigenous Relations and Reconciliation
+  - 🟩 Infrastructure
+  - 🟩 Jobs Economic Development and Innovation
+  - 🟩 Labour
+  - 🟩 Mining and Critical Minerals
+  - 🟩 Post-Secondary Education and Future Skills
+  - 🟩 Public Safety and Solicitor General
+  - 🟩 Social Development and Poverty Reduction
+  - 🟩 Tourism Arts Culture and Sport
+  - 🟩 Transportation and Transit
+  - 🟩 Water Land and Resource Stewardship
+  - 🟩 Office of the Premier
+  - 🟩 BC Public Service Agency
