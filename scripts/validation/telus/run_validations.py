@@ -125,15 +125,17 @@ VALIDATIONS = [
      "Values not coercible to their expected type (numeric account_number/invoice_number/"
      "source_id, and a valid month format).",
      check("SELECT * FROM telus_raw_validate_column_value_types(%s)")),
-    ("Duplicate Rows",
-     "Rows that are identical on every meaningful column within a (sheet, month).",
-     check("SELECT * FROM telus_raw_validate_duplicate_rows_by_sheet_and_month(%s)")),
+    # Hidden -- redundant with Duplicate Summary + All Duplicate Rows (same detection). The
+    # SQL function still exists; uncomment to restore the per-sheet/month duplicate tab.
+    # ("Duplicate Rows",
+    #  "Rows that are identical on every meaningful column within a (sheet, month).",
+    #  check("SELECT * FROM telus_raw_validate_duplicate_rows_by_sheet_and_month(%s)")),
     ("Duplicate Summary",
-     "The same duplicate detection as Duplicate Rows, summarized per sheet/month with an amount sum.",
+     "Duplicate rows summarized per sheet/month with an amount sum.",
      check("SELECT * FROM telus_raw_summarize_duplicate_rows_by_sheet_and_month(%s)")),
     ("All Duplicate Rows",
      "Every individual raw row that is part of a duplicate group (the rows behind the "
-     "Duplicate Rows / Duplicate Summary counts). Requires --month.",
+     "Duplicate Summary counts). Requires --month.",
      duplicate_rows_check),
     ("Missing BGEs",
      "Expected BGEs (from reference data) that have no matching sheet in the target month.",
