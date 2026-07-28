@@ -673,10 +673,10 @@ $$;
 
 -- Detects sheet names that are new and/or unrecognized this month vs. the prior month.
 -- Returns one row per flagged sheet with a status:
---   'New + Unrecognized' — absent last month AND not a recognized BGE
---   'Unrecognized'       — present last month but not a recognized BGE
---   'Newly Appeared'     — new this month but a recognized BGE
---   'Removed'            — present last month, gone this month
+--   'Unmapped'            — absent last month AND not a recognized BGE
+--   'Persisting Unmapped' — present last month but not a recognized BGE
+--   'New Match'           — new this month but a recognized BGE
+--   'Disappeared'         — present last month, gone this month
 -- "Recognized" means the sheet matches an alias that resolves to a reference_data.bge code
 -- (or the intentional ECC alias), the same source of truth as telus_raw_validate_all_bges_in_sheets.
 -- Comparison is case-insensitive. p_statement_month is required — pass any date within the target month.
@@ -734,10 +734,10 @@ BEGIN
     CASE
       WHEN NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
        AND NOT EXISTS (SELECT 1 FROM prior_sheets AS ps WHERE lower(ps.sheet_name) = lower(cs.sheet_name))
-        THEN 'New + Unrecognized'
+        THEN 'Unmapped'
       WHEN NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
-        THEN 'Unrecognized'
-      ELSE 'Newly Appeared'
+        THEN 'Persisting Unmapped'
+      ELSE 'New Match'
     END AS status
   FROM current_sheets AS cs
   WHERE NOT EXISTS (SELECT 1 FROM recognized_sheets AS rs WHERE rs.sheet_name = cs.sheet_name)
@@ -750,7 +750,7 @@ BEGIN
     EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int,
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int,
     ps.sheet_name,
-    'Removed'::text
+    'Disappeared'::text
   FROM prior_sheets AS ps
   WHERE NOT EXISTS (
     SELECT 1 FROM current_sheets AS cs WHERE lower(cs.sheet_name) = lower(ps.sheet_name)
@@ -763,10 +763,10 @@ $$;
 -- Sub-BGE counterpart of telus_raw_validate_new_bges_in_sheets, keyed on account_description
 -- (Telus's sub-organization / billing account). Detects account_descriptions that are new
 -- and/or unrecognized this month vs. the prior month. Returns one row per flagged value:
---   'New + Unrecognized' — absent last month AND not a recognized sub-BGE
---   'Unrecognized'       — present last month but not a recognized sub-BGE
---   'Newly Appeared'     — new this month but a recognized sub-BGE
---   'Removed'            — present last month, gone this month
+--   'Unmapped'            — absent last month AND not a recognized sub-BGE
+--   'Persisting Unmapped' — present last month but not a recognized sub-BGE
+--   'New Match'           — new this month but a recognized sub-BGE
+--   'Disappeared'         — present last month, gone this month
 -- "Recognized" means account_description matches a known alias in sub_bge_alias_map -- exact
 -- normalized-key equality (norm_key), mirroring the pipeline (stg_telus_ngta_spend), NOT
 -- substring. Recognition is by ALIAS MEMBERSHIP only: we do NOT require the alias to resolve to
@@ -833,10 +833,10 @@ BEGIN
     CASE
       WHEN NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
        AND NOT EXISTS (SELECT 1 FROM prior_subs AS ps WHERE lower(ps.account_description) = lower(cs.account_description))
-        THEN 'New + Unrecognized'
+        THEN 'Unmapped'
       WHEN NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
-        THEN 'Unrecognized'
-      ELSE 'Newly Appeared'
+        THEN 'Persisting Unmapped'
+      ELSE 'New Match'
     END AS status
   FROM current_subs AS cs
   WHERE NOT EXISTS (SELECT 1 FROM recognized_subs AS rs WHERE rs.account_description = cs.account_description)
@@ -849,7 +849,7 @@ BEGIN
     EXTRACT(YEAR  FROM date_trunc('month', p_statement_month))::int,
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int,
     ps.account_description,
-    'Removed'::text
+    'Disappeared'::text
   FROM prior_subs AS ps
   WHERE NOT EXISTS (
     SELECT 1 FROM current_subs AS cs WHERE lower(cs.account_description) = lower(ps.account_description)
