@@ -189,6 +189,20 @@ def write_workbook(output: Path, results: list[tuple]) -> None:
                 chunk.to_excel(writer, sheet_name=sheet_name, index=False)
 
 
+def _style_report(output: Path) -> None:
+    """Apply the shared cosmetic Excel styling (best-effort -- never fails the run)."""
+    try:
+        validation_dir = next(
+            p for p in Path(__file__).resolve().parents if p.name == "validation"
+        )
+        if str(validation_dir) not in sys.path:
+            sys.path.insert(0, str(validation_dir))
+        from report_style import style_workbook
+        style_workbook(output)
+    except Exception as exc:  # styling is cosmetic; a failure must not break the report
+        print(f"  (report styling skipped: {exc})", file=sys.stderr)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -245,6 +259,7 @@ def main() -> int:
             print("  - Spend Comparison: SKIPPED (needs --month)")
 
     write_workbook(output, results)
+    _style_report(output)
     print(f"\nValidation report saved to: {output}")
     return 0
 

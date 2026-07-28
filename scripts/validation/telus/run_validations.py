@@ -259,6 +259,20 @@ def sheet_chunks(tab: str, frame: pd.DataFrame):
         yield f"{tab[:31 - len(suffix)]}{suffix}", frame.iloc[start:start + MAX_DATA_ROWS_PER_SHEET]
 
 
+def _style_report(output: Path) -> None:
+    """Apply the shared cosmetic Excel styling (best-effort -- never fails the run)."""
+    try:
+        validation_dir = next(
+            p for p in Path(__file__).resolve().parents if p.name == "validation"
+        )
+        if str(validation_dir) not in sys.path:
+            sys.path.insert(0, str(validation_dir))
+        from report_style import style_workbook
+        style_workbook(output)
+    except Exception as exc:  # styling is cosmetic; a failure must not break the report
+        print(f"  (report styling skipped: {exc})", file=sys.stderr)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -326,6 +340,7 @@ def main() -> int:
             for sheet_name, chunk in sheet_chunks(tab, frame):
                 chunk.to_excel(writer, sheet_name=sheet_name, index=False)
 
+    _style_report(output)
     print(f"\nValidation report saved to: {output}")
     return 0
 
