@@ -88,7 +88,7 @@
   - 🟩 Agriculture and Food
   - 🟩 Attorney General
   - 🟩 Children and Family Development
-  - 🟩 Citizens Services
+  - 🟩 Citizens' Services
     - 🟧 BC Assessment
     - 🟧 BC Liquor Distribution Branch
     - 🟧 BC Family Maintenance Agency
