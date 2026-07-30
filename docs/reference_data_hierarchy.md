@@ -1,0 +1,135 @@
+# Organization Mapping Hierarchy
+
+`Sector → BGE → Sub-BGE → Service Designee`
+
+**Legend:** 🟪 Sector · 🟦 BGE · 🟩 Sub-org · 🟧 Service Designee
+
+## 🟪 Health Authorities
+- 🟦 Fraser Health Authority
+- 🟦 First Nations Health Authority
+- 🟦 Interior Health Authority
+- 🟦 Northern Health Authority
+- 🟦 Provincial Health Services Authority
+- 🟦 Vancouver Coastal Health Authority
+  - 🟧 Providence Health Care
+- 🟦 Vancouver Island Health Authority
+
+## 🟪 Crown Corporations
+- 🟦 BC Hydro
+  - 🟧 Powertech
+  - 🟧 Powerex
+- 🟦 BC Lottery Corporation
+- 🟦 WorkSafe BC
+- 🟦 Insurance Corporation of BC
+
+## 🟪 Gov & ECC
+- 🟦 School Districts
+  - 🟧 School District 5 Southeast Kootenay
+  - 🟧 School District 6 Rocky Mountain
+  - 🟧 School District 8 Kootenay Lake
+  - 🟧 School District 10 Arrow Lakes
+  - 🟧 School District 19 Revelstoke
+  - 🟧 School District 20 Kootenay-Columbia
+  - 🟧 School District 22 Vernon
+  - 🟧 School District 23 Central Okanagan
+  - 🟧 School District 27 Cariboo-Chilcotin
+  - 🟧 School District 28 Quesnel
+  - 🟧 School District 33 Chilliwack
+  - 🟧 School District 34 Abbotsford
+  - 🟧 School District 35 Langley
+  - 🟧 School District 36 Surrey
+  - 🟧 School District 37 Delta
+  - 🟧 School District 38 Richmond
+  - 🟧 School District 39 Vancouver
+  - 🟧 School District 40 New Westminster
+  - 🟧 School District 41 Burnaby
+  - 🟧 School District 42 Maple Ridge-Pitt Meadows
+  - 🟧 School District 43 Coquitlam
+  - 🟧 School District 44 North Vancouver
+  - 🟧 School District 45 West Vancouver
+  - 🟧 School District 46 Sunshine Coast
+  - 🟧 School District 47 qathet
+  - 🟧 School District 48 Sea to Sky
+  - 🟧 School District 49 Central Coast
+  - 🟧 School District 50 Haida Gwaii
+  - 🟧 School District 51 Boundary
+  - 🟧 School District 52 Prince Rupert
+  - 🟧 School District 53 Okanagan Similkameen
+  - 🟧 School District 54 Bulkley Valley
+  - 🟧 School District 57 Prince George
+  - 🟧 School District 58 Nicola-Similkameen
+  - 🟧 School District 59 Peace River South
+  - 🟧 School District 60 Peace River North
+  - 🟧 School District 61 Greater Victoria
+  - 🟧 School District 62 Sooke
+  - 🟧 School District 63 Saanich
+  - 🟧 School District 64 Gulf Islands
+  - 🟧 School District 67 Okanagan Skaha
+  - 🟧 School District 68 Nanaimo-Ladysmith
+  - 🟧 School District 69 Qualicum
+  - 🟧 School District 70 Pacific Rim
+  - 🟧 School District 71 Comox Valley
+  - 🟧 School District 72 Campbell River
+  - 🟧 School District 73 Kamloops/Thompson
+  - 🟧 School District 74 Gold Trail
+  - 🟧 School District 75 Mission
+  - 🟧 School District 78 Fraser-Cascade
+  - 🟧 School District 79 Cowichan Valley
+  - 🟧 School District 81 Fort Nelson
+  - 🟧 School District 82 Coast Mountains
+  - 🟧 School District 83 North Okanagan-Shuswap
+  - 🟧 School District 84 Vancouver Island West
+  - 🟧 School District 85 Vancouver Island North
+  - 🟧 School District 87 Stikine
+  - 🟧 School District 91 Nechako Lakes
+  - 🟧 School District 92 Nisga'a
+  - 🟧 School District 93 Conseil scolaire francophone
+- 🟦 BC Government
+  - 🟩 Agriculture and Food
+  - 🟩 Attorney General
+  - 🟩 Children and Family Development
+  - 🟩 Citizens' Services
+    - 🟧 BC Assessment
+    - 🟧 BC Liquor Distribution Branch
+    - 🟧 BC Family Maintenance Agency
+    - 🟧 BC Financial Services Authority
+    - 🟧 BC Housing Management Commission
+    - 🟧 BC Office of Human Rights Commissioner
+    - 🟧 BC Pension
+    - 🟧 Community Living BC
+    - 🟧 Destination BC
+    - 🟧 Elections BC
+    - 🟧 Forest Practice Board
+    - 🟧 Islands Trust Conservancy
+    - 🟧 Legislative Assembly
+    - 🟧 Office of the Auditor General of BC
+    - 🟧 Office of the Information & Privacy Commissioner
+    - 🟧 Office of the Merit Commissioner
+    - 🟧 Office of the Ombudsperson
+    - 🟧 Office of the Police Complaint Commissioner
+    - 🟧 Office of the Representative for Children and Youth
+    - 🟧 Public Guardian and Trustee
+    - 🟧 Royal BC Museum
+    - 🟧 Superior Court Judiciary Branch
+    - 🟧 TI Corp
+  - 🟩 Education and Child Care
+  - 🟩 Emergency Management and Climate Readiness
+  - 🟩 Energy and Climate Solutions
+  - 🟩 Environment and Parks
+  - 🟩 Finance
+  - 🟩 Forests
+  - 🟩 Health
+  - 🟩 Housing and Municipal Affairs
+  - 🟩 Indigenous Relations and Reconciliation
+  - 🟩 Infrastructure
+  - 🟩 Jobs & Economic Growth
+  - 🟩 Labour
+  - 🟩 Mining and Critical Minerals
+  - 🟩 Post-Secondary Education and Future Skills
+  - 🟩 Public Safety and Solicitor General
+  - 🟩 Social Development and Poverty Reduction
+  - 🟩 Tourism Arts Culture and Sport
+  - 🟩 Transportation and Transit
+  - 🟩 Water Land and Resource Stewardship
+  - 🟩 Office of the Premier
+  - 🟩 BC Public Service Agency

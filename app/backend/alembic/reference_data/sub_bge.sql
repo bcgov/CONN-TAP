@@ -29,7 +29,7 @@ INSERT INTO reference_data.sub_bge (code, name, bge_id, entity_type) VALUES
     ('Housing and Municipal Affairs',                 'Housing and Municipal Affairs',                 (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Indigenous Relations and Reconciliation',       'Indigenous Relations and Reconciliation',       (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Infrastructure',                                'Infrastructure',                                (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
-    ('Jobs Economic Development and Innovation',      'Jobs Economic Development and Innovation',      (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
+    ('Jobs Economic Development and Innovation',      'Jobs & Economic Growth',                        (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Labour',                                        'Labour',                                        (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Mining and Critical Minerals',                  'Mining and Critical Minerals',                  (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Post-Secondary Education and Future Skills',    'Post-Secondary Education and Future Skills',    (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
@@ -131,6 +131,6 @@ INSERT INTO reference_data.sub_bge (code, name, bge_id, entity_type, parent_sub_
     ('Superior Court Judiciary Branch',                     'Superior Court Judiciary Branch',                     (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
     ('TI Corp',                                             'TI Corp',                                             (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'service_designee', (SELECT id FROM reference_data.sub_bge WHERE code = 'Citizens Services')),
     ('Providence Health Care',                              'Providence Health Care',                              (SELECT id FROM reference_data.bge WHERE code = 'VCHA (+PHC)'), 'service_designee', NULL),
-    ('Powertech',                                           'Powertech Labs',                                      (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee', NULL),
+    ('Powertech',                                           'Powertech',                                      (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee', NULL),
     ('Power Ex',                                            'Powerex',                                             (SELECT id FROM reference_data.bge WHERE code = 'BC Hydro'), 'service_designee', NULL)
 ON CONFLICT (code) DO NOTHING;
