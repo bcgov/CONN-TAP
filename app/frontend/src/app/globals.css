@@ -88,10 +88,18 @@ body.telecom-landing {
 
 /* ─── Dashboard layout ──────────────────────────────────────────────────── */
 
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
 .dashboard-shell {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 

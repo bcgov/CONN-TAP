@@ -1,0 +1,55 @@
+/* Collapsible wrapper — animates the BC Gov AlertBanner (and everything below
+   it) up and out of view over one second when dismissed, using the grid
+   1fr → 0fr trick so the true auto height is transitioned smoothly. The design
+   system's own close button only fires onClose, so the collapse lives here. */
+.collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: grid-template-rows 1s ease, opacity 1s ease, visibility 0s linear 1s;
+}
+
+.collapse[data-dismissed="true"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  /* After the collapse animation, take the banner (and its close button) out of
+     the tab order and block interaction so keyboard users can't focus it. */
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Confidentiality banner uses the BGE brand blue rather than the default
+   dark-blue "info" surface token. Scoped to this wrapper only. */
+.clip :global(.bcds-Alert-Banner.info) {
+  background-color: var(--color-bg-medium-blue);
+}
+
+/* Span the full width, left-aligned, to line up with the header and dashboard
+   content instead of the design system's centred 1100px container. */
+.clip :global(.bcds-Alert-Banner) {
+  justify-content: flex-start;
+}
+
+.clip :global(.bcds-Alert-Banner--Container) {
+  max-width: none;
+}
+
+/* Stack the bold title above the body copy within the banner content slot. */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapse {
+    transition: none;
+  }
+}
