@@ -14,7 +14,7 @@ INSERT INTO reference_data.sub_bge (code, name, bge_id, entity_type) VALUES
     ('Agriculture and Food',                          'Agriculture and Food',                          (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Attorney General',                              'Attorney General',                              (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     ('Children and Family Development',               'Children and Family Development',               (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
-    ('Citizens Services',                             'Citizens Services',                             (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
+    ('Citizens Services',                             'Citizens'' Services',                           (SELECT id FROM reference_data.bge WHERE code = 'Gov BC'), 'sub_org'),
     -- Education & Child Care is a ministry (sub-org) under Gov BC like any other,
     -- even though reports report it at BGE level. School-district spend reported
     -- under ECC is split out to the 'School Districts' BGE upstream; the remaining
