@@ -10,13 +10,13 @@
 - 🟦 Interior Health Authority
 - 🟦 Northern Health Authority
 - 🟦 Provincial Health Services Authority
-- 🟦 Vancouver Coastal Health + Providence
+- 🟦 Vancouver Coastal Health Authority
   - 🟧 Providence Health Care
 - 🟦 Vancouver Island Health Authority
 
 ## 🟪 Crown Corporations
 - 🟦 BC Hydro
-  - 🟧 Powertech Labs
+  - 🟧 Powertech
   - 🟧 Powerex
 - 🟦 BC Lottery Corporation
 - 🟦 WorkSafe BC
@@ -24,71 +24,71 @@
 
 ## 🟪 Gov & ECC
 - 🟦 School Districts
-  - 🟧 SD 5 Southeast Kootenay
-  - 🟧 SD 6 Rocky Mountain
-  - 🟧 SD 8 Kootenay Lake
-  - 🟧 SD 10 Arrow Lakes
-  - 🟧 SD 19 Revelstoke
-  - 🟧 SD 20 Kootenay-Columbia
-  - 🟧 SD 22 Vernon
-  - 🟧 SD 23 Central Okanagan
-  - 🟧 SD 27 Cariboo-Chilcotin
-  - 🟧 SD 28 Quesnel
-  - 🟧 SD 33 Chilliwack
-  - 🟧 SD 34 Abbotsford
-  - 🟧 SD 35 Langley
-  - 🟧 SD 36 Surrey
-  - 🟧 SD 37 Delta
-  - 🟧 SD 38 Richmond
-  - 🟧 SD 39 Vancouver
-  - 🟧 SD 40 New Westminster
-  - 🟧 SD 41 Burnaby
-  - 🟧 SD 42 Maple Ridge-Pitt Meadows
-  - 🟧 SD 43 Coquitlam
-  - 🟧 SD 44 North Vancouver
-  - 🟧 SD 45 West Vancouver
-  - 🟧 SD 46 Sunshine Coast
-  - 🟧 SD 47 qathet
-  - 🟧 SD 48 Sea to Sky
-  - 🟧 SD 49 Central Coast
-  - 🟧 SD 50 Haida Gwaii
-  - 🟧 SD 51 Boundary
-  - 🟧 SD 52 Prince Rupert
-  - 🟧 SD 53 Okanagan Similkameen
-  - 🟧 SD 54 Bulkley Valley
-  - 🟧 SD 57 Prince George
-  - 🟧 SD 58 Nicola-Similkameen
-  - 🟧 SD 59 Peace River South
-  - 🟧 SD 60 Peace River North
-  - 🟧 SD 61 Greater Victoria
-  - 🟧 SD 62 Sooke
-  - 🟧 SD 63 Saanich
-  - 🟧 SD 64 Gulf Islands
-  - 🟧 SD 67 Okanagan Skaha
-  - 🟧 SD 68 Nanaimo-Ladysmith
-  - 🟧 SD 69 Qualicum
-  - 🟧 SD 70 Pacific Rim
-  - 🟧 SD 71 Comox Valley
-  - 🟧 SD 72 Campbell River
-  - 🟧 SD 73 Kamloops/Thompson
-  - 🟧 SD 74 Gold Trail
-  - 🟧 SD 75 Mission
-  - 🟧 SD 78 Fraser-Cascade
-  - 🟧 SD 79 Cowichan Valley
-  - 🟧 SD 81 Fort Nelson
-  - 🟧 SD 82 Coast Mountains
-  - 🟧 SD 83 North Okanagan-Shuswap
-  - 🟧 SD 84 Vancouver Island West
-  - 🟧 SD 85 Vancouver Island North
-  - 🟧 SD 87 Stikine
-  - 🟧 SD 91 Nechako Lakes
-  - 🟧 SD 92 Nisga'a
-  - 🟧 SD 93 Conseil scolaire francophone
-- 🟦 Gov BC
+  - 🟧 School District 5 Southeast Kootenay
+  - 🟧 School District 6 Rocky Mountain
+  - 🟧 School District 8 Kootenay Lake
+  - 🟧 School District 10 Arrow Lakes
+  - 🟧 School District 19 Revelstoke
+  - 🟧 School District 20 Kootenay-Columbia
+  - 🟧 School District 22 Vernon
+  - 🟧 School District 23 Central Okanagan
+  - 🟧 School District 27 Cariboo-Chilcotin
+  - 🟧 School District 28 Quesnel
+  - 🟧 School District 33 Chilliwack
+  - 🟧 School District 34 Abbotsford
+  - 🟧 School District 35 Langley
+  - 🟧 School District 36 Surrey
+  - 🟧 School District 37 Delta
+  - 🟧 School District 38 Richmond
+  - 🟧 School District 39 Vancouver
+  - 🟧 School District 40 New Westminster
+  - 🟧 School District 41 Burnaby
+  - 🟧 School District 42 Maple Ridge-Pitt Meadows
+  - 🟧 School District 43 Coquitlam
+  - 🟧 School District 44 North Vancouver
+  - 🟧 School District 45 West Vancouver
+  - 🟧 School District 46 Sunshine Coast
+  - 🟧 School District 47 qathet
+  - 🟧 School District 48 Sea to Sky
+  - 🟧 School District 49 Central Coast
+  - 🟧 School District 50 Haida Gwaii
+  - 🟧 School District 51 Boundary
+  - 🟧 School District 52 Prince Rupert
+  - 🟧 School District 53 Okanagan Similkameen
+  - 🟧 School District 54 Bulkley Valley
+  - 🟧 School District 57 Prince George
+  - 🟧 School District 58 Nicola-Similkameen
+  - 🟧 School District 59 Peace River South
+  - 🟧 School District 60 Peace River North
+  - 🟧 School District 61 Greater Victoria
+  - 🟧 School District 62 Sooke
+  - 🟧 School District 63 Saanich
+  - 🟧 School District 64 Gulf Islands
+  - 🟧 School District 67 Okanagan Skaha
+  - 🟧 School District 68 Nanaimo-Ladysmith
+  - 🟧 School District 69 Qualicum
+  - 🟧 School District 70 Pacific Rim
+  - 🟧 School District 71 Comox Valley
+  - 🟧 School District 72 Campbell River
+  - 🟧 School District 73 Kamloops/Thompson
+  - 🟧 School District 74 Gold Trail
+  - 🟧 School District 75 Mission
+  - 🟧 School District 78 Fraser-Cascade
+  - 🟧 School District 79 Cowichan Valley
+  - 🟧 School District 81 Fort Nelson
+  - 🟧 School District 82 Coast Mountains
+  - 🟧 School District 83 North Okanagan-Shuswap
+  - 🟧 School District 84 Vancouver Island West
+  - 🟧 School District 85 Vancouver Island North
+  - 🟧 School District 87 Stikine
+  - 🟧 School District 91 Nechako Lakes
+  - 🟧 School District 92 Nisga'a
+  - 🟧 School District 93 Conseil scolaire francophone
+- 🟦 BC Government
   - 🟩 Agriculture and Food
   - 🟩 Attorney General
   - 🟩 Children and Family Development
-  - 🟩 Citizens Services
+  - 🟩 Citizens' Services
     - 🟧 BC Assessment
     - 🟧 BC Liquor Distribution Branch
     - 🟧 BC Family Maintenance Agency
@@ -122,7 +122,7 @@
   - 🟩 Housing and Municipal Affairs
   - 🟩 Indigenous Relations and Reconciliation
   - 🟩 Infrastructure
-  - 🟩 Jobs Economic Development and Innovation
+  - 🟩 Jobs & Economic Growth
   - 🟩 Labour
   - 🟩 Mining and Critical Minerals
   - 🟩 Post-Secondary Education and Future Skills

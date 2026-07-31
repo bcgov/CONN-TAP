@@ -30,6 +30,7 @@ vi.mock("lucide-react", () => ({ UserCircle2: () => null }));
 vi.mock("@bcgov/design-system-react-components", () => ({
   Header: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   Heading: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  AlertBanner: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("@/components/dashboard-sidebar", () => ({ DashboardSidebar: () => null }));
 vi.mock("@/components/minimal-footer", () => ({ MinimalFooter: () => null }));
