@@ -10,6 +10,7 @@ import { SpendSummaryTable } from "@/components/spend-summary-table";
 function makeTable(): SummaryTable {
   return {
     total_millions: 30,
+    providers: ["TELUS", "Rogers"],
     categories: [
       { code: "voice", name: "Voice" },
       { code: "data", name: "Data" },
