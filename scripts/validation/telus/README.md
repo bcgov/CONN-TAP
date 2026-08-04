@@ -24,9 +24,23 @@ The project is designed to be:
 scripts/validation/telus/
 │
 ├── run_validations.py          # Entry point (applies SQL, runs all checks, writes Excel)
-├── telus_validation.sql        # Core validation functions
 ├── spend_comparison.sql        # Month-over-month spend comparison function
 ├── README.md
+│
+├── checks/                     # One validation function per file, applied in filename order
+│   ├── 00_bge_alias_matches.sql                      # Shared alias matcher (load before 09/10/12)
+│   ├── 01_unlisted_tax_like_detail_descriptions.sql
+│   ├── 02_unlisted_device_related_detail_descriptions.sql
+│   ├── 03_source_id_matches_expected_source.sql
+│   ├── 04_blanks_by_sheet_and_month.sql
+│   ├── 05_statement_category_allowlist.sql
+│   ├── 06_column_value_types.sql
+│   ├── 07_duplicate_rows_by_sheet_and_month.sql
+│   ├── 08_summarize_duplicate_rows_by_sheet_and_month.sql
+│   ├── 09_all_bges_in_sheets.sql
+│   ├── 10_new_bges_in_sheets.sql
+│   ├── 11_new_sub_bges_in_accounts.sql
+│   └── 12_still_missing_bges_in_sheets.sql
 │
 └── helpers/
     ├── get_duplicates.sql                  # Drill-down: rows behind duplicate check
