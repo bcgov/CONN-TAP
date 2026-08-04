@@ -113,7 +113,7 @@ export const bgeRowsWithTotals = (chart: BgeChart): BgeRow[] =>
     .map((entry) => ({
       ...entry,
       _total: chart.vendors.reduce(
-        (sum, vendor) => sum + ((entry[vendor] as number) ?? 0),
+        (sum, vendor) => sum + Number(entry[vendor] ?? 0),
         0,
       ),
     }))
@@ -194,8 +194,10 @@ export type CategoryRow = {
 export const plotlyCategoryRows = (
   chart: PlotlyChart,
 ): { providers: string[]; rows: CategoryRow[] } => {
-  const traces = chart.data as PlotlyTrace[];
-  const providers = traces.map((trace) => trace.name ?? "");
+  const traces = (chart.data as PlotlyTrace[]).filter(
+    (trace): trace is PlotlyTrace & { name: string } => Boolean(trace.name),
+  );
+  const providers = traces.map((trace) => trace.name);
 
   const categories: string[] = [];
   for (const trace of traces) {
@@ -213,7 +215,7 @@ export const plotlyCategoryRows = (
           (value) => String(value) === category,
         );
         const spend = index >= 0 ? Number((trace.y ?? [])[index] ?? 0) : 0;
-        row[trace.name ?? ""] = spend;
+        row[trace.name] = spend;
         row.total += spend;
       }
       return row;

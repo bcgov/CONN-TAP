@@ -100,13 +100,22 @@ export function CustomDashboardChart({
 
       <div ref={ref} className={styles.content}>
         {header}
-        <div
-          role="tabpanel"
-          id={`${baseId}-tabpanel-${view}`}
-          aria-labelledby={`${baseId}-tab-${view}`}
-        >
-          {stateView(state, view === 0 ? children : table)}
-        </div>
+        {[
+          { key: "graph", content: children },
+          { key: "table", content: table },
+        ].map((panel, index) => (
+          // Render both panels so every tab's aria-controls resolves; hide the
+          // inactive one and only mount the active tab's content.
+          <div
+            key={panel.key}
+            role="tabpanel"
+            hidden={view !== index}
+            id={`${baseId}-tabpanel-${index}`}
+            aria-labelledby={`${baseId}-tab-${index}`}
+          >
+            {view === index && stateView(state, panel.content)}
+          </div>
+        ))}
       </div>
     </>
   );
