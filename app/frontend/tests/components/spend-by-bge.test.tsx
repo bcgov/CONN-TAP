@@ -84,9 +84,9 @@ describe("SpendByBge", () => {
     await user.click(screen.getByRole("tab", { name: "Table" }));
 
     const row = screen.getByRole("row", { name: /Org A/ });
-    expect(within(row).getByText("$10.0M")).toBeInTheDocument();
-    expect(within(row).getByText("$5.0M")).toBeInTheDocument();
-    expect(within(row).getByText("$15.0M")).toBeInTheDocument();
+    expect(within(row).getByText("$10M")).toBeInTheDocument();
+    expect(within(row).getByText("$5M")).toBeInTheDocument();
+    expect(within(row).getByText("$15M")).toBeInTheDocument();
   });
 
   it("leaves zero-spend rows out of the table too", async () => {

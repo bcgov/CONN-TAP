@@ -12,7 +12,7 @@ import {
   type PlotlyChart,
   type PlotlyTrace,
 } from "@/lib/chart-utils";
-import { fmtMillionsFixed } from "@/lib/format-utils";
+import { fmtMillions } from "@/lib/format-utils";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
@@ -63,7 +63,7 @@ const CategoryTable = ({
       },
       muiTableBodyCellProps: { align: "right" as const },
       Cell: ({ cell }: { cell: { getValue: () => unknown } }) =>
-        fmtMillionsFixed(Number(cell.getValue() ?? 0)),
+        fmtMillions(Number(cell.getValue() ?? 0)),
     };
 
     return [

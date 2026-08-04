@@ -73,8 +73,8 @@ describe("SpendByCategory", () => {
     }
 
     const voice = screen.getByRole("row", { name: /Voice/ });
-    expect(within(voice).getByText("$10.0M")).toBeInTheDocument();
-    expect(within(voice).getByText("$2.0M")).toBeInTheDocument();
-    expect(within(voice).getByText("$12.0M")).toBeInTheDocument();
+    expect(within(voice).getByText("$10M")).toBeInTheDocument();
+    expect(within(voice).getByText("$2M")).toBeInTheDocument();
+    expect(within(voice).getByText("$12M")).toBeInTheDocument();
   });
 });

@@ -10,7 +10,7 @@ import {
   type BgeChart,
   type BgeRow,
 } from "@/lib/chart-utils";
-import { fmtMillionsFixed } from "@/lib/format-utils";
+import { fmtMillions, fmtMillionsFixed } from "@/lib/format-utils";
 import {
   Bar,
   BarChart,
@@ -89,7 +89,7 @@ const BgeTable = ({ chart, rows }: { chart: BgeChart; rows: BgeRow[] }) => {
       muiTableHeadCellProps: { align: "right" as const },
       muiTableBodyCellProps: { align: "right" as const },
       Cell: ({ cell }: { cell: { getValue: () => unknown } }) =>
-        fmtMillionsFixed(Number(cell.getValue() ?? 0)),
+        fmtMillions(Number(cell.getValue() ?? 0)),
     };
 
     return [
