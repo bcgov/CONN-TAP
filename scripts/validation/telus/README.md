@@ -24,7 +24,6 @@ The project is designed to be:
 scripts/validation/telus/
 │
 ├── run_validations.py          # Entry point (applies SQL, runs all checks, writes Excel)
-├── spend_comparison.sql        # Month-over-month spend comparison function
 ├── README.md
 │
 ├── checks/                     # One validation function per file, applied in filename order
@@ -40,7 +39,8 @@ scripts/validation/telus/
 │   ├── 09_all_bges_in_sheets.sql
 │   ├── 10_new_bges_in_sheets.sql
 │   ├── 11_new_sub_bges_in_accounts.sql
-│   └── 12_still_missing_bges_in_sheets.sql
+│   ├── 12_still_missing_bges_in_sheets.sql
+│   └── 13_spend_comparison.sql                       # Month-over-month spend comparison
 │
 └── helpers/
     ├── get_duplicates.sql                  # Drill-down: rows behind duplicate check

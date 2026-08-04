@@ -53,7 +53,6 @@ SCRIPTS_DIR = HERE.parent.parent
 # SQL files that contain CREATE [OR REPLACE] FUNCTION definitions to (re)load.
 DDL_FILES = [
     *sorted((HERE / "checks").glob("*.sql")),
-    HERE / "spend_comparison.sql",
     HERE / "helpers" / "get_duplicates.sql",
 ]
 
