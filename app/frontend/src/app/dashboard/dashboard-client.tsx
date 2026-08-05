@@ -95,9 +95,7 @@ export function DashboardClient({
       const chart = result.metadata.chart;
       return {
         ...chart,
-        data: chart.data.filter(
-          (p) => parseInt(p.period.split("_")[0]) >= 2024,
-        ),
+        data: chart.data.filter((p) => p.period >= "2024-01"),
       };
     },
   });
