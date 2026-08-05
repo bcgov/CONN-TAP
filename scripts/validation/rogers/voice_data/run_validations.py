@@ -6,11 +6,11 @@ the row (issue) count and PASS/FAIL status for every check -- reproducing the ta
 legacy Python/Excel report, plus a month-over-month New/Removed detection and (with --month)
 a Spend Comparison.
 
-Like the cellular validator, the validation logic lives in the sibling
-``validation_rogers_ngta_data_voice.sql`` as Postgres functions against
-``raw_data.raw_rogers_spend_data_voice`` and the ``seeds``/``reference_data`` tables. By
-default this script (re)creates those functions before running them, so the workbook always
-reflects the current SQL.
+Like the cellular validator, the validation logic lives in the sibling ``checks/`` folder --
+one Postgres function per file, against ``raw_data.raw_rogers_spend_data_voice`` and the
+``seeds``/``reference_data`` tables -- on top of the validated view in
+``checks/00_view_validated.sql``. By default this script (re)creates them before running
+them, so the workbook always reflects the current SQL.
 
 Usage
 -----
@@ -100,11 +100,10 @@ VALIDATIONS = [
     ("Post-Tax Issues",
      "Rows where PRE-TAX plus GST/PST does not reconcile to TOTALAMOUNT (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_data_voice_post_tax_issues(%s)"),
-    # Hidden for now -- the detection function still exists in the SQL; uncomment to show it.
-    # ("New-Removed BGEs",
-    #  "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
-    #  "New + Unrecognized, Removed, Still Removed.",
-    #  "SELECT * FROM raw_data.rogers_data_voice_new_removed_detection(%s)"),
+    ("New-Removed BGEs",
+     "Month-over-month BGE / SUB-BGE changes: Unmapped, Persisting Unmapped, "
+     "New Match, Disappeared, Still Disappeared.",
+     "SELECT * FROM raw_data.rogers_data_voice_new_removed_detection(%s)"),
 ]
 
 

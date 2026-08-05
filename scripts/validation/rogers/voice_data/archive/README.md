@@ -6,9 +6,10 @@ mappings in `mapping.py`.
 
 They have been **replaced** by the SQL/database path in the parent folder:
 
-- `../validation_rogers_ngta_data_voice.sql` — a view + one Postgres function per check, using
-  the DB **seeds/reference data** (`seeds.bge_alias_map`, `seeds.sub_bge_alias_map`,
-  `reference_data.bge/sub_bge`) as the source of truth, and the shared `norm_key` matching.
+- `../checks/` — the validated view (`00_view_validated.sql`) plus one Postgres function per
+  check, one per file, using the DB **seeds/reference data** (`seeds.bge_alias_map`,
+  `seeds.sub_bge_alias_map`, `reference_data.bge/sub_bge`) as the source of truth, and the
+  shared `norm_key` matching from `../../helpers/_shared.sql`.
 - `../run_validations.py` — connects to Postgres, runs each function, and writes the same
   per-check Excel workbook (plus a Summary tab, month-over-month detection, and, with
   `--month`, a Spend Comparison).

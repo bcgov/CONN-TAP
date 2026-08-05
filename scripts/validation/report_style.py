@@ -34,28 +34,25 @@ MIN_WIDTH = 10
 MAX_WIDTH = 60
 WIDTH_SAMPLE_ROWS = 200
 
-# Status legend written to the side of the New-Removed detection sheet. Rogers and TELUS emit
-# different (disjoint) status vocabularies, so the statuses are grouped per provider. The sheet
-# gets the FULL set for whichever provider it belongs to (every possible status, not just the
-# ones in this month's data), detected from the statuses present. Descriptions come from the
-# detection functions, not assumptions.
+# Status legend written to the side of the New-Removed detection sheet. Rogers and TELUS share
+# one status vocabulary -- the Rogers detection functions (rogers_*_new_removed_detection) were
+# renamed to match the TELUS ones (telus_raw_validate_new_bges_in_sheets /
+# telus_raw_validate_new_sub_bges_in_accounts) -- so one list covers both providers. The sheet
+# gets the FULL set: every possible status, not just the ones in this month's data. Descriptions
+# come from the detection functions, not assumptions.
 NEW_REMOVED_TAB = "New-Removed BGEs"
-STATUS_GROUPS = [
-    # Rogers detection (rogers_*_new_removed_detection).
-    [
-        ("Newly Appeared", "In the current month, not in the prior month; recognized in the seeds."),
-        ("Unrecognized", "In the current month but not recognized in the seeds (regardless of the prior month)."),
-        ("New + Unrecognized", "In the current month, not in the prior month, and not recognized in the seeds."),
-        ("Removed", "In the prior month but not in the current month."),
-        ("Still Removed", "Absent in both the prior and current month (was removed last month)."),
-    ],
-    # TELUS detection (telus_raw_validate_new_bges_in_sheets).
-    [
-        ("Unmapped", "New this month (absent last month) and not a recognized BGE/sheet."),
-        ("Persisting Unmapped", "Present last month but still not a recognized BGE/sheet."),
-        ("New Match", "New this month and a recognized BGE/sheet."),
-        ("Disappeared", "Present last month, gone this month."),
-    ],
+STATUS_LEGEND = [
+    ("Unmapped",
+     "In the current month, absent in the prior month, and not a recognized alias in the seeds."),
+    ("Persisting Unmapped",
+     "In both the prior and current month, but still not a recognized alias in the seeds."),
+    ("New Match",
+     "In the current month, absent in the prior month, and a recognized alias in the seeds."),
+    ("Disappeared",
+     "In the prior month but not in the current month."),
+    ("Still Disappeared",
+     "Present two months ago, absent in both the prior and current month. Rogers only -- the "
+     "TELUS detection compares against the prior month alone and has no two-month status."),
 ]
 
 
@@ -70,24 +67,13 @@ def _best_width(col_cells) -> int:
 def _add_status_legend(ws, header_font, header_align) -> None:
     """Write a styled Status/Description legend as a separate card to the right of the data.
 
-    Shows the full status set for whichever provider(s) the sheet belongs to (detected from the
-    statuses present), so every possible status is documented -- not just this month's.
+    Documents every status the detection functions can emit -- not just the ones in this month's
+    data -- so an absent status reads as "did not occur" rather than "not a thing".
     """
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
-    headers = {str(c.value).strip().lower(): c.column for c in ws[1]}
-    status_col = headers.get("status")
-    present = set()
-    if status_col:
-        for row in range(2, ws.max_row + 1):
-            value = ws.cell(row=row, column=status_col).value
-            if value is not None:
-                present.add(str(value).strip())
-    groups = [g for g in STATUS_GROUPS if any(status in present for status, _ in g)]
-    if not groups:
-        groups = STATUS_GROUPS
-    entries = [entry for group in groups for entry in group]
+    entries = STATUS_LEGEND
 
     header_fill = PatternFill("solid", fgColor=LEGEND_HEADER_FILL)
     body_fill = PatternFill("solid", fgColor=LEGEND_BODY_FILL)
