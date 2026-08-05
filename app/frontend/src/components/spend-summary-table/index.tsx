@@ -103,7 +103,7 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
       filterVariant: "range", // min/max inputs, in millions; default betweenInclusive
       muiTableHeadCellProps: {
         align: "right",
-        // Allow long category headers ("Other Professional Services") to wrap
+        // Allow long category headers ("Professional Services") to wrap
         // rather than forcing the column wide.
         sx: { whiteSpace: "normal" },
       },

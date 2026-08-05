@@ -22,8 +22,8 @@ CATEGORY_ORDER: tuple[tuple[str, str], ...] = (
     ("voice", "Voice"),
     ("data", "Data"),
     ("cellular", "Cellular"),
-    ("other_professional_services", "Other Professional Services"),
-    ("temporary_services", "Temporary Services"),
+    ("professional_services", "Professional Services"),
+    ("time_limited_services", "Time Limited Services"),
 )
 CATEGORY_CODES: tuple[str, ...] = tuple(code for code, _ in CATEGORY_ORDER)
 
