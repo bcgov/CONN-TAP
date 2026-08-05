@@ -16,8 +16,9 @@
 --   because the maps intentionally carry aliases for retired / not-yet-loaded entities and
 --   those are still known. Same rule as telus_raw_validate_new_sub_bges_in_accounts.
 --
---   APPEARANCE / DISAPPEARANCE is about an ENTITY, so it compares the resolved canonical code
---   (bge_alias_map.bge_alias / sub_bge_alias_map.sub_bge_alias). Providers re-spell the same
+--   APPEARANCE / DISAPPEARANCE is about an ENTITY, so it compares the resolved canonical code,
+--   and only against entities of this row's own level -- a SUB-BGE alias that resolves to a BGE
+--   is not a sub-BGE appearing or disappearing. Providers re-spell the same
 --   organization constantly; comparing raw text made every rename read as one organization
 --   leaving and another arriving. BGE resolves to the ALIAS TARGET, not the post-SUB-BGE
 --   override BGE, which keeps 'ECC' a distinct entity and keeps this check independent of the
@@ -52,10 +53,21 @@ LANGUAGE sql AS $$
                bam.bge_alias                            AS code
         FROM seeds.bge_alias_map AS bam
     ),
+    -- Recognition set for SUB-BGEs: alias MEMBERSHIP, whatever the alias targets.
+    sub_bge_known AS (
+        SELECT DISTINCT raw_data.norm_key(sbam.raw_name) AS raw_name
+        FROM seeds.sub_bge_alias_map AS sbam
+    ),
+    -- Resolution set for SUB-BGEs: only aliases that land on a real reference_data.sub_bge.
+    -- 12 of the alias targets are BGE codes (e.g. 'VANCOUVER COASTAL HEALTH' -> 'VCHA (+PHC)'),
+    -- used to route a sub-org column back to its parent organisation. Those are still
+    -- RECOGNIZED above, but they are not sub-BGE entities, so they must not appear as a
+    -- SUB-BGE appearing or disappearing.
     sub_bge_resolve AS (
         SELECT DISTINCT raw_data.norm_key(sbam.raw_name) AS raw_name,
-               sbam.sub_bge_alias                        AS code
+               sb.code                                   AS code
         FROM seeds.sub_bge_alias_map AS sbam
+        JOIN reference_data.sub_bge AS sb ON sb.code = sbam.sub_bge_alias
     ),
 
     -- Current month = the given p_month, or the newest billing month when NULL.
@@ -117,7 +129,7 @@ LANGUAGE sql AS $$
              THEN 'Persisting Unmapped' ELSE 'Unmapped' END::text
     FROM invoice_months m
     JOIN sub_bge_raw_by_month cur ON cur.month = m.current_month
-    WHERE NOT EXISTS (SELECT 1 FROM sub_bge_resolve sbr WHERE sbr.raw_name = cur.value)
+    WHERE NOT EXISTS (SELECT 1 FROM sub_bge_known sbk WHERE sbk.raw_name = cur.value)
 
     UNION ALL
 

@@ -142,6 +142,12 @@ VALIDATIONS = [
     ("New-Removed BGEs",
      "Sheet names added or removed compared to the prior month.",
      monthly_check("SELECT * FROM telus_raw_validate_new_bges_in_sheets(%s)")),
+    ("New-Removed SUB-BGEs",
+     "Month-over-month sub-organization changes: Unmapped, Persisting Unmapped, "
+     "New Match, Disappeared. Unmapped spellings compare raw account_description; "
+     "New Match / Disappeared compare the resolved sub_bge code, so a re-spelling is "
+     "not reported as one organization leaving and another arriving.",
+     monthly_check("SELECT * FROM telus_raw_validate_new_sub_bges_in_accounts(%s)")),
     ("Spend Comparison",
      "Month-over-month spend by entity across categories, with a >50% difference flag "
      "(comparison report rather than a strict pass/fail check).",

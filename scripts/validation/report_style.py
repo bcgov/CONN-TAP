@@ -40,7 +40,8 @@ WIDTH_SAMPLE_ROWS = 200
 # telus_raw_validate_new_sub_bges_in_accounts) -- so one list covers both providers. The sheet
 # gets the FULL set: every possible status, not just the ones in this month's data. Descriptions
 # come from the detection functions, not assumptions.
-NEW_REMOVED_TAB = "New-Removed BGEs"
+# Tabs that carry a `status` column from a detection function and get the legend card.
+NEW_REMOVED_TABS = ("New-Removed BGEs", "New-Removed SUB-BGEs")
 STATUS_LEGEND = [
     ("Unmapped",
      "In the current month, absent in the prior month, and not a recognized alias in the seeds."),
@@ -129,7 +130,7 @@ def _style_sheet(ws, header_fill, header_font, header_align, status_fills) -> No
 
     if ws.title == "Summary":
         _color_summary_status(ws, status_fills)
-    elif ws.title == NEW_REMOVED_TAB:
+    elif ws.title in NEW_REMOVED_TABS:
         _add_status_legend(ws, header_font, header_align)
 
 
