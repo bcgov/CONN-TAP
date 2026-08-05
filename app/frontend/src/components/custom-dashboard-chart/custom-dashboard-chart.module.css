@@ -1,0 +1,17 @@
+/* Graph / Table tab row: tabs on the left, download button on the right,
+   sharing the divider under the tab strip. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-right: 0.5rem;
+  border-bottom: 1px solid var(--surface-color-border-light, var(--color-border-light));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  outline: none;
+}

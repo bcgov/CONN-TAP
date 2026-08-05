@@ -12,13 +12,16 @@ import {
   type MRT_Row,
 } from "material-react-table";
 import { MinusSquare, PlusSquare } from "lucide-react";
+import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
 import type { SummaryRow, SummaryTable } from "@/lib/chart-utils";
 import { fmtMillions } from "@/lib/format-utils";
 import styles from "./spend-summary-table.module.css";
 
 type Props = {
-  table: SummaryTable;
+  table?: SummaryTable | null;
   dateRangeLabel?: string;
+  isLoading?: boolean;
+  isError?: boolean;
 };
 
 type TreeRow = SummaryRow & { subRows: TreeRow[] };
@@ -59,7 +62,7 @@ const typeFilter: MRT_FilterFn<TreeRow> = (row, _columnId, filterValue) => {
   );
 };
 
-export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
+const SummaryGrid = ({ table }: { table: SummaryTable }) => {
   const [expanded, setExpanded] = useState<MRT_ExpandedState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<MRT_ColumnFiltersState>([]);
@@ -253,14 +256,48 @@ export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
         : {},
   });
 
-  if (table.rows.length === 0) {
-    return <p className={styles.empty}>No data for this period.</p>;
-  }
-
   return (
     <div className={styles.wrapper}>
-      {dateRangeLabel && <p className={styles.dateRange}>{dateRangeLabel}</p>}
       <MaterialReactTable table={mrt} />
     </div>
   );
 };
+
+// The one table-only card: no graph view, so no tab strip and no image download.
+export const SpendSummaryTable = ({
+  table,
+  dateRangeLabel,
+  isLoading = false,
+  isError,
+}: Props) => (
+  <article className="dashboard-card">
+    <CustomDashboardChart
+      title="Spend Summary"
+      downloadable={false}
+      state={{
+        isLoading,
+        isError,
+        isEmpty: !table || table.rows.length === 0,
+        loadingLabel: "Loading summary table…",
+        errorLabel: "Unable to load summary data.",
+        emptyLabel: "No data for this period.",
+      }}
+      header={
+        <div className="dashboard-card__header">
+          <h2>Spend summary</h2>
+          {dateRangeLabel && (
+            <p className="dashboard-card__date-range">{dateRangeLabel}</p>
+          )}
+          <p>
+            Telecom spend by BGE, sub-organization, and service designee, broken
+            out by service category.
+          </p>
+        </div>
+      }
+    >
+      <div className="dashboard-card__chart">
+        {table && table.rows.length > 0 && <SummaryGrid table={table} />}
+      </div>
+    </CustomDashboardChart>
+  </article>
+);

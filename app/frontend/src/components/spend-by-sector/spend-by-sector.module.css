@@ -1,34 +1,3 @@
-.wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.dateRange {
-  display: inline-block;
-  align-self: flex-start;
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-pill-text);
-  background: var(--color-pill-bg);
-  padding: 0.1rem 0.55rem;
-  border-radius: 0.75rem;
-}
-
-.subtitle {
-  font-size: 0.875rem;
-  color: var(--typography-color-secondary, var(--color-text-secondary));
-  margin: 0;
-}
-
-.empty {
-  color: var(--typography-color-secondary, var(--color-text-secondary));
-  font-size: 0.875rem;
-  padding: 2rem 0;
-  text-align: center;
-}
-
 .total {
   font-size: 0.875rem;
   font-weight: 600;
@@ -61,6 +30,13 @@
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* Table view: sector name cell, with the same dot as the legend. */
+.sectorCell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 @media (max-width: 520px) {

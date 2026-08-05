@@ -1,0 +1,21 @@
+.wrapper {
+  width: 100%;
+  font-size: 0.875rem;
+  color: var(--typography-color-primary, var(--color-text-primary));
+}
+
+.wrapper :global(.MuiTableCell-body) {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.wrapper :global(.MuiTableCell-footer) {
+  font-weight: 600;
+}
+
+.empty {
+  color: var(--typography-color-secondary, var(--color-text-secondary));
+  font-size: 0.875rem;
+  padding: 2rem 0;
+  text-align: center;
+}
