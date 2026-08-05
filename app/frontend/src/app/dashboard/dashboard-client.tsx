@@ -21,10 +21,7 @@ import {
   isSummaryTable,
   isTimelineChart,
 } from "@/lib/chart-utils";
-import {
-  buildPeriodRangeLabel,
-  type YearType,
-} from "@/lib/date-utils";
+import { buildPeriodRangeLabel } from "@/lib/date-utils";
 import { useEffect, useRef, useState } from "react";
 
 type DatasetEnvelope = {
@@ -36,9 +33,9 @@ type DatasetEnvelope = {
 
 async function fetchDataset(
   datasetId: string,
-  filters: { yearType: YearType; period?: string[] },
+  filters: { period?: string[] } = {},
 ) {
-  const params = new URLSearchParams({ year_type: filters.yearType });
+  const params = new URLSearchParams();
   for (const p of filters.period ?? []) params.append("period", p);
 
   const response = await fetch(
@@ -60,16 +57,14 @@ export function DashboardClient({
   displayName: string;
   visibleDatasetIds: string[];
 }) {
-  const [yearType, setYearType] = useState<YearType>("fiscal");
   const [period, setPeriods] = useState<string[]>([]);
   const canAccessBgeData = visibleDatasetIds.includes("spend-by-bge");
   const canAccessSummary = visibleDatasetIds.includes("spend-summary");
 
   const chartQuery = useQuery({
-    queryKey: ["service-category-spend", yearType, period],
+    queryKey: ["service-category-spend", period],
     queryFn: async () => {
       const plotly = await fetchDataset("service-category-spend-plotly", {
-        yearType,
         period,
       });
       return {
@@ -81,10 +76,9 @@ export function DashboardClient({
     enabled: period.length > 0,
   });
   const indicatorQuery = useQuery({
-    queryKey: ["isp-spend-indicators", yearType, period],
+    queryKey: ["isp-spend-indicators", period],
     queryFn: async () => {
       const result = await fetchDataset("isp-spend-indicators", {
-        yearType,
         period,
       });
       return isIndicatorChart(result.metadata.chart)
@@ -94,9 +88,9 @@ export function DashboardClient({
   });
 
   const timelineQuery = useQuery({
-    queryKey: ["total-spend-over-time", yearType],
+    queryKey: ["total-spend-over-time"],
     queryFn: async () => {
-      const result = await fetchDataset("total-spend-over-time", { yearType });
+      const result = await fetchDataset("total-spend-over-time");
       if (!isTimelineChart(result.metadata.chart)) return null;
       const chart = result.metadata.chart;
       return {
@@ -109,10 +103,9 @@ export function DashboardClient({
   });
 
   const sectorQuery = useQuery({
-    queryKey: ["spend-by-sector", yearType, period],
+    queryKey: ["spend-by-sector", period],
     queryFn: async () => {
       const result = await fetchDataset("spend-by-sector", {
-        yearType,
         period,
       });
       return isSectorChart(result.metadata.chart)
@@ -123,19 +116,18 @@ export function DashboardClient({
   });
 
   const bgeQuery = useQuery({
-    queryKey: ["spend-by-bge", yearType, period],
+    queryKey: ["spend-by-bge", period],
     queryFn: async () => {
-      const result = await fetchDataset("spend-by-bge", { yearType, period });
+      const result = await fetchDataset("spend-by-bge", { period });
       return isBgeChart(result.metadata.chart) ? result.metadata.chart : null;
     },
     enabled: canAccessBgeData && period.length > 0,
   });
 
   const summaryQuery = useQuery({
-    queryKey: ["spend-summary", yearType, period],
+    queryKey: ["spend-summary", period],
     queryFn: async () => {
       const result = await fetchDataset("spend-summary", {
-        yearType,
         period,
       });
       return isSummaryTable(result.metadata.table)
@@ -145,7 +137,7 @@ export function DashboardClient({
     enabled: canAccessSummary && period.length > 0,
   });
 
-  const dateRangeLabel = buildPeriodRangeLabel(period, yearType);
+  const dateRangeLabel = buildPeriodRangeLabel(period);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -207,27 +199,7 @@ export function DashboardClient({
               </div>
               <hr className="dashboard-main__divider" />
 
-              <section
-                className="dashboard-controls"
-                aria-label="Spend chart filters"
-              >
-                <label className="dashboard-control">
-                  <span>Year type</span>
-                  <select
-                    value={yearType}
-                    onChange={(e) => {
-                      setYearType(e.target.value as YearType);
-                      setPeriods([]);
-                    }}
-                  >
-                    <option value="fiscal">Fiscal</option>
-                    <option value="calendar">Calendar</option>
-                  </select>
-                </label>
-              </section>
-
               <SpendTimelineBrush
-                key={yearType}
                 chart={timelineQuery.data ?? null}
                 isLoading={timelineQuery.isLoading}
                 onPeriodsChange={setPeriods}

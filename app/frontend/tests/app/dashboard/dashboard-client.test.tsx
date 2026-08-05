@@ -270,15 +270,6 @@ describe("DashboardClient charts, labels and interactions", () => {
     );
   });
 
-  it("changing the year type updates the select", () => {
-    renderDashboard([]);
-    const select = screen.getByRole("combobox");
-
-    fireEvent.change(select, { target: { value: "calendar" } });
-
-    expect(select).toHaveValue("calendar");
-  });
-
   it("logs the user out when the logout button is clicked", () => {
     vi.stubGlobal("location", { href: "" });
     renderDashboard([]);
