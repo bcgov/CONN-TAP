@@ -24,6 +24,9 @@ CATEGORY_ORDER: tuple[tuple[str, str], ...] = (
     ("cellular", "Cellular"),
     ("professional_services", "Professional Services"),
     ("time_limited_services", "Time Limited Services"),
+    # Spend we can't attribute to a real service (eg. Rogers rows with no
+    # productline: late fees, credit memos). Always last.
+    ("unknown", "Unknown"),
 )
 CATEGORY_CODES: tuple[str, ...] = tuple(code for code, _ in CATEGORY_ORDER)
 

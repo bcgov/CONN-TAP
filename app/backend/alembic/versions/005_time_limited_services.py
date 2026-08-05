@@ -1,4 +1,4 @@
-"""Rename two service categories and move five service codes between them.
+"""Rename two service categories, add Unknown, and move six service codes.
 
 Revision ID: 005_time_limited_services
 Revises: 004_reference_data_schema
@@ -10,12 +10,19 @@ one land in the same place.
 
   Temporary Services          -> Time Limited Services
   Other Professional Services -> Professional Services
+  (new)                       -> Unknown
 
   IVR              -> Voice
   MMS              -> Cellular
   Managed WLAN     -> Time Limited Services
   Managed Security -> Time Limited Services
   Managed Router   -> Time Limited Services
+  Rogers 'other'   -> Unknown
+
+The rogers 'other' code is the fallback for rows with no productline (late fees,
+credit memos and the like) — spend we can't attribute to a real service. It moves
+out of Professional Services into its own Unknown category, leaving Professional
+Services empty until something is mapped into it.
 
 The renames are UPDATEs, so the category ids survive and analytics rows keep
 pointing at them. The fact table stores the resolved service_category_id though,
@@ -48,6 +55,12 @@ def upgrade() -> None:
         WHERE code = 'other_professional_services'
         """
     )
+    op.execute(
+        """
+        INSERT INTO reference_data.service_category (code, name) VALUES ('unknown', 'Unknown')
+        ON CONFLICT (code) DO NOTHING
+        """
+    )
     op.execute(_remap("voice", "('tsma', 'ivr')"))
     op.execute(_remap("cellular", "('tsma', 'mms')"))
     op.execute(
@@ -57,6 +70,7 @@ def upgrade() -> None:
             " ('tsma_other', 'managed_router')",
         )
     )
+    op.execute(_remap("unknown", "('ngta', 'other')"))
 
 
 def downgrade() -> None:
@@ -80,9 +94,12 @@ def downgrade() -> None:
         _remap(
             "other_professional_services",
             "('tsma', 'managed wlan'), ('tsma_other', 'managed_security'),"
-            " ('tsma_other', 'managed_router')",
+            " ('tsma_other', 'managed_router'), ('ngta', 'other')",
         )
     )
+    # Only droppable once nothing points at it, so this trails the remaps. Any
+    # analytics rows still referencing it need a dbt run to move off first.
+    op.execute("DELETE FROM reference_data.service_category WHERE code = 'unknown'")
 
 
 def _remap(category_code: str, source_code_pairs: str) -> str:

@@ -95,6 +95,9 @@ def test_build_summary_table():
     rows = rows_by_id(result)
 
     assert [c["code"] for c in table["categories"]] == list(CATEGORY_CODES)
+    # Unattributed spend sits in its own trailing column, never folded into a
+    # real service category.
+    assert table["categories"][-1] == {"code": "unknown", "name": "Unknown"}
     assert table["total_millions"] == 51.0  # 31 under Alpha + 20 under Beta
 
     alpha = rows["bge:1"]
@@ -107,6 +110,7 @@ def test_build_summary_table():
         "cellular": 3.0,
         "professional_services": 6.0,
         "time_limited_services": 4.0,
+        "unknown": 0.0,
     }
     assert alpha["total"] == 31.0
 
