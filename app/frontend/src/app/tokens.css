@@ -6,6 +6,7 @@
   /* ── Typography ───────────────────────────────────────────────────── */
   --color-text-primary:   #313131;
   --color-text-secondary: #474543;
+  --color-text-muted:     #6b6967;
   --color-text-hint:      #a0a09e;
   --color-link:           #255a90;
   --color-link-hover:     #1e4d7b;

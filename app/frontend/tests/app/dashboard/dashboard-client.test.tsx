@@ -47,16 +47,31 @@ vi.mock("@/components/spend-timeline-brush", () => ({
     </button>
   ),
 }));
-vi.mock("@/components/spend-by-sector-chart", () => ({
-  SpendBySectorChart: () => <div data-testid="sector-chart" />,
-}));
-vi.mock("@/components/spend-by-bge-chart", () => ({
-  SpendByBgeChart: () => <div data-testid="bge-chart" />,
-}));
-vi.mock("@/components/custom-dashboard-chart", () => ({
-  CustomDashboardChart: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+// Each chart component renders its own header, tabs and states and has its own
+// tests; these stubs just expose the props the dashboard passes down.
+const { chartStub } = vi.hoisted(() => ({
+  chartStub: (testId: string) => (props: Record<string, unknown>) => (
+    <div
+      data-testid={testId}
+      data-has-data={props.chart ?? props.table ? "yes" : "no"}
+      data-loading={props.isLoading ? "yes" : "no"}
+      data-error={props.isError ? "yes" : "no"}
+      data-date-range={String(props.dateRangeLabel ?? "")}
+    />
   ),
+}));
+
+vi.mock("@/components/spend-by-category", () => ({
+  SpendByCategory: chartStub("category-chart"),
+}));
+vi.mock("@/components/spend-by-sector", () => ({
+  SpendBySector: chartStub("sector-chart"),
+}));
+vi.mock("@/components/spend-by-bge", () => ({
+  SpendByBge: chartStub("bge-chart"),
+}));
+vi.mock("@/components/spend-summary-table", () => ({
+  SpendSummaryTable: chartStub("summary-table"),
 }));
 
 import { DashboardClient } from "@/app/dashboard/dashboard-client";
@@ -83,51 +98,69 @@ function renderDashboard(visibleDatasetIds: string[]) {
   );
 }
 
-describe("DashboardClient BGE access gating", () => {
-  it("hides the Spend by BGE card when the dataset is not visible to the user", () => {
+describe("DashboardClient dataset access gating", () => {
+  it("always shows the service category and sector cards", () => {
     renderDashboard([]);
 
-    expect(screen.queryByText("Spend by BGE")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("bge-chart")).not.toBeInTheDocument();
+    expect(screen.getByTestId("category-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("sector-chart")).toBeInTheDocument();
   });
 
-  it("shows the Spend by BGE card when the dataset is visible to the user", () => {
-    renderDashboard(["spend-by-bge"]);
+  it("hides the BGE and summary cards when those datasets are not visible", () => {
+    renderDashboard([]);
 
-    expect(screen.getByText("Spend by BGE")).toBeInTheDocument();
+    expect(screen.queryByTestId("bge-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("summary-table")).not.toBeInTheDocument();
+  });
+
+  it("shows the BGE card when the dataset is visible to the user", () => {
+    renderDashboard(["spend-by-bge"]);
+    expect(screen.getByTestId("bge-chart")).toBeInTheDocument();
+  });
+
+  it("shows the summary card when the dataset is visible to the user", () => {
+    renderDashboard(["spend-summary"]);
+    expect(screen.getByTestId("summary-table")).toBeInTheDocument();
   });
 });
 
-describe("DashboardClient ChartState rendering (BGE card)", () => {
-  it("renders the loading label while the BGE query loads", () => {
+describe("DashboardClient query state hand-off", () => {
+  it("passes the loading flag to the card", () => {
     queryStates["spend-by-bge"] = { isLoading: true };
     renderDashboard(["spend-by-bge"]);
 
-    expect(screen.getByText("Loading BGE chart…")).toBeInTheDocument();
-    expect(screen.queryByTestId("bge-chart")).not.toBeInTheDocument();
+    expect(screen.getByTestId("bge-chart")).toHaveAttribute("data-loading", "yes");
   });
 
-  it("renders the error label when the BGE query fails", () => {
+  it("passes the error flag to the card", () => {
     queryStates["spend-by-bge"] = { isError: true };
     renderDashboard(["spend-by-bge"]);
 
-    expect(screen.getByText("Unable to load BGE data.")).toBeInTheDocument();
+    expect(screen.getByTestId("bge-chart")).toHaveAttribute("data-error", "yes");
   });
 
-  it("renders the empty label when the BGE query returns no data", () => {
+  it("passes no chart when the query returned none", () => {
     queryStates["spend-by-bge"] = { data: undefined };
     renderDashboard(["spend-by-bge"]);
 
-    // Sector and BGE cards both fall back to this label when data is absent.
-    expect(screen.getAllByText("No data for this period.").length).toBeGreaterThan(0);
-    expect(screen.queryByTestId("bge-chart")).not.toBeInTheDocument();
+    expect(screen.getByTestId("bge-chart")).toHaveAttribute("data-has-data", "no");
   });
 
-  it("renders the BGE chart once data is available", () => {
+  it("passes the chart down once data is available", () => {
     queryStates["spend-by-bge"] = { data: { data: [] } };
     renderDashboard(["spend-by-bge"]);
 
-    expect(screen.getByTestId("bge-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("bge-chart")).toHaveAttribute("data-has-data", "yes");
+  });
+
+  it("passes the summary table down", () => {
+    queryStates["spend-summary"] = { data: { rows: [] } };
+    renderDashboard(["spend-summary"]);
+
+    expect(screen.getByTestId("summary-table")).toHaveAttribute(
+      "data-has-data",
+      "yes",
+    );
   });
 });
 
@@ -205,31 +238,36 @@ describe("DashboardClient query functions (data layer)", () => {
 });
 
 describe("DashboardClient charts, labels and interactions", () => {
-  it("renders the plotly chart card when plotly data is present", () => {
+  it("unwraps the plotly chart before passing it to the category card", () => {
     queryStates["service-category-spend"] = {
       data: { plotly: { data: [{ name: "TELUS", x: [1], text: ["a"] }], layout: { legend: {} } } },
     };
     renderDashboard([]);
 
-    expect(screen.queryByText("No Plotly data for this period.")).not.toBeInTheDocument();
-  });
-
-  it("shows an alert when the service-category query errors", () => {
-    queryStates["service-category-spend"] = { isError: true };
-    renderDashboard([]);
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Unable to load service category spend data.",
+    expect(screen.getByTestId("category-chart")).toHaveAttribute(
+      "data-has-data",
+      "yes",
     );
   });
 
-  it("shows the sector total in the heading when sector data is present", () => {
+  it("tells the category card when its query errored", () => {
+    queryStates["service-category-spend"] = { isError: true };
+    renderDashboard([]);
+
+    expect(screen.getByTestId("category-chart")).toHaveAttribute(
+      "data-error",
+      "yes",
+    );
+  });
+
+  it("passes the sector chart to the sector card", () => {
     queryStates["spend-by-sector"] = { data: { total_millions: 12.34 } };
     renderDashboard([]);
 
-    expect(
-      screen.getByText(/Telecom Spend share by Sector \(\$12\.3M\)/),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("sector-chart")).toHaveAttribute(
+      "data-has-data",
+      "yes",
+    );
   });
 
   it("changing the year type updates the select", () => {
@@ -250,13 +288,14 @@ describe("DashboardClient charts, labels and interactions", () => {
     expect(globalThis.location.href).toBe("/auth/logout");
   });
 
-  it("shows the selected period range once periods are chosen", () => {
+  it("passes the selected period range to the cards", () => {
     renderDashboard([]);
 
     fireEvent.click(screen.getByTestId("select-periods"));
 
-    expect(
-      screen.getAllByText("(Q1 FY2024 – Q2 FY2024)").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getByTestId("sector-chart")).toHaveAttribute(
+      "data-date-range",
+      "(Q1 FY2024 – Q2 FY2024)",
+    );
   });
 });

@@ -44,12 +44,16 @@ type ChartDownloadButtonProps = {
   targetRef: React.RefObject<HTMLElement | null>;
   title: string;
   label?: string;
+  // When false, render in normal layout flow (e.g. inside a toolbar row)
+  // instead of pinned to the card's top-right corner.
+  floating?: boolean;
 };
 
 export const ChartDownloadButton = ({
   targetRef,
   title,
   label = "Download chart",
+  floating = true,
 }: ChartDownloadButtonProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -81,7 +85,7 @@ export const ChartDownloadButton = ({
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div className={floating ? styles.wrapper : styles.wrapperInline}>
       <MenuTrigger>
         <Button
           className={styles.button}
