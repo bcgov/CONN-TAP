@@ -29,7 +29,7 @@ type DisplayPoint = TimelinePoint & { base_value: number | null; selected_value:
 const DEFAULT_WINDOW = 12;
 
 /** Months that fit the visible frame; anything older scrolls in from the left. */
-const MONTHS_IN_FRAME = 24;
+const MONTHS_IN_FRAME = 48;
 
 /** Chart margins that bracket the plot area — the year bands line up with them. */
 const PLOT_MARGIN = { top: 8, right: 24, bottom: 4, left: 8 };
