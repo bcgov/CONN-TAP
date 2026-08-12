@@ -7,20 +7,14 @@
 -- the post-tax total is `totalamount`, duplicates use a full-row hash, and there is an extra
 -- PRODUCTLINE check (DATA / VOICE / N/A).
 
--- Name matching uses raw_data.norm_key(text) from _shared.sql (applied first by the runner).
+-- Name matching uses reference_data.norm_key(text) and reference_data.alias_matches(text, text),
+-- created by the alembic migration and shared with the dbt staging models and the Telus
+-- validations, so every consumer resolves names the same way.
 
 CREATE OR REPLACE VIEW raw_data.v_rogers_data_voice_validated AS
-WITH bge_map AS (
+WITH sub_bge_map AS (
 
-    SELECT raw_data.norm_key(bam.raw_name) AS raw_bge,
-           bam.bge_alias             AS mapped_bge
-    FROM seeds.bge_alias_map AS bam
-
-),
-
-sub_bge_map AS (
-
-    SELECT raw_data.norm_key(sbam.raw_name) AS sub_bge,
+    SELECT reference_data.norm_key(sbam.raw_name) AS sub_bge,
            b.code                     AS expected_bge
     FROM seeds.sub_bge_alias_map AS sbam
     JOIN reference_data.sub_bge  AS sb ON sb.code  = sbam.sub_bge_alias
@@ -32,8 +26,8 @@ normalized AS (
 
     SELECT
         r.*,
-        raw_data.norm_key(r.bge)           AS bge_norm,
-        raw_data.norm_key(r.sub_bge)       AS sub_bge_norm,
+        reference_data.norm_key(r.bge)           AS bge_norm,
+        reference_data.norm_key(r.sub_bge)       AS sub_bge_norm,
         NULLIF(UPPER(TRIM(r.productline)), '') AS productline_norm,
 
         -- Full-row hash for exact duplicate detection.
@@ -47,9 +41,9 @@ bge_mapped AS (
 
     SELECT
         n.*,
-        COALESCE(bm.mapped_bge, n.bge_norm) AS bge_original
+        COALESCE(reference_data.resolve_bge_alias(n.bge), n.bge_norm) AS bge_original
     FROM normalized n
-    LEFT JOIN bge_map bm ON n.bge_norm = bm.raw_bge
+
 
 ),
 
@@ -141,7 +135,7 @@ LANGUAGE sql AS $$
         SELECT 1
         FROM raw_data.raw_rogers_spend_data_voice r
         JOIN seeds.sub_bge_alias_map sbam
-          ON raw_data.norm_key(sbam.raw_name) = raw_data.norm_key(r.sub_bge)
+          ON reference_data.norm_key(sbam.raw_name) = reference_data.norm_key(r.sub_bge)
         WHERE sbam.sub_bge_alias = sb.code
           AND (p_month IS NULL OR date_trunc('month', r.billingdate::date) = date_trunc('month', p_month))
     )
@@ -191,7 +185,7 @@ LANGUAGE sql AS $$
       AND (p_month IS NULL OR date_trunc('month', v.billingdate::date) = date_trunc('month', p_month))
       AND NOT EXISTS (
           SELECT 1 FROM seeds.bge_alias_map bam
-          WHERE raw_data.norm_key(bam.raw_name) = v.sub_bge_norm
+          WHERE reference_data.alias_matches(v.sub_bge_norm, bam.raw_name)
       )
     ORDER BY 1
 $$;
@@ -200,14 +194,14 @@ $$;
 CREATE OR REPLACE FUNCTION raw_data.rogers_data_voice_new_bges(p_month date DEFAULT NULL)
 RETURNS TABLE (new_bge text)
 LANGUAGE sql AS $$
-    SELECT DISTINCT raw_data.norm_key(r.bge)::text
+    SELECT DISTINCT reference_data.norm_key(r.bge)::text
     FROM raw_data.raw_rogers_spend_data_voice r
     WHERE r.bge IS NOT NULL
-      AND raw_data.norm_key(r.bge) <> ''
+      AND reference_data.norm_key(r.bge) <> ''
       AND (p_month IS NULL OR date_trunc('month', r.billingdate::date) = date_trunc('month', p_month))
       AND NOT EXISTS (
           SELECT 1 FROM seeds.bge_alias_map bam
-          WHERE raw_data.norm_key(bam.raw_name) = raw_data.norm_key(r.bge)
+          WHERE reference_data.alias_matches(r.bge, bam.raw_name)
       )
     ORDER BY 1
 $$;
@@ -250,11 +244,12 @@ CREATE OR REPLACE FUNCTION raw_data.rogers_data_voice_new_removed_detection(p_mo
 RETURNS TABLE (current_month date, entity_type text, raw_value text, status text)
 LANGUAGE sql AS $$
     WITH bge_known AS (
-        SELECT DISTINCT raw_data.norm_key(bam.raw_name) AS raw_name
+        -- Raw alias text, not a norm key: recognition below is by containment.
+        SELECT DISTINCT bam.raw_name
         FROM seeds.bge_alias_map AS bam
     ),
     sub_bge_known AS (
-        SELECT DISTINCT raw_data.norm_key(sbam.raw_name) AS raw_name
+        SELECT DISTINCT reference_data.norm_key(sbam.raw_name) AS raw_name
         FROM seeds.sub_bge_alias_map AS sbam
     ),
     -- Current month = the given p_month, or the newest billing month when NULL.
@@ -267,53 +262,53 @@ LANGUAGE sql AS $$
         WHERE billingdate IS NOT NULL
     ),
     current_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.bge) AS bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.bge) AS bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.bge IS NOT NULL AND TRIM(r.bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.current_month
     ),
     prior_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.bge) AS bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.bge) AS bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.bge IS NOT NULL AND TRIM(r.bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.prior_month
     ),
     current_sub_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.sub_bge) AS sub_bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.sub_bge) AS sub_bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.sub_bge IS NOT NULL AND TRIM(r.sub_bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.current_month
     ),
     prior_sub_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.sub_bge) AS sub_bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.sub_bge) AS sub_bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.sub_bge IS NOT NULL AND TRIM(r.sub_bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.prior_month
     ),
     two_months_ago_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.bge) AS bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.bge) AS bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.bge IS NOT NULL AND TRIM(r.bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.two_months_ago
     ),
     two_months_ago_sub_bges AS (
-        SELECT DISTINCT raw_data.norm_key(r.sub_bge) AS sub_bge_norm
+        SELECT DISTINCT reference_data.norm_key(r.sub_bge) AS sub_bge_norm
         FROM raw_data.raw_rogers_spend_data_voice r CROSS JOIN invoice_months m
         WHERE r.sub_bge IS NOT NULL AND TRIM(r.sub_bge) <> ''
           AND date_trunc('month', r.billingdate::date) = m.two_months_ago
     )
     SELECT m.current_month::date, 'BGE'::text, cb.bge_norm::text,
         CASE
-            WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+            WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE reference_data.alias_matches(cb.bge_norm, k.raw_name))
              AND NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
                 THEN 'New + Unrecognized'
-            WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+            WHEN NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE reference_data.alias_matches(cb.bge_norm, k.raw_name))
                 THEN 'Unrecognized'
             WHEN NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
                 THEN 'Newly Appeared'
         END::text
     FROM current_bges cb CROSS JOIN invoice_months m
-    WHERE NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE k.raw_name  = cb.bge_norm)
+    WHERE NOT EXISTS (SELECT 1 FROM bge_known  k  WHERE reference_data.alias_matches(cb.bge_norm, k.raw_name))
        OR NOT EXISTS (SELECT 1 FROM prior_bges pb WHERE pb.bge_norm = cb.bge_norm)
 
     UNION ALL

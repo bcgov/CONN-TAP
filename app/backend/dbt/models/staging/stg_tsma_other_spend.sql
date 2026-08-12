@@ -49,7 +49,7 @@ select
     raw_id,
     ingestion_run_id,
     month_start,
-    bm.bge_alias as organization_name,
+    reference_data.resolve_bge_alias(cleaned.organization_name) as organization_name,
     sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
     source_service_description,
@@ -58,6 +58,6 @@ select
     tsma_service_tower,
     source_amount_name,
     spend_amount
+-- depends_on: {{ ref('bge_alias_map') }}  -- read by resolve_bge_alias(); do not remove
 from cleaned
-left join {{ ref('bge_alias_map') }} bm on {{ norm_key('bm.raw_name') }} = {{ norm_key('cleaned.organization_name') }}
-left join {{ ref('sub_bge_alias_map') }} sbm on {{ norm_key('sbm.raw_name') }} = {{ norm_key('cleaned.sub_organization_name') }}
+left join {{ ref('sub_bge_alias_map') }} sbm on reference_data.norm_key(sbm.raw_name) = reference_data.norm_key(cleaned.sub_organization_name)
