@@ -29,12 +29,15 @@ FROM (VALUES
     ('tsma', 'telus', 'conferencing',      'voice',                       'Conferencing'),
     ('tsma', 'telus', 'long distance',     'voice',                       'Long Distance'),
     ('tsma', 'telus', 'voice',             'voice',                       'Voice'),
-    ('tsma', 'telus', 'managed wlan',      'other_professional_services', 'Managed WLAN'),
+    -- now time_limited_services
+    ('tsma', 'telus', 'managed wlan',      'other_professional_services', 'Managed WLAN'), 
     -- tsma: fallbacks (wireless/ivr/mms rows have no tower)
     ('tsma', 'telus', 'wireless',          'cellular',                    'Wireless'),
+    -- now voice
     ('tsma', 'telus', 'ivr',               'temporary_services',          'IVR'),
+    -- now cellular
     ('tsma', 'telus', 'mms',               'temporary_services',          'MMS'),
-    -- tsma_other: always other professional services
+    -- tsma_other: always other professional services, now time_limited_services
     ('tsma_other', 'telus', 'managed_security', 'other_professional_services', 'Managed Security'),
     ('tsma_other', 'telus', 'managed_router',   'other_professional_services', 'Managed Router'),
     -- rogers: productline values (rogers data comes through ngta portal)
@@ -44,6 +47,7 @@ FROM (VALUES
     ('ngta', 'rogers', 'business voice', 'voice',                       'Business Voice'),
     ('ngta', 'rogers', 'cable gateway',  'data',                        'Cable Gateway'),
     -- rogers: fallback for rows with no productline (eg: late fees, credit memos)
+    -- now unknown
     ('ngta', 'rogers', 'other',          'other_professional_services', 'Other')
 ) AS svc(source_system, provider_code, code, service_category_code, service_name)
 JOIN reference_data.provider p ON p.code = svc.provider_code
