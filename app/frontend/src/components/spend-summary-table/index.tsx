@@ -13,6 +13,10 @@ import {
 } from "material-react-table";
 import { MinusSquare, PlusSquare } from "lucide-react";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
+import type {
+  CsvData,
+  ExportFormat,
+} from "@/components/chart-download-button";
 import type { SummaryRow, SummaryTable } from "@/lib/chart-utils";
 import { fmtMillions } from "@/lib/format-utils";
 import styles from "./spend-summary-table.module.css";
@@ -263,7 +267,37 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
   );
 };
 
-// The one table-only card: no graph view, so no tab strip and no image download.
+const DOWNLOAD_FORMATS: ExportFormat[] = ["xls", "csv", "png", "jpeg", "pdf"];
+
+// CSV export is a flat dump of every row (not affected by the tree's
+// expand/collapse state); rows with children are labelled "<type>/Total" to
+// match how the roll-up rows read in the on-screen tree.
+const buildCsvData = (table: SummaryTable): CsvData => {
+  const parentIds = new Set(
+    table.rows
+      .filter((row) => row.parent_id)
+      .map((row) => row.parent_id as string),
+  );
+
+  return {
+    headers: [
+      "Name",
+      "Type",
+      ...table.categories.map((category) => category.name),
+      "Total Spend ($M)",
+    ],
+    rows: table.rows.map((row) => [
+      row.name,
+      parentIds.has(row.id) ? `${row.type}/Total` : row.type,
+      ...table.categories.map((category) => row.values[category.code] ?? 0),
+      row.total,
+    ]),
+  };
+};
+
+// The one table-only card: no graph view, so no tab strip — the download button
+// sits pinned to the card corner and captures the table as it's currently
+// filtered and expanded.
 export const SpendSummaryTable = ({
   table,
   dateRangeLabel,
@@ -273,7 +307,9 @@ export const SpendSummaryTable = ({
   <article className="dashboard-card">
     <CustomDashboardChart
       title="Spend Summary"
-      downloadable={false}
+      label="Download spend summary table as image"
+      formats={DOWNLOAD_FORMATS}
+      csvData={table ? buildCsvData(table) : undefined}
       state={{
         isLoading,
         isError,

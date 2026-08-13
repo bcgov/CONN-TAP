@@ -65,6 +65,15 @@ describe("SpendSummaryTable", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("offers a download of the table", () => {
+    render(<SpendSummaryTable table={makeTable()} />);
+    expect(
+      screen.getByRole("button", {
+        name: "Download spend summary table as image",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("renders the date range label when provided", () => {
     render(<SpendSummaryTable table={makeTable()} dateRangeLabel="FY2024 Q1" />);
     expect(screen.getByText("FY2024 Q1")).toBeInTheDocument();
