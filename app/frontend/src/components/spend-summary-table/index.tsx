@@ -269,15 +269,15 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
 
 const DOWNLOAD_FORMATS: ExportFormat[] = ["xls", "csv", "png", "jpeg", "pdf"];
 
-// CSV export is a flat dump of every row (not affected by the tree's
-// expand/collapse state); rows with children are labelled "<type>/Total" to
-// match how the roll-up rows read in the on-screen tree.
+// CSV export includes leaf rows only (not affected by the tree's
+// expand/collapse state)
 const buildCsvData = (table: SummaryTable): CsvData => {
   const parentIds = new Set(
     table.rows
       .filter((row) => row.parent_id)
       .map((row) => row.parent_id as string),
   );
+  const leafRows = table.rows.filter((row) => !parentIds.has(row.id));
 
   return {
     headers: [
@@ -286,9 +286,9 @@ const buildCsvData = (table: SummaryTable): CsvData => {
       ...table.categories.map((category) => category.name),
       "Total Spend ($M)",
     ],
-    rows: table.rows.map((row) => [
+    rows: leafRows.map((row) => [
       row.name,
-      parentIds.has(row.id) ? `${row.type}/Total` : row.type,
+      row.type,
       ...table.categories.map((category) => row.values[category.code] ?? 0),
       row.total,
     ]),
