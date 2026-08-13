@@ -45,6 +45,11 @@ const ExpandToggle = ({ row }: { row: MRT_Row<TreeRow> }) => {
   );
 };
 
+// Indent sub-rows (sub-orgs, service designees) so they visually nest under
+const NameCell = ({ row }: { row: MRT_Row<TreeRow> }) => (
+  <span style={{ paddingLeft: `${row.depth * 3}ch` }}>{row.original.name}</span>
+);
+
 // Filters
 const nameFilter: MRT_FilterFn<TreeRow> = (row, _columnId, filterValue) => {
   const query = String(filterValue ?? "").trim().toLowerCase();
@@ -167,6 +172,7 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
         filterVariant: "text",
         filterFn: nameFilter,
         muiFilterTextFieldProps: smallFilterProps,
+        Cell: NameCell,
       },
       {
         accessorKey: "type",
