@@ -3,6 +3,7 @@
 -- Stable org-grain aggregate (period x provider x bge_id). Serves BOTH spend_by_bge
 -- and spend_by_sector
 select
+    dp.period_key,
     dp.calendar_year,
     dp.calendar_quarter,
     dp.fiscal_year,
@@ -14,6 +15,7 @@ select
 from {{ ref('fct_service_spend') }} f
 join {{ ref('dim_period') }} dp on dp.period_key = f.period_key
 group by
+    dp.period_key,
     dp.calendar_year,
     dp.calendar_quarter,
     dp.fiscal_year,
