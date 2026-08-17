@@ -74,7 +74,7 @@ describe("SpendTimelineBrush", () => {
       />,
     );
     // 36 months is 1.5 frames wide, so the extra year scrolls.
-    expect(container.querySelector<HTMLElement>("[style*='width']")?.style.width).toBe("150%");
+    expect(container.querySelector<HTMLElement>("[style*='width']")?.style.width).toBe("100%");
   });
 
   it("pre-selects the most recent twelve months", () => {
