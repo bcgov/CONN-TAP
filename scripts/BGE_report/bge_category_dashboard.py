@@ -1,20 +1,25 @@
 """
+All BGE Dashboard Report Generator
+==================================
+
 Business rules
 --------------
-- Voice - IVR / Hosted IVR / IVR is rolled into Voice.
+- Voice, IVR, Hosted IVR, Long Distance, and Conferencing are rolled into Voice.
 - Out of Scope is excluded from consolidated reporting.
 - Other is excluded from consolidated reporting.
 - School Districts is normalized to SD.
+- TSMA and TSMA Lite are treated as Telus-side spend.
+- TELUS NGTA is treated as Telus-side spend.
+- Rogers NGTA is treated as Rogers-side spend.
 
 How to use
 ----------
 1. Put this script in the same folder as your latest dashboard workbook.
 2. If needed, update SOURCE_FILE below to match the workbook filename.
 3. Run:
-      python update_bge_category_dashboard_full_with_dropdown_fixes.py
-4. The output workbook is created with:
-      _BGE_Category_Dashboard_Updated_Dropdowns_Fixed.xlsx
-   appended to the source filename.
+      python bge_dashboard_report_clean.py
+4. The output workbook is created as:
+      All_BGE_Dashboard_Report.xlsx
 """
 
 from pathlib import Path
@@ -22,23 +27,44 @@ from collections import defaultdict
 import re
 
 from openpyxl import load_workbook
-from openpyxl import chart
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.table import Table, TableStyleInfo
-from copy import copy
+
 
 # =====================================================================
 # CONFIGURATION
 # =====================================================================
 
 SOURCE_FILE = "spend_tracking_2026_07_03_0826AM.xlsx"
-OUTPUT_FILE  = "BGE__Dashboard_Report.xlsx"
+OUTPUT_FILE = "All_BGE_Report.xlsx"
+
+SHEET_SOURCE = "Sheet1"
+SHEET_BGE_LIST = "BGE_List"
+SHEET_DETAIL_DATA = "BGE_Category_Detail_Data"
+SHEET_CATEGORY_DASHBOARD = "BGE_Category_Dashboard"
+SHEET_PROVIDER_DASHBOARD = "BGE_Spend_by_Provider_Dashboard"
+SHEET_GOVBC_DASHBOARD = "GovBC_Dashboard"
+SHEET_README = "README_BGE_Dashboard"
+
+OLD_SHEET_NAMES = [
+    "BGE_Dashboard",
+    "GovBC_Stacked_bar_charts",
+]
+
+CUTOFF_MONTH = "Mar 2026"
 
 TELUS_GREEN = "00B050"
 ROGERS_RED = "FF0000"
+TOTAL_BLUE = "4472C4"
+DARK_BLUE = "1F4E79"
+MEDIUM_BLUE = "5B9BD5"
+LIGHT_BLUE = "BDD7EE"
+DATA_ORANGE = "ED7D31"
+VOICE_GREEN = "70AD47"
+DARK_GREY = "404040"
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
 HEADER_FONT = Font(color="FFFFFF", bold=True)
@@ -47,11 +73,38 @@ LIGHT_FILL = PatternFill("solid", fgColor="F7FBFF")
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFF")
 WHITE_FONT = Font(color="FFFFFF")
 THIN_BLUE = Side(style="thin", color="B7CEE8")
+
 CURFMT = "$#,##0;[Red]($#,##0);-"
+CHART_AXIS_CURFMT = '$#,##0;-$#,##0'
 
 EXPECTED_BGES = [
     "BC Hydro", "BCLC", "ECC", "FHA", "FNHA", "Gov BC", "ICBC", "IHA",
     "NHA", "PHSA", "SD", "VCHA", "VIHA", "WSBC"
+]
+
+DETAIL_FIELDS = [
+    "Cellular_TSMA", "Data_TSMA", "Voice_TSMA",
+    "Plan_Telus", "Plan_Rogers",
+    "HW_Telus", "HW_Rogers",
+    "Data_Telus", "Data_Rogers",
+    "Voice_Telus", "Voice_Rogers",
+]
+
+TELUS_FIELDS = [
+    "Cellular_TSMA",
+    "Data_TSMA",
+    "Voice_TSMA",
+    "Plan_Telus",
+    "HW_Telus",
+    "Data_Telus",
+    "Voice_Telus",
+]
+
+ROGERS_FIELDS = [
+    "Plan_Rogers",
+    "HW_Rogers",
+    "Data_Rogers",
+    "Voice_Rogers",
 ]
 
 
@@ -72,11 +125,12 @@ def to_number(value):
 
 
 def norm_bge(name):
-    """Normalize BGE names for dashboard dropdowns."""
+    """Normalize BGE names for dashboard use."""
     return "SD" if name == "School Districts" else name
 
 
 def norm_text(value):
+    """Normalize text for comparisons."""
     return str(value or "").strip().lower()
 
 
@@ -86,14 +140,146 @@ def find_source_file():
     if src.exists():
         return src
 
-    # Fallback: use the most recent dashboard workbook if SOURCE_FILE is not found.
     files = sorted(Path(".").glob("*.xlsx"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for f in files:
-        if "dashboard" in f.name.lower():
-            return f
+    for file_path in files:
+        if "dashboard" in file_path.name.lower():
+            return file_path
 
     raise FileNotFoundError(
         "Could not find the dashboard workbook. Put this script beside the workbook or update SOURCE_FILE."
+    )
+
+
+def get_cutoff_month_index(months, cutoff_month=CUTOFF_MONTH):
+    """Return cutoff month index, or the last available month if cutoff is not found."""
+    try:
+        return months.index(cutoff_month)
+    except ValueError:
+        return len(months) - 1
+
+
+def get_last_month_with_data(months, agg):
+    """Return the last month index that contains any non-zero spend."""
+    last_idx = 0
+
+    for idx in range(len(months)):
+        total = sum(abs(values[idx]) for values in agg.values())
+        if total > 0:
+            last_idx = idx
+
+    return last_idx
+
+
+def move_sheet_to_front(wb, sheet_name):
+    """
+    Move a worksheet to the first tab position.
+
+    Note: openpyxl does not expose a public move-to-front API, so this uses the
+    workbook internal sheet list. This is commonly used for controlled reports.
+    """
+    if sheet_name not in wb.sheetnames:
+        return
+
+    ws = wb[sheet_name]
+    wb._sheets.remove(ws)
+    wb._sheets.insert(0, ws)
+
+
+# =====================================================================
+# STYLE HELPERS
+# =====================================================================
+
+def style_header_cell(cell, wrap_text=True):
+    """Apply standard dashboard header style."""
+    cell.fill = HEADER_FILL
+    cell.font = HEADER_FONT
+    cell.alignment = Alignment(horizontal="center", wrap_text=wrap_text)
+
+
+def style_title_cell(cell, size=14):
+    """Apply standard dashboard title style."""
+    cell.font = Font(bold=True, size=size, color="1F4E78")
+
+
+def style_data_row(ws, row, start_col, end_col):
+    """Apply alternating fill and bottom border to a data row."""
+    if row % 2 == 0:
+        for col in range(start_col, end_col + 1):
+            ws.cell(row, col).fill = LIGHT_FILL
+
+    for col in range(start_col, end_col + 1):
+        ws.cell(row, col).border = Border(bottom=THIN_BLUE)
+
+
+def set_column_widths(ws, widths):
+    """Apply worksheet column widths from a dictionary."""
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+
+def hide_helper_columns(ws, start_col, end_col):
+    """Make helper columns practically invisible but still usable for charts."""
+    for col_idx in range(start_col, end_col + 1):
+        col = get_column_letter(col_idx)
+        ws.column_dimensions[col].width = 0.1
+        for cell in ws[col]:
+            cell.font = WHITE_FONT
+            cell.fill = WHITE_FILL
+
+
+# =====================================================================
+# CHART HELPERS
+# =====================================================================
+
+def format_currency_axis(chart_obj):
+    """Force chart Y-axis to use a consistent currency format."""
+    try:
+        chart_obj.y_axis.numFmt = CHART_AXIS_CURFMT
+    except Exception:
+        pass
+
+
+def set_chart_base_style(chart_obj, height=16, width=32, legend_position="t"):
+    """Apply common chart layout settings."""
+    chart_obj.height = height
+    chart_obj.width = width
+    chart_obj.x_axis.delete = False
+    chart_obj.y_axis.delete = False
+
+    try:
+        chart_obj.legend.position = legend_position
+    except Exception:
+        pass
+
+    format_currency_axis(chart_obj)
+
+
+def apply_line_colors(chart_obj, colors):
+    """Apply line colors to chart series."""
+    for series, color in zip(chart_obj.series, colors):
+        series.graphicalProperties.line.solidFill = color
+
+
+def apply_bar_colors(chart_obj, colors, border_color=None):
+    """Apply fill and line colors to bar chart series."""
+    for series, color in zip(chart_obj.series, colors):
+        series.graphicalProperties.solidFill = color
+        series.graphicalProperties.line.solidFill = border_color or color
+        try:
+            series.invertIfNegative = False
+            series.graphicalProperties.noFill = False
+        except Exception:
+            pass
+
+
+def create_reference(ws, min_col, max_col, min_row, max_row):
+    """Create an openpyxl Reference with readable parameter names."""
+    return Reference(
+        ws,
+        min_col=min_col,
+        max_col=max_col,
+        min_row=min_row,
+        max_row=max_row,
     )
 
 
@@ -102,85 +288,81 @@ def find_source_file():
 # =====================================================================
 
 def get_month_cols(ws):
-    """Read all month columns from Sheet1 ."""
+    """Read all month columns from Sheet1 row 4."""
     months, cols = [], []
-    pat = re.compile(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec) \d{4}$")
+    pattern = re.compile(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec) \d{4}$")
 
-    for c in range(1, ws.max_column + 1):
-        v = ws.cell(4, c).value
-        if isinstance(v, str) and pat.match(v.strip()):
-            m = v.strip().replace("Sept", "Sep")
-            months.append(m)
-            cols.append(c)
-           
+    for col_idx in range(1, ws.max_column + 1):
+        value = ws.cell(4, col_idx).value
+        if isinstance(value, str) and pattern.match(value.strip()):
+            month = value.strip().replace("Sept", "Sep")
+            months.append(month)
+            cols.append(col_idx)
+
     return months, cols
 
 
 def classify(label, source):
-    """Classify a row label into the dashboard category fields."""
-    txt = norm_text(label)
-    if not txt:
+    """Classify a source row label into dashboard category fields."""
+    text = norm_text(label)
+    if not text:
         return None
 
-    # Business rule: exclude Out of Scope and Other from consolidated reporting.
-    if txt.startswith("total") or "out of scope" in txt or txt == "other" or txt.startswith("other"):
+    if text.startswith("total") or "out of scope" in text or text == "other" or text.startswith("other"):
         return None
 
-    # TSMA and TSMA Lite fields.
     if source in ("TSMA", "TSMA Lite"):
-        if "cellular" in txt or "mms" in txt:
+        if "cellular" in text or "mms" in text:
             return "Cellular_TSMA"
-        if "data" in txt:
+        if "data" in text:
             return "Data_TSMA"
-        # Business rule: Voice - IVR rolls into Voice.
-        if "voice" in txt or "ivr" in txt or "long distance" in txt or "conferencing" in txt:
+        if "voice" in text or "ivr" in text or "long distance" in text or "conferencing" in text:
             return "Voice_TSMA"
         return None
 
-    # TELUS/Rogers NGTA fields.
-    if "cellular h/w" in txt or "cellular hw" in txt or "h/w" in txt:
+    if "cellular h/w" in text or "cellular hw" in text or "h/w" in text:
         return "Cellular_HW"
-    if "cellular plan" in txt or "cellular plans" in txt or txt == "cellular" or "mms" in txt:
+    if "cellular plan" in text or "cellular plans" in text or text == "cellular" or "mms" in text:
         return "Cellular_Plan"
-    if "data" in txt:
+    if "data" in text:
         return "Data"
-    if "voice" in txt or "ivr" in txt or "long distance" in txt or "conferencing" in txt:
+    if "voice" in text or "ivr" in text or "long distance" in text or "conferencing" in text:
         return "Voice"
 
     return None
 
 
 def find_row_col_b(ws, text, start=1):
-    for r in range(start, ws.max_row + 1):
-        if str(ws.cell(r, 2).value).strip() == text:
-            return r
+    """Find the first row where column B equals text."""
+    for row_idx in range(start, ws.max_row + 1):
+        if str(ws.cell(row_idx, 2).value).strip() == text:
+            return row_idx
     return None
 
 
 def parse_rows(ws, start, end, source, month_cols):
-    """Parse rows within a TSMA/TELUS/Rogers block."""
+    """Parse rows within a TSMA, TELUS, or Rogers block."""
     rows = []
     current_bge = None
 
-    for r in range(start, end):
-        aval = ws.cell(r, 1).value
-        bval = ws.cell(r, 2).value
+    for row_idx in range(start, end):
+        aval = ws.cell(row_idx, 1).value
+        bval = ws.cell(row_idx, 2).value
 
         if aval is not None and str(aval).strip() not in ("", "BGEs"):
-            av = str(aval).strip()
-            # Keep current BGE for annotation rows such as (+PHC).
-            if not (av.startswith("(+") and current_bge):
-                current_bge = av
+            aval_clean = str(aval).strip()
+            if not (aval_clean.startswith("(+") and current_bge):
+                current_bge = aval_clean
 
         if not current_bge:
             continue
 
-        cat = classify(bval, source)
-        if cat is None:
+        category = classify(bval, source)
+        if category is None:
             continue
 
-        vals = [to_number(ws.cell(r, c).value) for c in month_cols]
-        rows.append((norm_bge(current_bge), source, cat, vals))
+        values = [to_number(ws.cell(row_idx, col_idx).value) for col_idx in month_cols]
+        rows.append((norm_bge(current_bge), source, category, values))
 
     return rows
 
@@ -188,19 +370,20 @@ def parse_rows(ws, start, end, source, month_cols):
 def parse_tsma(ws, month_cols):
     """Parse the first TSMA block."""
     bge_row = None
-    for r in range(1, ws.max_row + 1):
-        if str(ws.cell(r, 1).value).strip() == "BGEs":
-            bge_row = r
+
+    for row_idx in range(1, ws.max_row + 1):
+        if str(ws.cell(row_idx, 1).value).strip() == "BGEs":
+            bge_row = row_idx
             break
 
     if not bge_row:
         return []
 
     end = ws.max_row + 1
-    for r in range(bge_row + 1, ws.max_row + 1):
-        b = ws.cell(r, 2).value
-        if isinstance(b, str) and b.startswith("TOTAL "):
-            end = r
+    for row_idx in range(bge_row + 1, ws.max_row + 1):
+        value = ws.cell(row_idx, 2).value
+        if isinstance(value, str) and value.startswith("TOTAL "):
+            end = row_idx
             break
 
     return parse_rows(ws, bge_row + 1, end, "TSMA", month_cols)
@@ -213,36 +396,45 @@ def parse_provider(ws, provider, month_cols):
         return []
 
     bge_row = None
-    for r in range(start, ws.max_row + 1):
-        if str(ws.cell(r, 1).value).strip() == "BGEs":
-            bge_row = r
+    for row_idx in range(start, ws.max_row + 1):
+        if str(ws.cell(row_idx, 1).value).strip() == "BGEs":
+            bge_row = row_idx
             break
 
     if bge_row is None:
         return []
 
     end = ws.max_row + 1
-    for r in range(bge_row + 1, ws.max_row + 1):
-        label = str(ws.cell(r, 2).value or "").strip()
+    for row_idx in range(bge_row + 1, ws.max_row + 1):
+        label = str(ws.cell(row_idx, 2).value or "").strip()
         if label.startswith("TOTAL ") or label in ("Rogers NGTA", "Out of Scope", "TSMA Lite"):
-            end = r
+            end = row_idx
             break
 
     return parse_rows(ws, bge_row + 1, end, provider, month_cols)
 
 
+def map_category_to_field(source, category):
+    """Map parsed source/category values to detail field names."""
+    if category in ("Cellular_TSMA", "Data_TSMA", "Voice_TSMA"):
+        return category
+
+    mapping = {
+        ("TELUS NGTA", "Cellular_Plan"): "Plan_Telus",
+        ("Rogers NGTA", "Cellular_Plan"): "Plan_Rogers",
+        ("TELUS NGTA", "Cellular_HW"): "HW_Telus",
+        ("Rogers NGTA", "Cellular_HW"): "HW_Rogers",
+        ("TELUS NGTA", "Data"): "Data_Telus",
+        ("Rogers NGTA", "Data"): "Data_Rogers",
+        ("TELUS NGTA", "Voice"): "Voice_Telus",
+        ("Rogers NGTA", "Voice"): "Voice_Rogers",
+    }
+    return mapping.get((source, category))
+
+
 def build_detail_data(src_ws):
     """Build detailed BGE/category data from Sheet1."""
     months, month_cols = get_month_cols(src_ws)
-
-    fields = [
-        "Cellular_TSMA", "Data_TSMA", "Voice_TSMA",
-        "Plan_Telus", "Plan_Rogers",
-        "HW_Telus", "HW_Rogers",
-        "Data_Telus", "Data_Rogers",
-        "Voice_Telus", "Voice_Rogers",
-    ]
-
     agg = defaultdict(lambda: [0.0] * len(months))
 
     all_rows = []
@@ -250,100 +442,98 @@ def build_detail_data(src_ws):
     all_rows.extend(parse_provider(src_ws, "TELUS NGTA", month_cols))
     all_rows.extend(parse_provider(src_ws, "Rogers NGTA", month_cols))
 
-    for bge, source, cat, vals in all_rows:
-        field = None
-
-        if cat == "Cellular_TSMA":
-            field = "Cellular_TSMA"
-        elif cat == "Data_TSMA":
-            field = "Data_TSMA"
-        elif cat == "Voice_TSMA":
-            field = "Voice_TSMA"
-        elif cat == "Cellular_Plan" and source == "TELUS NGTA":
-            field = "Plan_Telus"
-        elif cat == "Cellular_Plan" and source == "Rogers NGTA":
-            field = "Plan_Rogers"
-        elif cat == "Cellular_HW" and source == "TELUS NGTA":
-            field = "HW_Telus"
-        elif cat == "Cellular_HW" and source == "Rogers NGTA":
-            field = "HW_Rogers"
-        elif cat == "Data" and source == "TELUS NGTA":
-            field = "Data_Telus"
-        elif cat == "Data" and source == "Rogers NGTA":
-            field = "Data_Rogers"
-        elif cat == "Voice" and source == "TELUS NGTA":
-            field = "Voice_Telus"
-        elif cat == "Voice" and source == "Rogers NGTA":
-            field = "Voice_Rogers"
-
+    for bge, source, category, values in all_rows:
+        field = map_category_to_field(source, category)
         if field:
-            agg[(bge, field)] = [a + b for a, b in zip(agg[(bge, field)], vals)]
+            agg[(bge, field)] = [a + b for a, b in zip(agg[(bge, field)], values)]
 
-    return months, agg, fields
+    return months, agg, DETAIL_FIELDS
 
 
 # =====================================================================
-# BGE LIST AND DROPDOWN FIXES
+# BGE LIST AND DROPDOWNS
 # =====================================================================
 
 def get_bges(wb, agg):
     """Get BGE list from BGE_List, falling back to parsed data."""
-    if "BGE_List" in wb.sheetnames:
-        vals = [wb["BGE_List"].cell(r, 1).value for r in range(2, wb["BGE_List"].max_row + 1)]
-        vals = [str(v).strip() for v in vals if v]
-        if vals:
-            vals = [norm_bge(v) for v in vals]
+    if SHEET_BGE_LIST in wb.sheetnames:
+        ws = wb[SHEET_BGE_LIST]
+        values = [ws.cell(row_idx, 1).value for row_idx in range(2, ws.max_row + 1)]
+        values = [norm_bge(str(value).strip()) for value in values if value]
 
-            seen = set(vals)
-
-            ordered = [b for b in EXPECTED_BGES if b in seen]
-
-            extras = [b for b in vals if b not in EXPECTED_BGES]
-
+        if values:
+            seen = set(values)
+            ordered = [bge for bge in EXPECTED_BGES if bge in seen]
+            extras = [bge for bge in values if bge not in EXPECTED_BGES and bge != "All BGEs"]
             final_bges = ordered + extras
 
             if "All BGEs" not in final_bges:
-               final_bges.insert(0, "All BGEs")
+                final_bges.insert(0, "All BGEs")
 
             return final_bges
 
-    bges = sorted({k[0] for k in agg.keys()})
+    parsed_bges = sorted({key[0] for key in agg.keys()})
+    ordered = [bge for bge in EXPECTED_BGES if bge in parsed_bges]
+    extras = [bge for bge in parsed_bges if bge not in ordered]
 
-    order = [b for b in EXPECTED_BGES if b in bges]
-
-    final_bges = order + [b for b in bges if b not in order]
-
-    return ["All BGEs"] + final_bges
+    return ["All BGEs"] + ordered + extras
 
 
 def rebuild_bge_list(wb, bges):
-    """Rebuild BGE_List sheet with complete BGE list."""
-    if "BGE_List" in wb.sheetnames:
-        ws = wb["BGE_List"]
+    """Rebuild hidden BGE_List sheet with complete BGE list."""
+    if SHEET_BGE_LIST in wb.sheetnames:
+        ws = wb[SHEET_BGE_LIST]
         ws.delete_rows(1, ws.max_row)
     else:
-        ws = wb.create_sheet("BGE_List")
+        ws = wb.create_sheet(SHEET_BGE_LIST)
 
     ws.append(["BGE"])
-    for b in bges:
-        ws.append([b])
+    for bge in bges:
+        ws.append([bge])
 
-    ws["A1"].fill = HEADER_FILL
-    ws["A1"].font = HEADER_FONT
-    ws["A1"].alignment = Alignment(horizontal="center")
+    style_header_cell(ws["A1"], wrap_text=False)
     ws.column_dimensions["A"].width = 22
     ws.sheet_state = "hidden"
     return ws
 
 
+def add_bge_dropdown(ws, cell_address, bges, include_all_bges=True):
+    """Add a BGE dropdown using the hidden BGE_List sheet."""
+    if include_all_bges:
+        first_row = 2
+    else:
+        first_row = 3 if bges and bges[0] == "All BGEs" else 2
+
+    formula = f"={quote_sheetname(SHEET_BGE_LIST)}!$A${first_row}:$A${len(bges) + 1}"
+
+    dv = DataValidation(type="list", formula1=formula, allow_blank=False)
+    dv.error = "Select a BGE from the list."
+    dv.errorTitle = "Invalid BGE"
+    dv.prompt = "Choose a BGE from the dropdown."
+    dv.promptTitle = "Select BGE"
+
+    ws.add_data_validation(dv)
+    dv.add(ws[cell_address])
+
+
+def style_dropdown_cell(cell):
+    """Apply standard formatting to a dashboard dropdown cell."""
+    cell.fill = SUB_FILL
+    cell.font = Font(bold=True, color="1F4E78")
+    cell.alignment = Alignment(horizontal="center")
+
+
 def repair_dashboard_dropdowns(wb, bges):
-    """Repair BGE dropdowns in both dashboard sheets."""
-    if "BGE_List" not in wb.sheetnames:
+    """Repair BGE dropdowns in dashboard sheets."""
+    if SHEET_BGE_LIST not in wb.sheetnames:
         rebuild_bge_list(wb, bges)
 
-    formula = f"={quote_sheetname('BGE_List')}!$A$2:$A${len(bges)+1}"
+    dashboard_sheets = [
+        SHEET_CATEGORY_DASHBOARD,
+        SHEET_PROVIDER_DASHBOARD,
+    ]
 
-    for sheet_name in ["BGE_Category_Dashboard"]:
+    for sheet_name in dashboard_sheets:
         if sheet_name not in wb.sheetnames:
             continue
 
@@ -353,92 +543,72 @@ def repair_dashboard_dropdowns(wb, bges):
         except Exception:
             pass
 
-        dv = DataValidation(type="list", formula1=formula, allow_blank=False)
-        dv.error = "Select a BGE from the list."
-        dv.errorTitle = "Invalid BGE"
-        dv.prompt = "Choose a BGE from the dropdown."
-        dv.promptTitle = "Select BGE"
-        ws.add_data_validation(dv)
-        dv.add(ws["B2"])
+        add_bge_dropdown(ws, "B2", bges, include_all_bges=True)
 
-        # Keep current selected BGE if valid, otherwise set Gov BC.
         current = ws["B2"].value
         if current not in bges:
             ws["B2"] = "Gov BC" if "Gov BC" in bges else bges[0]
 
-        ws["B2"].fill = SUB_FILL
-        ws["B2"].font = Font(bold=True, color="1F4E78")
-        ws["B2"].alignment = Alignment(horizontal="center")
+        style_dropdown_cell(ws["B2"])
 
 
 # =====================================================================
-# HIDDEN DETAIL DATA SHEET
+# DETAIL DATA SHEET
 # =====================================================================
 
 def ensure_data_sheet(wb, months, bges, agg, fields):
-    """Create hidden BGE_Category_Detail_Data sheet used by dashboard formulas."""
-    sheet_name = "BGE_Category_Detail_Data"
-    if sheet_name in wb.sheetnames:
-        del wb[sheet_name]
+    """Create hidden detail data sheet used by dashboard formulas."""
+    if SHEET_DETAIL_DATA in wb.sheetnames:
+        del wb[SHEET_DETAIL_DATA]
 
-    ws = wb.create_sheet(sheet_name)
+    ws = wb.create_sheet(SHEET_DETAIL_DATA)
     headers = ["BGE", "MonthIndex", "Month"] + fields + ["Key"]
     ws.append(headers)
 
+    month_count = len(months)
+
     for bge in bges:
-
         if bge == "All BGEs":
-           continue
+            continue
 
-        for i, month in enumerate(months, start=1):
-    
-            row = [bge, i, month]
+        for month_index, month in enumerate(months, start=1):
+            row = [bge, month_index, month]
             for field in fields:
-                row.append(agg.get((bge, field), [0.0] * len(months))[i - 1])
-            row.append(f"{bge}|{i}")
+                row.append(agg.get((bge, field), [0.0] * month_count)[month_index - 1])
+            row.append(f"{bge}|{month_index}")
             ws.append(row)
-        print("Adding All BGEs rows...")
-        print("Months:", len(months))
-    # -------------------------------------------------
-# All BGEs rollup rows
-# -------------------------------------------------
 
-    for i, month in enumerate(months, start=1):
-
-        row = ["All BGEs", i, month]
+    for month_index, month in enumerate(months, start=1):
+        row = ["All BGEs", month_index, month]
 
         for field in fields:
+            total = 0.0
+            for bge in bges:
+                if bge == "All BGEs":
+                    continue
+                total += agg.get((bge, field), [0.0] * month_count)[month_index - 1]
+            row.append(total)
 
-          total = 0
-
-          for bge in bges:
-
-            if bge == "All BGEs":
-                continue
-
-            total += agg.get(
-                (bge, field),
-                [0.0] * len(months)
-            )[i - 1]
-
-          row.append(total)
-
-        row.append(f"All BGEs|{i}")
-
+        row.append(f"All BGEs|{month_index}")
         ws.append(row)
 
     for cell in ws[1]:
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal="center")
+        style_header_cell(cell)
 
-    for c in range(1, ws.max_column + 1):
-        ws.column_dimensions[get_column_letter(c)].width = 18
+    for col_idx in range(1, ws.max_column + 1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = 18
 
     try:
-        tab = Table(displayName="BGECategoryDetailDataTable", ref=f"A1:{get_column_letter(ws.max_column)}{ws.max_row}")
-        tab.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True, showColumnStripes=False)
-        ws.add_table(tab)
+        table = Table(
+            displayName="BGECategoryDetailDataTable",
+            ref=f"A1:{get_column_letter(ws.max_column)}{ws.max_row}",
+        )
+        table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium2",
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        ws.add_table(table)
     except Exception:
         pass
 
@@ -447,48 +617,99 @@ def ensure_data_sheet(wb, months, bges, agg, fields):
 
 
 # =====================================================================
-# BGE CATEGORY DASHBOARD REBUILD
+# FORMULA HELPERS
 # =====================================================================
 
-def hide_helper_columns(ws, start_col, end_col):
-    """Make helper columns practically invisible but still usable for charts."""
-    for c in range(start_col, end_col + 1):
-        col = get_column_letter(c)
-        ws.column_dimensions[col].width = 0.1
-        for cell in ws[col]:
-            cell.font = WHITE_FONT
-            cell.fill = WHITE_FILL
+def detail_match_formula(bge_expression, month_index):
+    """Return a MATCH formula expression for BGE_Category_Detail_Data Key column."""
+    return f'MATCH({bge_expression}&"|"&{month_index},{SHEET_DETAIL_DATA}!$O:$O,0)'
 
 
-def rebuild_category_dashboard(wb, months, bges):
-    """Rebuild BGE_Category_Dashboard with detailed table and stacked chart."""
-    if "BGE_Category_Dashboard" in wb.sheetnames:
-        idx = wb.sheetnames.index("BGE_Category_Dashboard")
-        del wb["BGE_Category_Dashboard"]
-        ws = wb.create_sheet("BGE_Category_Dashboard", idx)
+def detail_index_formula(column_letter, match_expression):
+    """Return an INDEX formula expression for BGE_Category_Detail_Data."""
+    return f'INDEX({SHEET_DETAIL_DATA}!${column_letter}:${column_letter},{match_expression})'
+
+
+def detail_value_expr(column_letter, match_expression):
+    """Return an IFERROR-wrapped detail value expression."""
+    return f'IFERROR({detail_index_formula(column_letter, match_expression)},0)'
+
+
+def sum_detail_expr(column_letters, match_expression):
+    """Return formula expression that sums several detail data columns."""
+    return "+".join(detail_value_expr(col, match_expression) for col in column_letters)
+
+
+def zero_as_dash_formula(expression):
+    """Return Excel formula that shows dash for zero values."""
+    return f'=IF(({expression})=0,"-",({expression}))'
+
+
+# =====================================================================
+# ROLLUP HELPERS
+# =====================================================================
+
+def get_month_value(agg, bge, field, month_idx, month_count):
+    """Safely get a monthly value from the aggregation dictionary."""
+    return agg.get((bge, field), [0.0] * month_count)[month_idx]
+
+
+def build_all_bge_rollup(months, agg, bges):
+    """
+    Build monthly All-BGE rollup.
+
+    Telus  = TSMA + TSMA Lite + TELUS NGTA
+    Rogers = Rogers NGTA
+    Total  = Telus + Rogers
+    """
+    rollup = []
+    month_count = len(months)
+
+    for month_idx, month in enumerate(months):
+        telus = 0.0
+        rogers = 0.0
+
+        for bge in bges:
+            if bge == "All BGEs":
+                continue
+
+            telus += sum(get_month_value(agg, bge, field, month_idx, month_count) for field in TELUS_FIELDS)
+            rogers += sum(get_month_value(agg, bge, field, month_idx, month_count) for field in ROGERS_FIELDS)
+
+        rollup.append({"Month": month, "Telus": telus, "Rogers": rogers, "Total": telus + rogers})
+
+    return rollup
+
+
+# =====================================================================
+# BGE CATEGORY DASHBOARD
+# =====================================================================
+
+def rebuild_category_dashboard(wb, months, bges, last_month_idx):
+    """Rebuild BGE_Category_Dashboard with detailed table and stacked category chart."""
+    if SHEET_CATEGORY_DASHBOARD in wb.sheetnames:
+        idx = wb.sheetnames.index(SHEET_CATEGORY_DASHBOARD)
+        del wb[SHEET_CATEGORY_DASHBOARD]
+        ws = wb.create_sheet(SHEET_CATEGORY_DASHBOARD, idx)
     else:
-        ws = wb.create_sheet("BGE_Category_Dashboard", 1)
+        ws = wb.create_sheet(SHEET_CATEGORY_DASHBOARD, 1)
 
     ws.sheet_view.showGridLines = False
+    march_cutoff_idx = get_cutoff_month_index(months)
 
-    # Title and selector.
     ws["A1"] = "BGE Monthly Category Dashboard"
-    ws["A1"].font = Font(bold=True, size=16, color="1F4E78")
+    style_title_cell(ws["A1"], size=16)
     ws["A2"] = "Select BGE:"
     ws["A2"].font = Font(bold=True)
     ws["B2"] = "Gov BC" if "Gov BC" in bges else bges[0]
-    ws["B2"].fill = SUB_FILL
-    ws["B2"].font = Font(bold=True, color="1F4E78")
-    ws["B2"].alignment = Alignment(horizontal="center")
+    style_dropdown_cell(ws["B2"])
     ws["D2"] = "Detailed monthly table and stacked category bars update from the selected BGE."
     ws["D2"].font = Font(italic=True, color="666666")
+    ws["F44"] = '=IF($B$2="","",$B$2&" Monthly Spend by Service Tower")'
+    style_title_cell(ws["F44"], size=12)
 
-    # Dropdown validation.
-    dv = DataValidation(type="list", formula1=f"={quote_sheetname('BGE_List')}!$A$2:$A${len(bges)+1}", allow_blank=False)
-    ws.add_data_validation(dv)
-    dv.add(ws["B2"])
+    add_bge_dropdown(ws, "B2", bges, include_all_bges=True)
 
-    # Visible table headers.
     headers = [
         "Month",
         "Cellular (TSMA+TSMA Lite)",
@@ -511,1014 +732,291 @@ def rebuild_category_dashboard(wb, months, bges):
     header_row = 4
     first_row = 5
 
-    for c, h in enumerate(headers, start=1):
-        cell = ws.cell(header_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal="center", wrap_text=True)
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(header_row, col_idx)
+        cell.value = header
+        style_header_cell(cell)
 
-    # BGE_Category_Detail_Data columns:
-    # A BGE, B MonthIndex, C Month,
-    # D Cellular_TSMA, E Data_TSMA, F Voice_TSMA,
-    # G Plan_Telus, H Plan_Rogers, I HW_Telus, J HW_Rogers,
-    # K Data_Telus, L Data_Rogers, M Voice_Telus, N Voice_Rogers, O Key
-    for i, _month in enumerate(months, start=1):
-        r = first_row + i - 1
-        key = f'$B$2&"|"&{i}'
-        match = f'MATCH({key},BGE_Category_Detail_Data!$O:$O,0)'
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = first_row + month_index - 1
+        match = detail_match_formula("$B$2", month_index)
 
         formulas = [
-            f'=INDEX(BGE_Category_Detail_Data!$C:$C,{match})',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$D:$D,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$D:$D,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$E:$E,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$E:$E,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$F:$F,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$F:$F,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$G:$G,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$G:$G,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$H:$H,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$H:$H,{match}))',
-            f'=IF((INDEX(BGE_Category_Detail_Data!$G:$G,{match})+INDEX(BGE_Category_Detail_Data!$H:$H,{match}))=0,"-",INDEX(BGE_Category_Detail_Data!$G:$G,{match})+INDEX(BGE_Category_Detail_Data!$H:$H,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$I:$I,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$I:$I,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$J:$J,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$J:$J,{match}))',
-            f'=IF((INDEX(BGE_Category_Detail_Data!$I:$I,{match})+INDEX(BGE_Category_Detail_Data!$J:$J,{match}))=0,"-",INDEX(BGE_Category_Detail_Data!$I:$I,{match})+INDEX(BGE_Category_Detail_Data!$J:$J,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$K:$K,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$K:$K,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$L:$L,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$L:$L,{match}))',
-            f'=IF((INDEX(BGE_Category_Detail_Data!$E:$E,{match})+INDEX(BGE_Category_Detail_Data!$K:$K,{match})+INDEX(BGE_Category_Detail_Data!$L:$L,{match}))=0,"-",INDEX(BGE_Category_Detail_Data!$E:$E,{match})+INDEX(BGE_Category_Detail_Data!$K:$K,{match})+INDEX(BGE_Category_Detail_Data!$L:$L,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$M:$M,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$M:$M,{match}))',
-            f'=IF(INDEX(BGE_Category_Detail_Data!$N:$N,{match})=0,"-",INDEX(BGE_Category_Detail_Data!$N:$N,{match}))',
-            f'=IF((INDEX(BGE_Category_Detail_Data!$F:$F,{match})+INDEX(BGE_Category_Detail_Data!$M:$M,{match})+INDEX(BGE_Category_Detail_Data!$N:$N,{match}))=0,"-",INDEX(BGE_Category_Detail_Data!$F:$F,{match})+INDEX(BGE_Category_Detail_Data!$M:$M,{match})+INDEX(BGE_Category_Detail_Data!$N:$N,{match}))',
+            f'={detail_index_formula("C", match)}',
+            zero_as_dash_formula(detail_value_expr("D", match)),
+            zero_as_dash_formula(detail_value_expr("E", match)),
+            zero_as_dash_formula(detail_value_expr("F", match)),
+            zero_as_dash_formula(detail_value_expr("G", match)),
+            zero_as_dash_formula(detail_value_expr("H", match)),
+            zero_as_dash_formula(sum_detail_expr(["G", "H"], match)),
+            zero_as_dash_formula(detail_value_expr("I", match)),
+            zero_as_dash_formula(detail_value_expr("J", match)),
+            zero_as_dash_formula(sum_detail_expr(["I", "J"], match)),
+            zero_as_dash_formula(detail_value_expr("K", match)),
+            zero_as_dash_formula(detail_value_expr("L", match)),
+            zero_as_dash_formula(sum_detail_expr(["E", "K", "L"], match)),
+            zero_as_dash_formula(detail_value_expr("M", match)),
+            zero_as_dash_formula(detail_value_expr("N", match)),
+            zero_as_dash_formula(sum_detail_expr(["F", "M", "N"], match)),
         ]
 
-        for c, formula in enumerate(formulas, start=1):
-            ws.cell(r, c).value = formula
-            if c > 1:
-                ws.cell(r, c).number_format = CURFMT
+        for col_idx, formula in enumerate(formulas, start=1):
+            ws.cell(row_idx, col_idx).value = formula
+            if col_idx > 1:
+                ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        if r % 2 == 0:
-            for c in range(1, len(headers) + 1):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(1, len(headers) + 1):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
+        style_data_row(ws, row_idx, 1, len(headers))
 
     widths = [14, 22, 22, 22, 22, 22, 18, 22, 22, 18, 18, 18, 16, 18, 18, 16]
-    for c, w in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(c)].width = w
+    for col_idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-    helper_col = 18   # Column R
+    helper_col = 18
+    helper_headers = ["Month", "TSMA Cellular", "NGTA Cellular Plan", "NGTA Cellular H/W", "Data", "Voice"]
 
-    headers = [
-     "Month",
-     "Cellular",
-     "Data",
-     "Voice",
-     "Cellular Plan",
-     "Cellular H/W"
-    ]
+    for col_idx, header in enumerate(helper_headers, start=helper_col):
+        ws.cell(header_row, col_idx).value = header
 
-    for c, h in enumerate(headers, start=helper_col):
-       ws.cell(header_row, c).value = h
+    for month_index, _month in enumerate(months, start=1):
+        source_row = first_row + month_index - 1
+        ws.cell(source_row, helper_col).value = f"=A{source_row}"
+        ws.cell(source_row, helper_col + 1).value = f"=IFERROR(B{source_row},0)"
+        ws.cell(source_row, helper_col + 2).value = f"=IFERROR(G{source_row},0)"
+        ws.cell(source_row, helper_col + 3).value = f"=IFERROR(J{source_row},0)"
+        ws.cell(source_row, helper_col + 4).value = f"=IFERROR(M{source_row},0)"
+        ws.cell(source_row, helper_col + 5).value = f"=IFERROR(P{source_row},0)"
 
-   
-    for i, month in enumerate(months, start=1):
+    helper_last_row = first_row + march_cutoff_idx
 
-      source_row = first_row + i - 1
-      r = source_row
+    category_chart = BarChart()
+    category_chart.type = "col"
+    category_chart.grouping = "stacked"
+    category_chart.overlap = 100
+    category_chart.gapWidth = 40
+    category_chart.title = ""
+    set_chart_base_style(category_chart, height=17, width=34, legend_position="t")
 
-      ws.cell(r, helper_col).value = f"=A{source_row}"
-
-      # Cellular
-      ws.cell(r, helper_col + 1).value = f"=IFERROR(B{source_row},0)"
-
-    # Data
-      ws.cell(r, helper_col + 2).value = f"=IFERROR(M{source_row},0)"
-
-    # Voice
-      ws.cell(r, helper_col + 3).value = f"=IFERROR(P{source_row},0)"
-
-    # Cellular Plan
-      ws.cell(r, helper_col + 4).value = f"=IFERROR(G{source_row},0)"
-
-    # Cellular H/W
-      ws.cell(r, helper_col + 5).value = f"=IFERROR(J{source_row},0)"
-      
-    helper_last_row = first_row + len(months) - 1
-    data = Reference(
-     ws,
-     min_col=helper_col + 1,   # Cellular
-     max_col=helper_col + 5,   # Voice
-     min_row=header_row,
-     max_row=helper_last_row
-    )
-    cats = Reference(
-     ws,
-     min_col=helper_col,
-     min_row=first_row,
-     max_row=helper_last_row
-   )
-    chart = BarChart()
-
-    chart.type = "col"
-    chart.grouping = "clustered"
-    chart.gapWidth = 350
-    chart.title = "Monthly Spend by Service Tower for Selected BGE"
-    #chart.y_axis.title = "Spend ($)"
-    #chart.x_axis.title = "Month"
-
-    chart.height = 16
-    chart.width = 34
-    chart.x_axis.delete = False
-    chart.y_axis.delete = False
-    chart.add_data(
-     data,
-     titles_from_data=True
+    data = create_reference(ws, helper_col + 1, helper_col + 5, header_row, helper_last_row)
+    cats = Reference(ws, min_col=helper_col, min_row=first_row, max_row=helper_last_row)
+    category_chart.add_data(data, titles_from_data=True)
+    category_chart.set_categories(cats)
+    apply_bar_colors(
+        category_chart,
+        [DARK_BLUE, MEDIUM_BLUE, LIGHT_BLUE, DATA_ORANGE, VOICE_GREEN],
+        border_color=DARK_GREY,
     )
 
-    chart.set_categories(cats)
+    hide_helper_columns(ws, helper_col, helper_col + 5)
+    ws.add_chart(category_chart, "C45")
 
-    colors = [
-      "4472C4",  # Cellular
-      "5B9BD5",  # Data
-      "A5A5A5",  # Voice
-      "ED7D31",  # Cellular Plan
-      "70AD47",  # Cellular H/W
-    ]
-
-    for series, color in zip(chart.series, colors):
-
-      series.graphicalProperties.solidFill = color
-      series.graphicalProperties.line.solidFill = color
-
-    # Use same color for negative values
-      try:
-        series.invertIfNegative = False
-      except:
-        pass
-
-    hide_helper_columns(
-     ws,
-     helper_col,
-     helper_col + 5
-    ) 
-    ws.add_chart(chart, "A45")
-
-# ==================================================
-# Provider Breakdown Table
-# ==================================================
-
-    provider_start_row = 90
-
-    provider_start_row = 90
-
-    provider_headers = [
-     "Month",
-     "Cellular (Telus)",
-     "Data (Telus)",
-     "Voice (Telus)",
-     "Cellular Plan (Telus)",
-     "Cellular H/W (Telus)",
-     "Data (Rogers)",
-     "Voice (Rogers)",
-     "Cellular Plan (Rogers)",
-     "Cellular H/W (Rogers)"
-    ]
-
-    for c, h in enumerate(provider_headers, start=1):
-
-       cell = ws.cell(provider_start_row, c)
-
-       cell.value = h
-       cell.fill = HEADER_FILL
-       cell.font = HEADER_FONT
-       cell.alignment = Alignment(
-         horizontal="center",
-         wrap_text=True
-       )
-
-    for i, month in enumerate(months, start=1):
-
-      source_row = first_row + i - 1
-
-      r = provider_start_row + i
-
-
-      ws.cell(r, 1).value = f"=A{source_row}"
-
-      ws.cell(r, 2).value = (
-        f"=IFERROR(B{source_row},0)"
-      )
-      ws.cell(r, 3).value = (
-        f'=IFERROR(IF(C{source_row}="-",0,C{source_row}),0)'
-        f'+IFERROR(IF(K{source_row}="-",0,K{source_row}),0)'
-      )
-      ws.cell(r, 4).value = (
-        f'=IFERROR(IF(D{source_row}="-",0,D{source_row}),0)'
-        f'+IFERROR(IF(N{source_row}="-",0,N{source_row}),0)'
-      )
-
-      ws.cell(r, 5).value = (
-        f"=IFERROR(E{source_row},0)"
-      )
-      ws.cell(r, 6).value = (
-        f"=IFERROR(H{source_row},0)"
-      )
-      ws.cell(r, 7).value = (
-        f"=IFERROR(L{source_row},0)"
-      )
-
-      ws.cell(r, 8).value = (
-        f"=IFERROR(O{source_row},0)"
-      )
-      ws.cell(r, 9).value = (
-        f"=IFERROR(F{source_row},0)"
-      )
-
-      ws.cell(r, 10).value = (
-        f"=IFERROR(I{source_row},0)"
-      )
-      for col in range(2, 11):
-        ws.cell(r, col).number_format = CURFMT
-
-    provider_widths = [
-     14,
-     18,
-     18,
-     18,
-     18,
-     18,
-     18,
-     18,
-     18,
-     18
-   ]
-
-    for c, w in enumerate(provider_widths, start=1):
-
-      ws.column_dimensions[
-        get_column_letter(c)
-      ].width = max(
-        ws.column_dimensions[
-            get_column_letter(c)
-        ].width,
-        w
-      )
-
-    provider_last_row = provider_start_row + len(months)
-
-    provider_chart = LineChart()
-
-    provider_chart.title = (
-    "Monthly Spend by Provider Service Category"
-)
-
-    #provider_chart.y_axis.title = "Spend ($)"
-    #provider_chart.x_axis.title = "Month"
-    provider_chart.x_axis.delete = False
-    provider_chart.y_axis.delete = False
-    provider_chart.height = 16
-    provider_chart.width = 42
-
-    provider_chart.title = (
-      "Monthly Spend by Provider Service Category"
-    )
-
-    #provider_chart.y_axis.title = "Spend ($)"
-    #provider_chart.x_axis.title = "Month"
-
-    provider_chart.height = 16
-    provider_chart.width = 50
-
-   
-
-    provider_data = Reference(
-      ws,
-      min_col=2,
-      max_col=10,
-      min_row=provider_start_row,
-      max_row=provider_last_row
-    )
-    provider_cats = Reference(
-      ws,
-      min_col=1,
-      min_row=provider_start_row + 1,
-      max_row=provider_last_row
-    )
-    provider_chart.add_data(
-      provider_data,
-      titles_from_data=True
-    )
-
-    provider_chart.set_categories(
-      provider_cats
-    )
-    provider_colors = [
-
-      "00B050",  # Cellular Telus
-
-      "70AD47",  # Data Telus
-
-      "92D050",  # Voice Telus
-
-      "548235",  # Plan Telus
-
-      "A9D18E",  # HW Telus
-
-      "FF0000",  # Data Rogers
-
-      "C00000",  # Voice Rogers
-
-      "FF6666",  # Plan Rogers
-
-      "E06666",  # HW Rogers
-   ]
-
-    for series, color in zip(
-      provider_chart.series,
-      provider_colors
-    ):
-      series.graphicalProperties.line.solidFill = color
-
-      try:
-        series.marker.symbol = "circle"
-        series.marker.size = 7
-      except:
-        pass
-
-    
-
-    ws.add_chart(
-      provider_chart,
-       "A130"
-    )
-    
-    # Chart helper table begins after visible table.
-
-  
-
+    ws.freeze_panes = "A3"
     return ws
-def build_all_bge_rollup(months, agg, bges):
-
-    rollup = []
-
-    for month_idx, month in enumerate(months):
-
-        telus = 0
-        rogers = 0
-
-        for bge in bges:
-
-            telus += agg.get((bge, "Cellular_TSMA"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Data_TSMA"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Voice_TSMA"), [0]*len(months))[month_idx]
-
-            telus += agg.get((bge, "Plan_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "HW_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Data_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Voice_Telus"), [0]*len(months))[month_idx]
-
-            rogers += agg.get((bge, "Plan_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "HW_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "Data_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "Voice_Rogers"), [0]*len(months))[month_idx]
-
-        rollup.append({
-            "Month": month,
-            "Telus": telus,
-            "Rogers": rogers,
-            "Total": telus + rogers
-        })
-
-    return rollup
 
 
-def add_all_bge_rollup_chart(wb, months, agg, bges):
+# =====================================================================
+# BGE SPEND BY PROVIDER DASHBOARD
+# =====================================================================
 
-    if "BGE_Dashboard" not in wb.sheetnames:
-        return
-
-    ws = wb["BGE_Dashboard"]
-
-    rollup = build_all_bge_rollup(months, agg, bges)
-
-    start_col = 2    # Column B
-    start_row = 45
-   
-# Section titles
-
-    ws["B42"] = (
-     '=IF($B$2="All BGEs",'
-     '"ALL BGEs Summary (Selected)",'
-     '"All BGEs Combined")'
-    )
-    ws["B42"].font = Font(
-      bold=True,
-      size=14,
-      color="1F4E78"
-    )
-    ws["B41"] = (
-     '=IF($B$2="All BGEs",'
-     '"Showing consolidated results for ALL BGEs",'
-     '"" )'
-    )
-
-    ws["B41"].font = Font(
-     bold=True,
-     size=12,
-     color="C00000"
-    )
-    ws["B43"] = (
-     '=IF($B$2="All BGEs",'
-     '"Use this section when All BGEs is selected",'
-     '"" )'
-    )
-
-    ws["B43"].font = Font(
-      bold=True,
-      color="1F4E78"
-    )
-    ws["B44"] = "Monthly Rollup Totals"
-    ws["B44"].font = Font(
-       bold=True
-    )
-    ws.cell(start_row, start_col).value = "Month"
-    ws.cell(start_row, start_col + 1).value = "Total"
-    ws.cell(start_row, start_col + 2).value = "Telus"
-    ws.cell(start_row, start_col + 3).value = "Rogers"
-
-# Optional formatting
-    for c in range(start_col, start_col + 4):
-       cell = ws.cell(start_row, c)
-       cell.fill = HEADER_FILL
-       cell.font = HEADER_FONT
-
-    row = start_row + 1
-
-    for rec in rollup:
-
-        ws.cell(row, start_col).value = rec["Month"]
-        ws.cell(row, start_col + 1).value = rec["Total"]
-        ws.cell(row, start_col + 2).value = rec["Telus"]
-        ws.cell(row, start_col + 3).value = rec["Rogers"]
-
-        row += 1
-
-   # for col in range(start_col, start_col + 4):
-    #    ws.column_dimensions[get_column_letter(col)].hidden = True
-
-    chart = LineChart()
-
-    chart.title = "All BGE Monthly Spend Trend"
-    chart.height = 12
-    chart.width = 24
-
-    data = Reference(
-         ws,
-         min_col=start_col + 1,
-         max_col=start_col + 3,
-         min_row=start_row,
-         max_row=row - 1
-    )
-
-    cats = Reference(
-       ws,
-       min_col=start_col,
-       min_row=start_row + 1,
-       max_row=row - 1
-    )
-
-    chart.add_data(data, titles_from_data=True)
-    chart.set_categories(cats)
-
-    chart.series[0].graphicalProperties.line.solidFill = "4472C4"
-    chart.series[1].graphicalProperties.line.solidFill = "00B050"
-    chart.series[2].graphicalProperties.line.solidFill = "FF0000"
-
-
-    chart_title_row = row + 3
-    chart_row = row + 5
-
-    #ws[f"B{chart_title_row}"] = "All BGE Monthly Spend Trend"
-    ws[f"B{chart_title_row}"].font = Font(
-       bold=True,
-       size=12,
-       color="1F4E78"
-    )
-
-    ws.add_chart(chart, "L45")
-
-  
-
-def build_all_bge_rollup(months, agg, bges):
-    """
-    Build monthly All-BGE rollup:
-
-    Telus  = TSMA + TSMA Lite + TELUS NGTA
-    Rogers = Rogers NGTA
-    Total  = Telus + Rogers
-    """
-
-    rollup = []
-
-    for month_idx, month in enumerate(months):
-
-        telus = 0
-        rogers = 0
-
-        for bge in bges:
-
-            telus += agg.get((bge, "Cellular_TSMA"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Data_TSMA"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Voice_TSMA"), [0]*len(months))[month_idx]
-
-            telus += agg.get((bge, "Plan_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "HW_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Data_Telus"), [0]*len(months))[month_idx]
-            telus += agg.get((bge, "Voice_Telus"), [0]*len(months))[month_idx]
-
-            rogers += agg.get((bge, "Plan_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "HW_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "Data_Rogers"), [0]*len(months))[month_idx]
-            rogers += agg.get((bge, "Voice_Rogers"), [0]*len(months))[month_idx]
-
-        rollup.append(
-            {
-                "Month": month,
-                "Telus": telus,
-                "Rogers": rogers,
-                "Total": telus + rogers,
-            }
-        )
-
-    return rollup
-
-def rebuild_bge_dashboard(wb, months, bges):
-    """
-    Fully rebuild BGE_Dashboard from scratch.
-
-    Layout:
-    - B2 dropdown for selected BGE
-    - Top table/chart: selected BGE monthly Total, Telus, Rogers
-    - Bottom table/chart: All BGEs monthly rollup Total, Telus, Rogers
-
-    If B2 = "All BGEs":
-    - Top selected-BGE table/chart is blanked
-    - Bottom All BGEs rollup table/chart remains visible
-    """
-
-    sheet_name = "BGE_Dashboard"
-
-    if sheet_name in wb.sheetnames:
-        idx = wb.sheetnames.index(sheet_name)
-        del wb[sheet_name]
-        ws = wb.create_sheet(sheet_name, idx)
+def rebuild_bge_spend_by_provider_dashboard(wb, months, bges):
+    """Rebuild BGE spend by provider dashboard."""
+    if SHEET_PROVIDER_DASHBOARD in wb.sheetnames:
+        idx = wb.sheetnames.index(SHEET_PROVIDER_DASHBOARD)
+        del wb[SHEET_PROVIDER_DASHBOARD]
+        ws = wb.create_sheet(SHEET_PROVIDER_DASHBOARD, idx)
     else:
-        ws = wb.create_sheet(sheet_name, 0)
+        ws = wb.create_sheet(SHEET_PROVIDER_DASHBOARD, 0)
 
     ws.sheet_view.showGridLines = False
 
-    # ------------------------------------------------------------
-    # Title and dropdown
-    # ------------------------------------------------------------
-
     ws["A1"] = "BGE Monthly Spend Dashboard"
-    ws["A1"].font = Font(
-        bold=True,
-        size=16,
-        color="1F4E78"
-    )
-
+    style_title_cell(ws["A1"], size=16)
     ws["A2"] = "Select BGE:"
     ws["A2"].font = Font(bold=True)
+    ws["B2"] = "Gov BC" if "Gov BC" in bges else bges[0]
+    style_dropdown_cell(ws["B2"])
+    add_bge_dropdown(ws, "B2", bges, include_all_bges=True)
 
-    ws["B2"] = "Gov BC"
-    ws["B2"].fill = SUB_FILL
-    ws["B2"].font = Font(
-        bold=True,
-        color="1F4E78"
-    )
-    ws["B2"].alignment = Alignment(horizontal="center")
+    ws["B6"] = '=IF($B$2="","",$B$2&" Spend by Provider")'
+    style_title_cell(ws["B6"], size=12)
+    ws["N6"] = '=IF($B$2="","",$B$2&" Spend by Provider")'
+    style_title_cell(ws["N6"], size=12)
 
-    dashboard_bges = [
-       b for b in bges
-       if b != "All BGEs"
-    ]
-
-    dv = DataValidation(
-        type="list",
-        formula1='"' + ",".join(dashboard_bges) + '"',
-        allow_blank=False
-    )
-
-    dv.error = "Select a BGE from the list."
-    dv.errorTitle = "Invalid BGE"
-    dv.prompt = "Choose a BGE from the dropdown."
-    dv.promptTitle = "Select BGE"
-
-    ws.add_data_validation(dv)
-    dv.add(ws["B2"])
-
-    # ------------------------------------------------------------
     # Section 1: selected BGE table
-    # ------------------------------------------------------------
-
-    ws["B4"] = (
-        '=IF($B$2="All BGEs",'
-        '"Selected BGE Trend - Hidden for All BGEs",'
-        '"Selected BGE Monthly Spend Trend")'
-    )
-    ws["B4"].font = Font(
-        bold=True,
-        size=14,
-        color="1F4E78"
-    )
-
-    ws["B5"] = (
-        '=IF($B$2="All BGEs",'
-        '"All BGEs selected - use the All BGEs Summary section below.",'
-        '"" )'
-    )
-    ws["B5"].font = Font(
-        bold=True,
-        size=12,
-        color="C00000"
-    )
+    ws["B4"] = '=IF($B$2="All BGEs","Selected BGE - Hidden for All BGEs","Selected BGE Monthly Spend")'
+    style_title_cell(ws["B4"], size=14)
+    ws["B5"] = '=IF($B$2="All BGEs","All BGEs selected - use the All BGEs Summary section below.","" )'
+    ws["B5"].font = Font(bold=True, size=12, color="C00000")
 
     selected_start_row = 7
     selected_start_col = 2
+    selected_headers = ["Month", "Total", "Telus", "Rogers"]
 
-    selected_headers = [
-        "Month",
-        "Total",
-        "Telus",
-        "Rogers"
-    ]
+    for col_idx, header in enumerate(selected_headers, start=selected_start_col):
+        cell = ws.cell(selected_start_row, col_idx)
+        cell.value = header
+        style_header_cell(cell, wrap_text=False)
 
-    for c, h in enumerate(selected_headers, start=selected_start_col):
-        cell = ws.cell(selected_start_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal="center")
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = selected_start_row + month_index
+        match = detail_match_formula("$B$2", month_index)
+        telus_expr = sum_detail_expr(["D", "E", "F", "G", "I", "K", "M"], match)
+        rogers_expr = sum_detail_expr(["H", "J", "L", "N"], match)
+        total_expr = f"({telus_expr})+({rogers_expr})"
 
-    # Detail data columns:
-    # A BGE
-    # B MonthIndex
-    # C Month
-    # D Cellular_TSMA
-    # E Data_TSMA
-    # F Voice_TSMA
-    # G Plan_Telus
-    # H Plan_Rogers
-    # I HW_Telus
-    # J HW_Rogers
-    # K Data_Telus
-    # L Data_Rogers
-    # M Voice_Telus
-    # N Voice_Rogers
-    # O Key
-
-    for i, month in enumerate(months, start=1):
-
-        r = selected_start_row + i
-
-        match = (
-            f'MATCH($B$2&"|"&{i},'
-            f'BGE_Category_Detail_Data!$O:$O,0)'
+        ws.cell(row_idx, selected_start_col).value = (
+            f'=IF($B$2="All BGEs","",{detail_index_formula("C", match)})'
+        )
+        ws.cell(row_idx, selected_start_col + 1).value = (
+            f'=IF($B$2="All BGEs","",IF(({total_expr})=0,"-",({total_expr})))'
+        )
+        ws.cell(row_idx, selected_start_col + 2).value = (
+            f'=IF($B$2="All BGEs","",IF(({telus_expr})=0,"-",({telus_expr})))'
+        )
+        ws.cell(row_idx, selected_start_col + 3).value = (
+            f'=IF($B$2="All BGEs","",IF(({rogers_expr})=0,"-",({rogers_expr})))'
         )
 
-        month_formula = (
-            f'=IF($B$2="All BGEs","",'
-            f'INDEX(BGE_Category_Detail_Data!$C:$C,{match}))'
-        )
+        for col_idx in range(selected_start_col + 1, selected_start_col + 4):
+            ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        telus_expr = (
-            f'IFERROR(INDEX(BGE_Category_Detail_Data!$D:$D,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$E:$E,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$F:$F,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$G:$G,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$I:$I,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$K:$K,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$M:$M,{match}),0)'
-        )
-
-        rogers_expr = (
-            f'IFERROR(INDEX(BGE_Category_Detail_Data!$H:$H,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$J:$J,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$L:$L,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$N:$N,{match}),0)'
-        )
-
-        total_expr = f'({telus_expr})+({rogers_expr})'
-
-        ws.cell(r, selected_start_col).value = month_formula
-
-        ws.cell(r, selected_start_col + 1).value = (
-            f'=IF($B$2="All BGEs","",'
-            f'IF(({total_expr})=0,"-",({total_expr})))'
-        )
-
-        ws.cell(r, selected_start_col + 2).value = (
-            f'=IF($B$2="All BGEs","",'
-            f'IF(({telus_expr})=0,"-",({telus_expr})))'
-        )
-
-        ws.cell(r, selected_start_col + 3).value = (
-            f'=IF($B$2="All BGEs","",'
-            f'IF(({rogers_expr})=0,"-",({rogers_expr})))'
-        )
-
-        for c in range(selected_start_col + 1, selected_start_col + 4):
-            ws.cell(r, c).number_format = CURFMT
-
-        if r % 2 == 0:
-            for c in range(selected_start_col, selected_start_col + 4):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(selected_start_col, selected_start_col + 4):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
+        style_data_row(ws, row_idx, selected_start_col, selected_start_col + 3)
 
     selected_last_row = selected_start_row + len(months)
-
-    # ------------------------------------------------------------
-    # Chart 1: selected BGE trend
-    # ------------------------------------------------------------
+    selected_chart_last_row = selected_last_row
+    for idx, month in enumerate(months, start=1):
+        if month == CUTOFF_MONTH:
+            selected_chart_last_row = selected_start_row + idx
+            break
 
     selected_chart = LineChart()
-
-    selected_chart.title = "Selected BGE Monthly Spend"
-    #selected_chart.y_axis.title = "Spend ($)"
-    #selected_chart.x_axis.title = "Month"
-    selected_chart.height = 12
-    selected_chart.width = 24
-    selected_chart.x_axis.delete = False
-    selected_chart.y_axis.delete = False
-    selected_data = Reference(
-        ws,
-        min_col=selected_start_col + 1,
-        max_col=selected_start_col + 3,
-        min_row=selected_start_row,
-        max_row=selected_last_row
-    )
-
-    selected_cats = Reference(
-        ws,
-        min_col=selected_start_col,
-        min_row=selected_start_row + 1,
-        max_row=selected_last_row
-    )
-
+    selected_chart.title = ""
+    set_chart_base_style(selected_chart, height=16, width=32, legend_position="t")
     selected_chart.add_data(
-        selected_data,
-        titles_from_data=True
+        create_reference(ws, selected_start_col + 1, selected_start_col + 3, selected_start_row, selected_chart_last_row),
+        titles_from_data=True,
     )
+    selected_chart.set_categories(
+        Reference(ws, min_col=selected_start_col, min_row=selected_start_row + 1, max_row=selected_chart_last_row)
+    )
+    apply_line_colors(selected_chart, [TOTAL_BLUE, TELUS_GREEN, ROGERS_RED])
+    ws.add_chart(selected_chart, "G7")
 
-    selected_chart.set_categories(selected_cats)
-
-    if len(selected_chart.series) >= 1:
-        selected_chart.series[0].graphicalProperties.line.solidFill = "4472C4"
-    if len(selected_chart.series) >= 2:
-        selected_chart.series[1].graphicalProperties.line.solidFill = TELUS_GREEN
-    if len(selected_chart.series) >= 3:
-        selected_chart.series[2].graphicalProperties.line.solidFill = ROGERS_RED
-
-    ws.add_chart(selected_chart, "L7")
-
-    # ------------------------------------------------------------
     # Section 2: All BGEs rollup table
-    # ------------------------------------------------------------
-
-    rollup_title_row = 55
+    rollup_title_row = 57
     rollup_start_row = 58
     rollup_start_col = 2
 
-    ws[f"B{rollup_title_row}"] = (
-        '=IF($B$2="All BGEs",'
-        '"All BGEs Summary (Selected)",'
-        '"All BGEs Combined")'
-    )
-    ws[f"B{rollup_title_row}"].font = Font(
-        bold=True,
-        size=14,
-        color="1F4E78"
-    )
-
-    ws["B41"] = (
-        '=IF($B$2="All BGEs",'
-        '"Showing consolidated results for ALL BGEs",'
-        '"" )'
-    )
-    ws["B41"].font = Font(
-        bold=True,
-        size=12,
-        color="C00000"
-    )
-
-    ws["B43"] = (
-        '=IF($B$2="All BGEs",'
-        '"Use this section when All BGEs is selected",'
-        '"" )'
-    )
-    ws["B43"].font = Font(
-        bold=True,
-        color="1F4E78"
-    )
-
+    ws["N57"] = "All BGEs Spend by Provider"
+    style_title_cell(ws["N57"], size=14)
+    ws[f"B{rollup_title_row}"] = '=IF($B$2="All BGEs","All BGEs Summary (Selected)","All BGEs Combined")'
+    style_title_cell(ws[f"B{rollup_title_row}"], size=14)
+    ws["B41"] = '=IF($B$2="All BGEs","Showing consolidated results for ALL BGEs","" )'
+    ws["B41"].font = Font(bold=True, size=12, color="C00000")
+    ws["B43"] = '=IF($B$2="All BGEs","Use this section when All BGEs is selected","" )'
+    ws["B43"].font = Font(bold=True, color="1F4E78")
     ws["B44"] = "Monthly Rollup Totals"
     ws["B44"].font = Font(bold=True)
 
-    rollup_headers = [
-        "Month",
-        "Total",
-        "Telus",
-        "Rogers"
-    ]
+    rollup_headers = ["Month", "Total", "Telus", "Rogers"]
+    for col_idx, header in enumerate(rollup_headers, start=rollup_start_col):
+        cell = ws.cell(rollup_start_row, col_idx)
+        cell.value = header
+        style_header_cell(cell, wrap_text=False)
 
-    for c, h in enumerate(rollup_headers, start=rollup_start_col):
-        cell = ws.cell(rollup_start_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal="center")
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = rollup_start_row + month_index
+        match = detail_match_formula('"All BGEs"', month_index)
+        telus_expr = sum_detail_expr(["D", "E", "F", "G", "I", "K", "M"], match)
+        rogers_expr = sum_detail_expr(["H", "J", "L", "N"], match)
+        total_expr = f"({telus_expr})+({rogers_expr})"
 
-    for i, month in enumerate(months, start=1):
+        ws.cell(row_idx, rollup_start_col).value = f'={detail_index_formula("C", match)}'
+        ws.cell(row_idx, rollup_start_col + 1).value = zero_as_dash_formula(total_expr)
+        ws.cell(row_idx, rollup_start_col + 2).value = zero_as_dash_formula(telus_expr)
+        ws.cell(row_idx, rollup_start_col + 3).value = zero_as_dash_formula(rogers_expr)
 
-        r = rollup_start_row + i
+        for col_idx in range(rollup_start_col + 1, rollup_start_col + 4):
+            ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        match = (
-            f'MATCH("All BGEs|"&{i},'
-            f'BGE_Category_Detail_Data!$O:$O,0)'
-        )
-
-        month_formula = (
-            f'=INDEX(BGE_Category_Detail_Data!$C:$C,{match})'
-        )
-
-        telus_expr = (
-            f'IFERROR(INDEX(BGE_Category_Detail_Data!$D:$D,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$E:$E,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$F:$F,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$G:$G,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$I:$I,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$K:$K,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$M:$M,{match}),0)'
-        )
-
-        rogers_expr = (
-            f'IFERROR(INDEX(BGE_Category_Detail_Data!$H:$H,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$J:$J,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$L:$L,{match}),0)'
-            f'+IFERROR(INDEX(BGE_Category_Detail_Data!$N:$N,{match}),0)'
-        )
-
-        total_expr = f'({telus_expr})+({rogers_expr})'
-
-        ws.cell(r, rollup_start_col).value = month_formula
-        ws.cell(r, rollup_start_col + 1).value = (
-            f'=IF(({total_expr})=0,"-",({total_expr}))'
-        )
-        ws.cell(r, rollup_start_col + 2).value = (
-            f'=IF(({telus_expr})=0,"-",({telus_expr}))'
-        )
-        ws.cell(r, rollup_start_col + 3).value = (
-            f'=IF(({rogers_expr})=0,"-",({rogers_expr}))'
-        )
-
-        for c in range(rollup_start_col + 1, rollup_start_col + 4):
-            ws.cell(r, c).number_format = CURFMT
-
-        if r % 2 == 0:
-            for c in range(rollup_start_col, rollup_start_col + 4):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(rollup_start_col, rollup_start_col + 4):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
+        style_data_row(ws, row_idx, rollup_start_col, rollup_start_col + 3)
 
     rollup_last_row = rollup_start_row + len(months)
-
-    # ------------------------------------------------------------
-    # Chart 2: All BGEs rollup trend
-    # ------------------------------------------------------------
+    rollup_chart_last_row = rollup_last_row
+    for idx, month in enumerate(months, start=1):
+        if month == CUTOFF_MONTH:
+            rollup_chart_last_row = rollup_start_row + idx
+            break
 
     rollup_chart = LineChart()
-
-    rollup_chart.title = "All BGEs Monthly Spend"
-    #rollup_chart.y_axis.title = "Spend ($)"
-    #rollup_chart.x_axis.title = "Month"
-    rollup_chart.height = 12
-    rollup_chart.width = 24
-    rollup_chart.x_axis.delete = False
-    rollup_chart.y_axis.delete = False
-    rollup_data = Reference(
-        ws,
-        min_col=rollup_start_col + 1,
-        max_col=rollup_start_col + 3,
-        min_row=rollup_start_row,
-        max_row=rollup_last_row
-    )
-
-    rollup_cats = Reference(
-        ws,
-        min_col=rollup_start_col,
-        min_row=rollup_start_row + 1,
-        max_row=rollup_last_row
-    )
-
+    rollup_chart.title = ""
+    set_chart_base_style(rollup_chart, height=16, width=32, legend_position="t")
     rollup_chart.add_data(
-        rollup_data,
-        titles_from_data=True
+        create_reference(ws, rollup_start_col + 1, rollup_start_col + 3, rollup_start_row, rollup_chart_last_row),
+        titles_from_data=True,
+    )
+    rollup_chart.set_categories(
+        Reference(ws, min_col=rollup_start_col, min_row=rollup_start_row + 1, max_row=rollup_chart_last_row)
+    )
+    apply_line_colors(rollup_chart, [TOTAL_BLUE, TELUS_GREEN, ROGERS_RED])
+    ws.add_chart(rollup_chart, "G58")
+
+    set_column_widths(
+        ws,
+        {
+            "A": 4,
+            "B": 14,
+            "C": 16,
+            "D": 16,
+            "E": 16,
+            "L": 14,
+            "M": 14,
+            "N": 14,
+            "O": 14,
+        },
     )
 
-    rollup_chart.set_categories(rollup_cats)
-
-    if len(rollup_chart.series) >= 1:
-        rollup_chart.series[0].graphicalProperties.line.solidFill = "4472C4"
-    if len(rollup_chart.series) >= 2:
-        rollup_chart.series[1].graphicalProperties.line.solidFill = TELUS_GREEN
-    if len(rollup_chart.series) >= 3:
-        rollup_chart.series[2].graphicalProperties.line.solidFill = ROGERS_RED
-
-    ws.add_chart(rollup_chart, "L58")
-
-    # ------------------------------------------------------------
-    # Final formatting
-    # ------------------------------------------------------------
-
-    widths = {
-        "A": 4,
-        "B": 14,
-        "C": 16,
-        "D": 16,
-        "E": 16,
-        "L": 14,
-        "M": 14,
-        "N": 14,
-        "O": 14,
-    }
-
-    for col, width in widths.items():
-        ws.column_dimensions[col].width = width
-
-    ws.freeze_panes = "A7"
-
+    ws.freeze_panes = "A4"
     return ws
 
+
 # =====================================================================
-# README UPDATE
+# GOV BC DASHBOARD
 # =====================================================================
-def rebuild_govbc_stacked_bar_charts(wb, months):
-    """
-    Fully rebuild GovBC_Stacked_bar_charts from scratch.
 
-    This sheet contains three Gov BC-only sections:
-    1. Cellular table and charts
-    2. Data table and chart
-    3. Voice table and chart
-
-    Source:
-    BGE_Category_Detail_Data, where BGE = Gov BC.
-    """
-
-    sheet_name = "GovBC_Stacked_bar_charts"
-
-    if sheet_name in wb.sheetnames:
-        idx = wb.sheetnames.index(sheet_name)
-        del wb[sheet_name]
-        ws = wb.create_sheet(sheet_name, idx)
+def rebuild_govbc_dashboard(wb, months):
+    """Rebuild GovBC_Dashboard from scratch."""
+    if SHEET_GOVBC_DASHBOARD in wb.sheetnames:
+        idx = wb.sheetnames.index(SHEET_GOVBC_DASHBOARD)
+        del wb[SHEET_GOVBC_DASHBOARD]
+        ws = wb.create_sheet(SHEET_GOVBC_DASHBOARD, idx)
     else:
-        ws = wb.create_sheet(sheet_name)
+        ws = wb.create_sheet(SHEET_GOVBC_DASHBOARD)
 
     ws.sheet_view.showGridLines = False
-
     bge_name = "Gov BC"
+    march_cutoff_idx = get_cutoff_month_index(months)
 
-    # ------------------------------------------------------------
-    # Title
-    # ------------------------------------------------------------
-
-    ws["A1"] = "Gov BC Stacked Bar Charts"
-    ws["A1"].font = Font(
-        bold=True,
-        size=16,
-        color="1F4E78"
-    )
-
+    ws["A1"] = "Gov BC Charts"
+    style_title_cell(ws["A1"], size=16)
     ws["A2"] = "Source: Sheet1 -> BGE_Category_Detail_Data -> Gov BC only"
-    ws["A2"].font = Font(
-        italic=True,
-        color="666666"
-    )
+    ws["A2"].font = Font(italic=True, color="666666")
 
-    # ============================================================
-    # SECTION 1: CELLULAR
-    # ============================================================
-
+    # -----------------------------------------------------------------
+    # Section 1: Cellular
+    # -----------------------------------------------------------------
     cellular_header_row = 4
     cellular_first_row = cellular_header_row + 1
 
     ws["A3"] = "Gov BC Cellular Monthly Spend"
-    ws["A3"].font = Font(
-        bold=True,
-        size=14,
-        color="1F4E78"
-    )
+    style_title_cell(ws["A3"], size=14)
+    ws["L3"] = "Gov BC Cellular Monthly Spend - Plan vs H/W"
+    style_title_cell(ws["L3"], size=12)
+    ws["L34"] = "Gov BC Cellular Monthly Spend by Provider"
+    style_title_cell(ws["L34"], size=12)
+    ws["L93"] = "Gov BC Voice Monthly Spend by Provider"
+    style_title_cell(ws["L93"], size=12)
+    ws["P138"] = "Gov BC Monthly Spend by Service Tower and Provider"
+    style_title_cell(ws["P138"], size=12)
 
     cellular_headers = [
         "Month",
@@ -1526,563 +1024,304 @@ def rebuild_govbc_stacked_bar_charts(wb, months):
         "TELUS NGTA (Cellular Plan)",
         "TELUS NGTA (Cellular H/W)",
         "Rogers NGTA (Cellular Plan)",
-        "Rogers NGTA (Cellular H/W)"
+        "Rogers NGTA (Cellular H/W)",
     ]
 
-    for c, h in enumerate(cellular_headers, start=1):
-        cell = ws.cell(cellular_header_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(
-            horizontal="center",
-            wrap_text=True
-        )
+    for col_idx, header in enumerate(cellular_headers, start=1):
+        cell = ws.cell(cellular_header_row, col_idx)
+        cell.value = header
+        style_header_cell(cell)
 
-    for i, month in enumerate(months, start=1):
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = cellular_first_row + month_index - 1
+        match = detail_match_formula(f'"{bge_name}"', month_index)
 
-        r = cellular_first_row + i - 1
+        formulas = [
+            f'={detail_index_formula("C", match)}',
+            f'={detail_value_expr("D", match)}',
+            f'={detail_value_expr("G", match)}',
+            f'={detail_value_expr("I", match)}',
+            f'={detail_value_expr("H", match)}',
+            f'={detail_value_expr("J", match)}',
+        ]
 
-        match = (
-            f'MATCH("{bge_name}|"&{i},'
-            f'BGE_Category_Detail_Data!$O:$O,0)'
-        )
+        for col_idx, formula in enumerate(formulas, start=1):
+            ws.cell(row_idx, col_idx).value = formula
+            if col_idx > 1:
+                ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        # Columns in BGE_Category_Detail_Data:
-        # C Month
-        # D Cellular_TSMA
-        # G Plan_Telus
-        # H Plan_Rogers
-        # I HW_Telus
-        # J HW_Rogers
+        style_data_row(ws, row_idx, 1, 6)
 
-        ws.cell(r, 1).value = (
-            f'=INDEX(BGE_Category_Detail_Data!$C:$C,{match})'
-        )
+    cellular_last_row = cellular_first_row + march_cutoff_idx
 
-        ws.cell(r, 2).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$D:$D,{match}),0)'
-        )
-
-        ws.cell(r, 3).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$G:$G,{match}),0)'
-        )
-
-        ws.cell(r, 4).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$I:$I,{match}),0)'
-        )
-
-        ws.cell(r, 5).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$H:$H,{match}),0)'
-        )
-
-        ws.cell(r, 6).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$J:$J,{match}),0)'
-        )
-
-        for c in range(2, 7):
-            ws.cell(r, c).number_format = CURFMT
-
-        if r % 2 == 0:
-            for c in range(1, 7):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(1, 7):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
-
-    cellular_last_row = cellular_first_row + len(months) - 1
-
-    # ------------------------------------------------------------
     # Cellular helper table for stacked bar chart
-    # Cellular Plan = Cellular TSMA + TELUS Plan + Rogers Plan
-    # Cellular H/W  = TELUS H/W + Rogers H/W
-    # ------------------------------------------------------------
+    cellular_helper_col = 18
+    cellular_helper_headers = ["Month", "Cellular Plan", "Cellular H/W"]
 
-    cellular_helper_col = 18  # R
+    for col_idx, header in enumerate(cellular_helper_headers, start=cellular_helper_col):
+        ws.cell(cellular_header_row, col_idx).value = header
 
-    cellular_helper_headers = [
-        "Month",
-        "Cellular Plan",
-        "Cellular H/W"
-    ]
-
-    for c, h in enumerate(cellular_helper_headers, start=cellular_helper_col):
-        ws.cell(cellular_header_row, c).value = h
-
-    for i, month in enumerate(months, start=1):
-
-        source_row = cellular_first_row + i - 1
-        r = source_row
-
-        ws.cell(r, cellular_helper_col).value = f"=A{source_row}"
-
-        # Cellular Plan total
-        ws.cell(r, cellular_helper_col + 1).value = (
-            f"=IFERROR(B{source_row},0)"
-            f"+IFERROR(C{source_row},0)"
-            f"+IFERROR(E{source_row},0)"
+    for month_index, _month in enumerate(months, start=1):
+        source_row = cellular_first_row + month_index - 1
+        ws.cell(source_row, cellular_helper_col).value = f"=A{source_row}"
+        ws.cell(source_row, cellular_helper_col + 1).value = (
+            f"=IFERROR(B{source_row},0)+IFERROR(C{source_row},0)+IFERROR(E{source_row},0)"
         )
-
-        # Cellular H/W total
-        ws.cell(r, cellular_helper_col + 2).value = (
-            f"=IFERROR(D{source_row},0)"
-            f"+IFERROR(F{source_row},0)"
+        ws.cell(source_row, cellular_helper_col + 2).value = (
+            f"=IFERROR(D{source_row},0)+IFERROR(F{source_row},0)"
         )
-
-        ws.cell(r, cellular_helper_col + 1).number_format = CURFMT
-        ws.cell(r, cellular_helper_col + 2).number_format = CURFMT
-
-    # ------------------------------------------------------------
-    # Cellular chart A: stacked bar chart
-    # ------------------------------------------------------------
+        ws.cell(source_row, cellular_helper_col + 1).number_format = CURFMT
+        ws.cell(source_row, cellular_helper_col + 2).number_format = CURFMT
 
     cellular_stack_chart = BarChart()
-
     cellular_stack_chart.type = "col"
     cellular_stack_chart.grouping = "stacked"
     cellular_stack_chart.overlap = 100
-    cellular_stack_chart.gapWidth = 250
-
-    cellular_stack_chart.title = "Gov BC Cellular Monthly Spend - Plan vs H/W"
-    #cellular_stack_chart.y_axis.title = "Spend ($)"
-    #cellular_stack_chart.x_axis.title = "Month"
-     
-    cellular_stack_chart.height = 12
-    cellular_stack_chart.width = 28
-    cellular_stack_chart.x_axis.delete = False
-    cellular_stack_chart.y_axis.delete = False
-    cellular_stack_data = Reference(
-        ws,
-        min_col=cellular_helper_col + 1,
-        max_col=cellular_helper_col + 2,
-        min_row=cellular_header_row,
-        max_row=cellular_last_row
-    )
-
-    cellular_stack_cats = Reference(
-        ws,
-        min_col=cellular_helper_col,
-        min_row=cellular_first_row,
-        max_row=cellular_last_row
-    )
-
+    cellular_stack_chart.gapWidth = 40
+    cellular_stack_chart.title = ""
+    set_chart_base_style(cellular_stack_chart, height=14, width=30, legend_position="t")
     cellular_stack_chart.add_data(
-        cellular_stack_data,
-        titles_from_data=True
+        create_reference(ws, cellular_helper_col + 1, cellular_helper_col + 2, cellular_header_row, cellular_last_row),
+        titles_from_data=True,
     )
-
     cellular_stack_chart.set_categories(
-        cellular_stack_cats
+        Reference(ws, min_col=cellular_helper_col, min_row=cellular_first_row, max_row=cellular_last_row)
     )
-
-    if len(cellular_stack_chart.series) >= 1:
-        cellular_stack_chart.series[0].graphicalProperties.solidFill = "4472C4"
-        cellular_stack_chart.series[0].graphicalProperties.line.solidFill = "4472C4"
-
-    if len(cellular_stack_chart.series) >= 2:
-        cellular_stack_chart.series[1].graphicalProperties.solidFill = "ED7D31"
-        cellular_stack_chart.series[1].graphicalProperties.line.solidFill = "ED7D31"
-
-    for s in cellular_stack_chart.series:
-        try:
-            s.invertIfNegative = False
-        except:
-            pass
-
+    apply_bar_colors(cellular_stack_chart, [TOTAL_BLUE, DATA_ORANGE])
     ws.add_chart(cellular_stack_chart, "I4")
 
-    # ------------------------------------------------------------
-    # Cellular chart B: line chart by component
-    # ------------------------------------------------------------
+    # Cellular line chart by provider
+    trend_col = 34
+    trend_headers = ["Month", "Total", "Telus", "Rogers"]
+    for col_idx, header in enumerate(trend_headers, start=trend_col):
+        ws.cell(cellular_header_row, col_idx).value = header
+
+    for month_index in range(len(months)):
+        source_row = cellular_first_row + month_index
+        ws.cell(source_row, trend_col).value = f"=A{source_row}"
+        ws.cell(source_row, trend_col + 2).value = (
+            f"=IFERROR(B{source_row},0)+IFERROR(C{source_row},0)+IFERROR(D{source_row},0)"
+        )
+        ws.cell(source_row, trend_col + 3).value = f"=IFERROR(E{source_row},0)+IFERROR(F{source_row},0)"
+        ws.cell(source_row, trend_col + 1).value = f"=AJ{source_row}+AK{source_row}"
 
     cellular_line_chart = LineChart()
-
-    cellular_line_chart.title = "Gov BC Cellular Component Trend"
-    #cellular_line_chart.y_axis.title = "Spend ($)"
-    #cellular_line_chart.x_axis.title = "Month"
-
-    cellular_line_chart.height = 12
-    cellular_line_chart.width = 28
-    cellular_line_chart.x_axis.delete = False
-    cellular_line_chart.y_axis.delete = False
-    cellular_line_data = Reference(
-        ws,
-        min_col=2,
-        max_col=6,
-        min_row=cellular_header_row,
-        max_row=cellular_last_row
-    )
-
-    cellular_line_cats = Reference(
-        ws,
-        min_col=1,
-        min_row=cellular_first_row,
-        max_row=cellular_last_row
-    )
-
+    cellular_line_chart.title = ""
+    set_chart_base_style(cellular_line_chart, height=14, width=30, legend_position="t")
     cellular_line_chart.add_data(
-        cellular_line_data,
-        titles_from_data=True
+        create_reference(ws, trend_col + 1, trend_col + 3, cellular_header_row, cellular_last_row),
+        titles_from_data=True,
     )
-
     cellular_line_chart.set_categories(
-        cellular_line_cats
+        Reference(ws, min_col=trend_col, min_row=cellular_first_row, max_row=cellular_last_row)
     )
+    apply_line_colors(cellular_line_chart, [TOTAL_BLUE, TELUS_GREEN, ROGERS_RED])
+    ws.add_chart(cellular_line_chart, "I35")
 
-    line_colors = [
-        "4472C4",
-        "00B050",
-        "70AD47",
-        "FF0000",
-        "C00000"
-    ]
-
-    for series, color in zip(cellular_line_chart.series, line_colors):
-        series.graphicalProperties.line.solidFill = color
-
-    ws.add_chart(cellular_line_chart, "I28")
-
-    # ============================================================
-    # SECTION 2: DATA
-    # ============================================================
-
+    # -----------------------------------------------------------------
+    # Section 2: Data
+    # -----------------------------------------------------------------
     data_header_row = cellular_last_row + 18
     data_first_row = data_header_row + 1
 
     ws.cell(data_header_row - 1, 1).value = "Gov BC Data Monthly Spend"
-    ws.cell(data_header_row - 1, 1).font = Font(
-        bold=True,
-        size=14,
-        color="1F4E78"
-    )
+    style_title_cell(ws.cell(data_header_row - 1, 1), size=14)
 
-    data_headers = [
-        "Month",
-        "Data (TSMA+TSMA Lite)",
-        "Data (TELUS NGTA)",
-        "Data (Rogers NGTA)"
-    ]
+    data_headers = ["Month", "Data (TSMA+TSMA Lite)", "Data (TELUS NGTA)", "Data (Rogers NGTA)"]
+    for col_idx, header in enumerate(data_headers, start=1):
+        cell = ws.cell(data_header_row, col_idx)
+        cell.value = header
+        style_header_cell(cell)
 
-    for c, h in enumerate(data_headers, start=1):
-        cell = ws.cell(data_header_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(
-            horizontal="center",
-            wrap_text=True
-        )
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = data_first_row + month_index - 1
+        match = detail_match_formula(f'"{bge_name}"', month_index)
+        formulas = [
+            f'={detail_index_formula("C", match)}',
+            f'={detail_value_expr("E", match)}',
+            f'={detail_value_expr("K", match)}',
+            f'={detail_value_expr("L", match)}',
+        ]
 
-    for i, month in enumerate(months, start=1):
+        for col_idx, formula in enumerate(formulas, start=1):
+            ws.cell(row_idx, col_idx).value = formula
+            if col_idx > 1:
+                ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        r = data_first_row + i - 1
+        style_data_row(ws, row_idx, 1, 4)
 
-        match = (
-            f'MATCH("{bge_name}|"&{i},'
-            f'BGE_Category_Detail_Data!$O:$O,0)'
-        )
+    data_last_row = data_first_row + march_cutoff_idx
 
-        # E Data_TSMA, K Data_Telus, L Data_Rogers
-
-        ws.cell(r, 1).value = (
-            f'=INDEX(BGE_Category_Detail_Data!$C:$C,{match})'
-        )
-
-        ws.cell(r, 2).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$E:$E,{match}),0)'
-        )
-
-        ws.cell(r, 3).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$K:$K,{match}),0)'
-        )
-
-        ws.cell(r, 4).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$L:$L,{match}),0)'
-        )
-
-        for c in range(2, 5):
-            ws.cell(r, c).number_format = CURFMT
-
-        if r % 2 == 0:
-            for c in range(1, 5):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(1, 5):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
-
-    data_last_row = data_first_row + len(months) - 1
-
-    # Data helper for Telus/Rogers stacked chart
-
-    data_helper_col = 22  # V
-
+    # Data helper is kept hidden. The old data chart remains intentionally not added.
+    data_helper_col = 22
     ws.cell(data_header_row, data_helper_col).value = "Month"
     ws.cell(data_header_row, data_helper_col + 1).value = "Telus"
     ws.cell(data_header_row, data_helper_col + 2).value = "Rogers"
 
-    for i, month in enumerate(months, start=1):
+    for month_index, _month in enumerate(months, start=1):
+        source_row = data_first_row + month_index - 1
+        ws.cell(source_row, data_helper_col).value = f"=A{source_row}"
+        ws.cell(source_row, data_helper_col + 1).value = f"=IFERROR(B{source_row},0)+IFERROR(C{source_row},0)"
+        ws.cell(source_row, data_helper_col + 2).value = f"=IFERROR(D{source_row},0)"
+        ws.cell(source_row, data_helper_col + 1).number_format = CURFMT
+        ws.cell(source_row, data_helper_col + 2).number_format = CURFMT
 
-        source_row = data_first_row + i - 1
-        r = source_row
-
-        ws.cell(r, data_helper_col).value = f"=A{source_row}"
-
-        # Telus = Data TSMA + Data TELUS NGTA
-        ws.cell(r, data_helper_col + 1).value = (
-            f"=IFERROR(B{source_row},0)"
-            f"+IFERROR(C{source_row},0)"
-        )
-
-        # Rogers = Data Rogers NGTA
-        ws.cell(r, data_helper_col + 2).value = (
-            f"=IFERROR(D{source_row},0)"
-        )
-
-        ws.cell(r, data_helper_col + 1).number_format = CURFMT
-        ws.cell(r, data_helper_col + 2).number_format = CURFMT
-
-    data_chart = BarChart()
-
-    data_chart.type = "col"
-    data_chart.grouping = "stacked"
-    data_chart.overlap = 100
-    data_chart.gapWidth = 250
-
-    data_chart.title = "Gov BC Data Monthly Spend - Telus vs Rogers"
-    #data_chart.y_axis.title = "Spend ($)"
-    #data_chart.x_axis.title = "Month"
-
-    data_chart.height = 12
-    data_chart.width = 28
-    data_chart.x_axis.delete = False
-    data_chart.y_axis.delete = False
-    data_chart_data = Reference(
-        ws,
-        min_col=data_helper_col + 1,
-        max_col=data_helper_col + 2,
-        min_row=data_header_row,
-        max_row=data_last_row
-    )
-
-    data_chart_cats = Reference(
-        ws,
-        min_col=data_helper_col,
-        min_row=data_first_row,
-        max_row=data_last_row
-    )
-
-    data_chart.add_data(
-        data_chart_data,
-        titles_from_data=True
-    )
-
-    data_chart.set_categories(
-        data_chart_cats
-    )
-
-    if len(data_chart.series) >= 1:
-        data_chart.series[0].graphicalProperties.solidFill = TELUS_GREEN
-        data_chart.series[0].graphicalProperties.line.solidFill = TELUS_GREEN
-
-    if len(data_chart.series) >= 2:
-        data_chart.series[1].graphicalProperties.solidFill = ROGERS_RED
-        data_chart.series[1].graphicalProperties.line.solidFill = ROGERS_RED
-
-    for s in data_chart.series:
-        try:
-            s.invertIfNegative = False
-        except:
-            pass
-
-    ws.add_chart(data_chart, f"I{data_header_row}")
-
-    # ============================================================
-    # SECTION 3: VOICE
-    # ============================================================
-
+    # -----------------------------------------------------------------
+    # Section 3: Voice
+    # -----------------------------------------------------------------
     voice_header_row = data_last_row + 18
     voice_first_row = voice_header_row + 1
 
-    ws.cell(voice_header_row - 1, 1).value = "Gov BC Voice Monthly Spend"
-    ws.cell(voice_header_row - 1, 1).font = Font(
-        bold=True,
-        size=14,
-        color="1F4E78"
-    )
+    ws.cell(voice_header_row - 1, 1).value = "Gov BC Voice Spend by Provider"
+    style_title_cell(ws.cell(voice_header_row - 1, 1), size=14)
 
-    voice_headers = [
-        "Month",
-        "Voice (TSMA+TSMA Lite)",
-        "Voice (TELUS NGTA)",
-        "Voice (Rogers NGTA)"
-    ]
+    voice_headers = ["Month", "Voice (TSMA+TSMA Lite)", "Voice (TELUS NGTA)", "Voice (Rogers NGTA)"]
+    for col_idx, header in enumerate(voice_headers, start=1):
+        cell = ws.cell(voice_header_row, col_idx)
+        cell.value = header
+        style_header_cell(cell)
 
-    for c, h in enumerate(voice_headers, start=1):
-        cell = ws.cell(voice_header_row, c)
-        cell.value = h
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(
-            horizontal="center",
-            wrap_text=True
-        )
+    for month_index, _month in enumerate(months, start=1):
+        row_idx = voice_first_row + month_index - 1
+        match = detail_match_formula(f'"{bge_name}"', month_index)
+        formulas = [
+            f'={detail_index_formula("C", match)}',
+            f'={detail_value_expr("F", match)}',
+            f'={detail_value_expr("M", match)}',
+            f'={detail_value_expr("N", match)}',
+        ]
 
-    for i, month in enumerate(months, start=1):
+        for col_idx, formula in enumerate(formulas, start=1):
+            ws.cell(row_idx, col_idx).value = formula
+            if col_idx > 1:
+                ws.cell(row_idx, col_idx).number_format = CURFMT
 
-        r = voice_first_row + i - 1
+        style_data_row(ws, row_idx, 1, 4)
 
-        match = (
-            f'MATCH("{bge_name}|"&{i},'
-            f'BGE_Category_Detail_Data!$O:$O,0)'
-        )
+    voice_last_row = voice_first_row + march_cutoff_idx
 
-        # F Voice_TSMA, M Voice_Telus, N Voice_Rogers
-
-        ws.cell(r, 1).value = (
-            f'=INDEX(BGE_Category_Detail_Data!$C:$C,{match})'
-        )
-
-        ws.cell(r, 2).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$F:$F,{match}),0)'
-        )
-
-        ws.cell(r, 3).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$M:$M,{match}),0)'
-        )
-
-        ws.cell(r, 4).value = (
-            f'=IFERROR(INDEX(BGE_Category_Detail_Data!$N:$N,{match}),0)'
-        )
-
-        for c in range(2, 5):
-            ws.cell(r, c).number_format = CURFMT
-
-        if r % 2 == 0:
-            for c in range(1, 5):
-                ws.cell(r, c).fill = LIGHT_FILL
-
-        for c in range(1, 5):
-            ws.cell(r, c).border = Border(bottom=THIN_BLUE)
-
-    voice_last_row = voice_first_row + len(months) - 1
-
-    # Voice helper for Telus/Rogers stacked chart
-
-    voice_helper_col = 26  # Z
-
+    voice_helper_col = 26
     ws.cell(voice_header_row, voice_helper_col).value = "Month"
     ws.cell(voice_header_row, voice_helper_col + 1).value = "Telus"
     ws.cell(voice_header_row, voice_helper_col + 2).value = "Rogers"
 
-    for i, month in enumerate(months, start=1):
-
-        source_row = voice_first_row + i - 1
-        r = source_row
-
-        ws.cell(r, voice_helper_col).value = f"=A{source_row}"
-
-        # Telus = Voice TSMA + Voice TELUS NGTA
-        ws.cell(r, voice_helper_col + 1).value = (
-            f"=IFERROR(B{source_row},0)"
-            f"+IFERROR(C{source_row},0)"
-        )
-
-        # Rogers = Voice Rogers NGTA
-        ws.cell(r, voice_helper_col + 2).value = (
-            f"=IFERROR(D{source_row},0)"
-        )
-
-        ws.cell(r, voice_helper_col + 1).number_format = CURFMT
-        ws.cell(r, voice_helper_col + 2).number_format = CURFMT
+    for month_index, _month in enumerate(months, start=1):
+        source_row = voice_first_row + month_index - 1
+        ws.cell(source_row, voice_helper_col).value = f"=A{source_row}"
+        ws.cell(source_row, voice_helper_col + 1).value = f"=IFERROR(B{source_row},0)+IFERROR(C{source_row},0)"
+        ws.cell(source_row, voice_helper_col + 2).value = f"=IFERROR(D{source_row},0)"
+        ws.cell(source_row, voice_helper_col + 1).number_format = CURFMT
+        ws.cell(source_row, voice_helper_col + 2).number_format = CURFMT
 
     voice_chart = BarChart()
-
     voice_chart.type = "col"
     voice_chart.grouping = "stacked"
     voice_chart.overlap = 100
-    voice_chart.gapWidth = 250
-
-    voice_chart.title = "Gov BC Voice Monthly Spend - Telus vs Rogers"
-    #voice_chart.y_axis.title = "Spend ($)"
-    #voice_chart.x_axis.title = "Month"
-
-    voice_chart.height = 12
-    voice_chart.width = 28
-    voice_chart.x_axis.delete = False
-    voice_chart.y_axis.delete = False
-    voice_chart_data = Reference(
-        ws,
-        min_col=voice_helper_col + 1,
-        max_col=voice_helper_col + 2,
-        min_row=voice_header_row,
-        max_row=voice_last_row
-    )
-
-    voice_chart_cats = Reference(
-        ws,
-        min_col=voice_helper_col,
-        min_row=voice_first_row,
-        max_row=voice_last_row
-    )
-
+    voice_chart.gapWidth = 40
+    voice_chart.title = ""
+    set_chart_base_style(voice_chart, height=14, width=30, legend_position="t")
     voice_chart.add_data(
-        voice_chart_data,
-        titles_from_data=True
+        create_reference(ws, voice_helper_col + 1, voice_helper_col + 2, voice_header_row, voice_last_row),
+        titles_from_data=True,
     )
-
     voice_chart.set_categories(
-        voice_chart_cats
+        Reference(ws, min_col=voice_helper_col, min_row=voice_first_row, max_row=voice_last_row)
     )
-
-    if len(voice_chart.series) >= 1:
-        voice_chart.series[0].graphicalProperties.solidFill = TELUS_GREEN
-        voice_chart.series[0].graphicalProperties.line.solidFill = TELUS_GREEN
-
-    if len(voice_chart.series) >= 2:
-        voice_chart.series[1].graphicalProperties.solidFill = ROGERS_RED
-        voice_chart.series[1].graphicalProperties.line.solidFill = ROGERS_RED
-
-    for s in voice_chart.series:
-        try:
-            s.invertIfNegative = False
-        except:
-            pass
-
+    apply_bar_colors(voice_chart, [TELUS_GREEN, ROGERS_RED])
     ws.add_chart(voice_chart, f"I{voice_header_row}")
 
-    # ------------------------------------------------------------
-    # Hide helper columns
-    # ------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Section 4: Summary by service tower and provider
+    # -----------------------------------------------------------------
+    summary_header_row = voice_last_row + 18
+    summary_first_row = summary_header_row + 1
+    summary_label_col = 40
+
+    ws.cell(summary_header_row - 1, 1).value = "Gov BC Cellular, Data and Voice Monthly Spend"
+    style_title_cell(ws.cell(summary_header_row - 1, 1), size=14)
+
+    summary_headers = ["Month", "Service Tower", "Telus", "Rogers"]
+    for col_idx, header in enumerate(summary_headers, start=1):
+        cell = ws.cell(summary_header_row, col_idx)
+        cell.value = header
+        style_header_cell(cell)
+
+    summary_categories = ["Cellular", "Data", "Voice"]
+    summary_row = summary_first_row
+
+    for month_index, month in enumerate(months[: march_cutoff_idx + 1], start=1):
+        match = detail_match_formula('"Gov BC"', month_index)
+
+        for cat_idx, category in enumerate(summary_categories, start=1):
+            row_idx = summary_row
+            ws.cell(row_idx, 1).value = f'={detail_index_formula("C", match)}'
+            ws.cell(row_idx, 2).value = category
+
+            if category == "Cellular":
+                telus_formula = f'={sum_detail_expr(["D", "G", "I"], match)}'
+                rogers_formula = f'={sum_detail_expr(["H", "J"], match)}'
+            elif category == "Data":
+                telus_formula = f'={sum_detail_expr(["E", "K"], match)}'
+                rogers_formula = f'={detail_value_expr("L", match)}'
+            else:
+                telus_formula = f'={sum_detail_expr(["F", "M"], match)}'
+                rogers_formula = f'={detail_value_expr("N", match)}'
+
+            ws.cell(row_idx, 3).value = telus_formula
+            ws.cell(row_idx, 4).value = rogers_formula
+            ws.cell(row_idx, summary_label_col).value = f"{month} - {category}"
+            ws.cell(row_idx, summary_label_col + 1).value = month_index * 10 + cat_idx
+            ws.cell(row_idx, 3).number_format = CURFMT
+            ws.cell(row_idx, 4).number_format = CURFMT
+
+            style_data_row(ws, row_idx, 1, 6)
+            summary_row += 1
+
+    summary_last_row = summary_row - 1
+
+    summary_chart = BarChart()
+    summary_chart.type = "col"
+    summary_chart.grouping = "stacked"
+    summary_chart.overlap = 100
+    summary_chart.gapWidth = 40
+    summary_chart.title = ""
+    set_chart_base_style(summary_chart, height=16, width=50, legend_position="t")
+    summary_chart.add_data(
+        create_reference(ws, 3, 4, summary_header_row, summary_last_row),
+        titles_from_data=True,
+    )
+    summary_chart.set_categories(
+        Reference(ws, min_col=summary_label_col, min_row=summary_first_row, max_row=summary_last_row)
+    )
+    apply_bar_colors(summary_chart, [TELUS_GREEN, ROGERS_RED])
+    ws.add_chart(summary_chart, f"I{summary_header_row}")
 
     hide_helper_columns(ws, cellular_helper_col, cellular_helper_col + 2)
     hide_helper_columns(ws, data_helper_col, data_helper_col + 2)
     hide_helper_columns(ws, voice_helper_col, voice_helper_col + 2)
+    hide_helper_columns(ws, trend_col, trend_col + 3)
+    hide_helper_columns(ws, summary_label_col, summary_label_col + 1)
 
-    # ------------------------------------------------------------
-    # Widths and final formatting
-    # ------------------------------------------------------------
+    set_column_widths(
+        ws,
+        {
+            "A": 14,
+            "B": 22,
+            "C": 18,
+            "D": 18,
+            "E": 24,
+            "F": 24,
+            "I": 16,
+            "J": 16,
+            "K": 16,
+            "L": 16,
+            "M": 16,
+            "N": 16,
+            "O": 16,
+        },
+    )
 
-    widths = {
-        "A": 14,
-        "B": 22,
-        "C": 22,
-        "D": 22,
-        "E": 24,
-        "F": 24,
-        "I": 16,
-        "J": 16,
-        "K": 16,
-        "L": 16,
-        "M": 16,
-        "N": 16,
-        "O": 16,
-    }
-
-    for col, width in widths.items():
-        ws.column_dimensions[col].width = width
-
-    ws.freeze_panes = "A5"
-
+    ws.freeze_panes = "A3"
     return ws
 
 
@@ -2091,19 +1330,19 @@ def rebuild_govbc_stacked_bar_charts(wb, months):
 # =====================================================================
 
 def update_readme(wb):
-    if "README_BGE_Dashboard" not in wb.sheetnames:
+    """Append a short change note to README_BGE_Dashboard if the sheet exists."""
+    if SHEET_README not in wb.sheetnames:
         return
 
-    ws = wb["README_BGE_Dashboard"]
+    ws = wb[SHEET_README]
     row = ws.max_row + 1
-    ws.cell(row, 1).value = "BGE category dashboard TSMA Data/Voice update"
+    ws.cell(row, 1).value = "All BGE dashboard report cleanup"
     ws.cell(row, 2).value = (
-        "BGE_Category_Dashboard now includes Data (TSMA+TSMA Lite) and Voice (TSMA+TSMA Lite) "
-        "after Cellular (TSMA+TSMA Lite). The chart shows five category bars beside each other "
-        "for each month and stacks each bar by Telus in green and Rogers in red. For Data and Voice "
-        "bars, the Telus stack equals TSMA+TSMA Lite plus TELUS NGTA; Rogers equals Rogers NGTA. "
-        "BGE_Dashboard and BGE_Category_Dashboard dropdowns were repaired. Out of Scope remains "
-        "excluded and Voice - IVR remains rolled into Voice."
+        "Dashboard report script was cleaned for GitHub readiness: duplicate functions removed, "
+        "sheet names standardized, chart/table formatting centralized, dropdowns repaired using "
+        "BGE_List, and business rules preserved. Out of Scope and Other remain excluded. "
+        "School Districts is normalized to SD. Voice, IVR, Hosted IVR, Long Distance, and "
+        "Conferencing remain rolled into Voice."
     )
 
 
@@ -2115,84 +1354,48 @@ def main():
     src = find_source_file()
     out = src.with_name(OUTPUT_FILE)
 
-    from openpyxl import Workbook
-
     wb = load_workbook(src)
 
-    if "Sheet1" not in wb.sheetnames:
-      raise ValueError(
-        "Sheet1 not found. Cannot rebuild detailed BGE category dashboard."
-    )
+    if SHEET_SOURCE not in wb.sheetnames:
+        raise ValueError(f"{SHEET_SOURCE} not found. Cannot rebuild BGE dashboard report.")
 
-
-
-    # Use data_only copy for source values.
     wb_values = load_workbook(src, data_only=True)
-    months, agg, fields = build_detail_data(wb_values["Sheet1"])
-
+    months, agg, fields = build_detail_data(wb_values[SHEET_SOURCE])
+    last_month_idx = get_last_month_with_data(months, agg)
     bges = get_bges(wb, agg)
 
-    for sheet_name in [
-      "BGE_List",
-      "BGE_Category_Detail_Data",
-      "BGE_Dashboard",
-      "BGE_Category_Dashboard",
-      "GovBC_Stacked_bar_charts"
-   ]:
-      if sheet_name in wb.sheetnames:
-        del wb[sheet_name]
+    sheets_to_rebuild = [
+        SHEET_BGE_LIST,
+        SHEET_DETAIL_DATA,
+        SHEET_CATEGORY_DASHBOARD,
+        SHEET_PROVIDER_DASHBOARD,
+        SHEET_GOVBC_DASHBOARD,
+        *OLD_SHEET_NAMES,
+    ]
 
+    for sheet_name in sheets_to_rebuild:
+        if sheet_name in wb.sheetnames:
+            del wb[sheet_name]
 
     rebuild_bge_list(wb, bges)
-
-    ensure_data_sheet(
-      wb,
-      months,
-      bges,
-      agg,
-      fields
-    )
-
-    rebuild_govbc_stacked_bar_charts(
-      wb,
-      months
-    )
-
-    rebuild_bge_dashboard(
-      wb,
-      months,
-      bges
-    )
-
-    rebuild_category_dashboard(
-      wb,
-      months,
-      bges
-)
-    #add_all_bge_rollup_chart(
-    # wb,
-    # months,
-    # agg,
-    # bges
-    #)
-    # Critical fix: restore dropdowns in BOTH dashboard sheets.
+    ensure_data_sheet(wb, months, bges, agg, fields)
+    rebuild_govbc_dashboard(wb, months)
+    rebuild_bge_spend_by_provider_dashboard(wb, months, bges)
+    rebuild_category_dashboard(wb, months, bges, last_month_idx)
     repair_dashboard_dropdowns(wb, bges)
-
     update_readme(wb)
 
-    wb.active = wb.sheetnames.index("BGE_Category_Dashboard")
+    wb.active = wb.sheetnames.index(SHEET_CATEGORY_DASHBOARD)
     wb.calculation.fullCalcOnLoad = True
     wb.calculation.forceFullCalc = True
     wb.calculation.calcMode = "auto"
-    sheet1 = wb["Sheet1"]
 
-    wb._sheets.remove(sheet1)
-    wb._sheets.insert(0, sheet1)
+    move_sheet_to_front(wb, SHEET_SOURCE)
     wb.save(out)
 
     print(f"Created: {out}")
     print(f"BGEs: {len(bges)}; months: {len(months)} ({months[0]} to {months[-1]})")
-    print("Updated BGE_Category_Dashboard table/chart and repaired dropdowns in both dashboard sheets.")
+    print("Updated BGE dashboards, detail data, charts, and dropdowns.")
 
 
 if __name__ == "__main__":
