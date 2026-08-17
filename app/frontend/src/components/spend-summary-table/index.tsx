@@ -47,7 +47,9 @@ const ExpandToggle = ({ row }: { row: MRT_Row<TreeRow> }) => {
 
 // Indent sub-rows (sub-orgs, service designees) so they visually nest under
 const NameCell = ({ row }: { row: MRT_Row<TreeRow> }) => (
-  <span style={{ paddingLeft: `${row.depth * 3}ch` }}>{row.original.name}</span>
+  <span style={{ display: "block", paddingLeft: `${row.depth * 3}ch` }}>
+    {row.original.name}
+  </span>
 );
 
 // Filters
@@ -169,6 +171,11 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
         size: 280,
         minSize: 210,
         grow: false, // fixed; the money columns absorb the leftover width
+        // Long entity names wrap to multiple lines rather than truncating.
+        muiTableHeadCellProps: { sx: { whiteSpace: "normal" } },
+        muiTableBodyCellProps: {
+          sx: { whiteSpace: "normal", overflow: "visible", textOverflow: "clip" },
+        },
         filterVariant: "text",
         filterFn: nameFilter,
         muiFilterTextFieldProps: smallFilterProps,
