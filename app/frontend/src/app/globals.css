@@ -248,41 +248,6 @@ body.telecom-landing {
   margin: 0 0 1.5rem;
 }
 
-.dashboard-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: end;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  background: var(--color-surface-white);
-  border: 1px solid var(--surface-color-border-light, var(--color-border-light));
-  border-radius: 0.25rem;
-}
-
-.dashboard-control {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 12rem;
-  color: var(--typography-color-primary, var(--color-text-primary));
-  font: var(--typography-regular-small-body, 0.875rem / 1.4 system-ui);
-}
-
-.dashboard-control span {
-  font: var(--typography-bold-small-body, 700 0.875rem / 1.4 system-ui);
-}
-
-.dashboard-control select {
-  min-height: 2.5rem;
-  padding: 0.4rem 0.65rem;
-  color: var(--typography-color-primary, var(--color-text-primary));
-  background: var(--color-surface-white);
-  border: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
-  border-radius: 0.25rem;
-  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
-}
-
 .dashboard-alert {
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
