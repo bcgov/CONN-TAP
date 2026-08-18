@@ -10,8 +10,7 @@ WITH filtered AS (
     JOIN reference_data.provider p ON p.id = scvs.provider_id
     WHERE (
             CAST(:period AS text) IS NULL
-            OR (CAST(:year_type AS text) = 'calendar' AND (calendar_year::text || '_' || calendar_quarter::text) = ANY(CAST(:period AS text[])))
-            OR (CAST(:year_type AS text) = 'fiscal' AND (fiscal_year::text || '_' || fiscal_quarter::text) = ANY(CAST(:period AS text[])))
+            OR to_char(scvs.period_key, 'YYYY-MM') = ANY(CAST(:period AS text[]))
         )
     GROUP BY sc.name, p.code
 ),
