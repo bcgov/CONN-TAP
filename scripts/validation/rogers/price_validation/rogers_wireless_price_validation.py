@@ -247,31 +247,38 @@ comparison.rename(
 )
 
 # Add Match Status
-comparison["Match Status"] = comparison["Price Book Service ID"].apply(
+comparison["Match Status (Service ID)"] = comparison["Price Book Service ID"].apply(
     lambda x: "Matched" if pd.notna(x) else "Missing from Price Book"
 )
 
 # Add difference column. The Excel formula is added later when writing each row.
-comparison["Difference (Billed Amount - Monthly Fixed Fee)"] = None
+comparison["Difference (Billed Amount - Monthly Fixed Fee)"] = (
+    comparison["Billed Amount (Rate)"]
+    - comparison["Monthly Fixed Fee (from the Price Book)"]
+)
 
 # Sort output
 status_order = {
-    "Matched": 0,
-    "Missing from Price Book": 1,
+    "Missing Service ID from Report": 0,
+    "Missing from Price Book": 2,
+    "Matched": 1,
 }
-
-comparison["__sort_order"] = comparison["Match Status"].map(status_order).fillna(9)
+comparison["__sort_order"] = (
+    comparison["Match Status (Service ID)"]
+    .map(status_order)
+    .fillna(9)
+)
 
 comparison = (
     comparison
-    .sort_values(["__sort_order", "Normalized Service ID"])
+    .sort_values("__sort_order")
     .drop(columns="__sort_order")
 )
 
 comparison_desired_order = [
     "Price Book Service ID",
     "Monthly Report Service ID",
-    "Match Status",
+    "Match Status (Service ID)",
     "Monthly Fixed Fee (from the Price Book)",
     "Billed Amount (Rate)",
     "MSF_OTHER_OPTIONS",
@@ -287,6 +294,38 @@ comparison_columns = [
 
 comparison = comparison[comparison_columns]
 
+mismatched_rate = comparison[
+    (
+        comparison["Match Status (Service ID)"] == "Matched"
+    )
+    &
+    (
+        comparison["Difference (Billed Amount - Monthly Fixed Fee)"]
+        .abs() > 0.005
+    )
+].copy()
+
+# Add Missing Service ID rows to Complete Comparison
+
+missing_service_comparison = pd.DataFrame({
+    "Price Book Service ID": None,
+    "Monthly Report Service ID": missing_service_id_report[report_service_id_col],
+    "Match Status (Service ID)": "Missing Service ID from Report",
+    "Monthly Fixed Fee (from the Price Book)": None,
+    "Billed Amount (Rate)": missing_service_id_report["Billed Amount Numeric"],
+    "MSF_OTHER_OPTIONS": missing_service_id_report["MSF_OTHER_OPTIONS"],
+    "HARDWARE": missing_service_id_report["HARDWARE"],
+    "OTHERS": missing_service_id_report["OTHERS"],
+    "Difference (Billed Amount - Monthly Fixed Fee)": None
+})
+comparison = pd.concat(
+    [
+        comparison,
+        missing_service_comparison
+    ],
+    ignore_index=True
+)
+
 
 # =========================
 # Create Excel workbook
@@ -296,17 +335,23 @@ wb = Workbook()
 
 views = [
     ("Complete comparison", comparison, comparison_columns),
-    ("Matched Service IDs", comparison[comparison["Match Status"] == "Matched"], comparison_columns),
+    ("Matched Service IDs", comparison[comparison["Match Status (Service ID)"] == "Matched"], comparison_columns),
     (
         "Missing from Price Book",
-        comparison[comparison["Match Status"] == "Missing from Price Book"],
+        comparison[comparison["Match Status (Service ID)"] == "Missing from Price Book"],
         comparison_columns,
     ),
     (
-        "Missing Service ID",
+        "Missing Service ID from Report",
         missing_service_id_report,
         list(missing_service_id_report.columns),
     ),
+    (
+        "Mismatched Rate",
+        mismatched_rate,
+        comparison_columns,
+    ),
+
 ]
 
 header_fill = PatternFill("solid", fgColor="1F4E78")
@@ -314,6 +359,10 @@ header_font = Font(color="FFFFFF", bold=True)
 
 matched_fill = PatternFill("solid", fgColor="E2F0D9")
 missing_fill = PatternFill("solid", fgColor="FCE4D6")
+missing_service_fill = PatternFill(
+    "solid",
+    fgColor="FFF2CC"
+)
 difference_fill = PatternFill("solid", fgColor="FFF2CC")
 
 used_table_names = set()
@@ -344,8 +393,8 @@ for sheet_index, (sheet_name, df, sheet_columns) in enumerate(views):
     monthly_fee_col_letter = None
     billed_rate_col_letter = None
 
-    if "Match Status" in sheet_columns:
-        status_col_index = sheet_columns.index("Match Status") + 1
+    if "Match Status (Service ID)" in sheet_columns:
+        status_col_index = sheet_columns.index("Match Status (Service ID)") + 1
 
     if "Monthly Fixed Fee (from the Price Book)" in sheet_columns:
         monthly_fee_col_letter = get_column_letter(
@@ -374,7 +423,7 @@ for sheet_index, (sheet_name, df, sheet_columns) in enumerate(views):
                 "Billed Amount (Rate)",
                 "Billed Amount Numeric",
             ]:
-                cell.number_format = '$#,##0.00;$#,##0.00;-'
+                cell.number_format = '$#,##0.00;[Red]-$#,##0.00;-'
 
             if column_name == "Difference (Billed Amount - Monthly Fixed Fee)":
                 if monthly_fee_col_letter and billed_rate_col_letter:
@@ -391,9 +440,13 @@ for sheet_index, (sheet_name, df, sheet_columns) in enumerate(views):
             status = status_cell.value
 
             if status == "Matched":
-                status_cell.fill = matched_fill
+              status_cell.fill = matched_fill
+
             elif status == "Missing from Price Book":
-                status_cell.fill = missing_fill
+              status_cell.fill = missing_fill
+
+            elif status == "Missing Service ID from Report":
+               status_cell.fill = missing_service_fill
 
     # Column widths
     for col_index, header in enumerate(sheet_columns, start=1):
@@ -401,7 +454,7 @@ for sheet_index, (sheet_name, df, sheet_columns) in enumerate(views):
         ws.column_dimensions[get_column_letter(col_index)].width = width
 
     # Override widths for comparison sheets
-    if sheet_name != "Missing Service ID":
+    if sheet_name != "Missing Service ID from Report":
         widths = {
             1: 26,
             2: 30,
@@ -495,15 +548,19 @@ summary["A1"].font = Font(bold=True, size=14, color="1F4E78")
 summary_rows = [
     (
         "Matched Service IDs",
-        len(comparison[comparison["Match Status"] == "Matched"]),
+        len(comparison[comparison["Match Status (Service ID)"] == "Matched"]),
     ),
     (
         "Missing from Price Book",
-        len(comparison[comparison["Match Status"] == "Missing from Price Book"]),
+        len(comparison[comparison["Match Status (Service ID)"] == "Missing from Price Book"]),
     ),
     (
-        "Missing Service ID",
+        "Missing Service ID from Report",
         len(missing_service_id_report),
+    ),
+    (
+        "Mismatched Rate",
+        len(mismatched_rate),
     ),
     (
         "Rows removed because billed amount is zero",
@@ -528,7 +585,7 @@ wb.save(output_file)
 
 print(f"Created: {output_file}")
 print(f"Total rows: {len(comparison)}")
-print("Matched:", len(comparison[comparison["Match Status"] == "Matched"]))
-print("Missing from Price Book:", len(comparison[comparison["Match Status"] == "Missing from Price Book"]))
+print("Matched:", len(comparison[comparison["Match Status (Service ID)"] == "Matched"]))
+print("Missing from Price Book:", len(comparison[comparison["Match Status (Service ID)"] == "Missing from Price Book"]))
 print("Missing Service ID:", len(missing_service_id_report))
 print("Rows removed because billed amount is zero:", zero_billed_count)
