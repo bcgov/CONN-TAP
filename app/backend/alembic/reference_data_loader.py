@@ -11,6 +11,7 @@ REFERENCE_DATA_SQL_DIR = Path(__file__).resolve().parent / "reference_data"
 
 REFERENCE_DATA_SCHEMA_FILES = (
     "schema.sql",
+    "functions.sql",
     "sector.sql",
     "provider.sql",
     "bge.sql",

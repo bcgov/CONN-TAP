@@ -13,10 +13,20 @@
 --                                         current month's value, else 'n'
 --
 -- Categories: cellular_hardware, cellular_plans, data, voice, other, total
+--
+-- p_source scopes which raw feed(s) are included:
+--   NULL / 'all'  -> cellular + voice/data (default)
+--   'cellular'    -> cellular feed only (data/voice/other categories come back 0)
+--   'data_voice'  -> voice/data feed only (cellular categories come back 0)
 -- =====================================================================
+-- Entity resolution below uses reference_data.norm_key(text) -- created by the per-check validation
+-- SQL, which run_validations.py applies before this file. No need to redefine it here.
+DROP FUNCTION IF EXISTS raw_data.fn_rogers_spend_comparison(integer, integer);
+
 CREATE OR REPLACE FUNCTION raw_data.fn_rogers_spend_comparison(
-  p_year  integer,
-  p_month integer
+  p_year   integer,
+  p_month  integer,
+  p_source text DEFAULT NULL
 )
 RETURNS TABLE (
   provider                              text,
@@ -58,56 +68,19 @@ LANGUAGE sql
 STABLE
 AS $$
 WITH bge_map AS (
-  SELECT *
-  FROM (VALUES
-    ('BC LOTTERY', 'BCLC'),
-    ('BC LOTTERY CORPORATION', 'BCLC'),
-    ('BRITISH COLUMBIA LOTTERY CORPORATION', 'BCLC'),
-    ('BRITISH COLOMBIA LOTTERY CORPORATION', 'BCLC'),
-
-    ('BC HYDRO', 'BC Hydro'),
-    ('BRITISH COLUMBIA HYDRO', 'BC Hydro'),
-    ('BRITISH COLUMBIA HYDRO & POWER AUTHORITY', 'BC Hydro'),
-
-    ('EDUCATION AND CHILD CARE', 'ECC'),
-    ('MINISTRY OF EDUCATION', 'ECC'),
-    ('MINISTRY OF EDUCATION AND CHILD CARE', 'ECC'),
-    ('BC MIN EDUCATION & CHILD CARE', 'ECC'),
-    ('BC MIN EDUCATION AND CHILD CARE', 'ECC'),
-
-    ('FRASER HEALTH AUTHORITY', 'FHA'),
-    ('INTERIOR HEALTH AUTHORITY', 'IHA'),
-    ('NORTHERN HEALTH AUTHORITY', 'NHA'),
-    ('INSURANCE CORPORATION OF BRITISH COLUMB.', 'ICBC'),
-    ('INSURANCE CORPORATION OF BRITISH COLUMBIA', 'ICBC'),
-    ('PROVINCIAL HEALTH SERVICES AUTHORITY', 'PHSA'),
-    ('VANCOUVER COASTAL HEALTH AUTHORITY', 'VCHA'),
-    ('PROVIDENCE HEALTH CARE', 'VCHA'),
-    ('VANCOUVER ISLAND HEALTH AUTHORITY', 'VIHA'),
-
-    ('BC GOVERNMENT MINISTRIES', 'Gov BC'),
-    ('BC MIN ATTORNEY GENERAL', 'Gov BC'),
-    ('BC MIN CITIZENS'' SERVICES', 'Gov BC'),
-    ('BC MIN HOUSING AND MUNICIPAL AFFAIRS', 'Gov BC'),
-    ('BC MIN INDIGENOUS RELATIONS & RECONCIL.', 'Gov BC'),
-    ('BC MIN JOBS AND ECONOMIC GROWTH', 'Gov BC'),
-    ('BC MIN LABOUR', 'Gov BC'),
-    ('BC MIN POST-SECONDARY ED & FUTURE SKILLS', 'Gov BC'),
-    ('BC MIN SOCIAL DEV & POVERTY REDUCTION', 'Gov BC'),
-    ('BC MIN TOURISM, ARTS, CULTURE, AND SPORT', 'Gov BC'),
-    ('BC MIN TRANSPORTATION & TRANSIT', 'Gov BC'),
-    ('INDIGENOUS RELATIONS AND RECONCILIATION', 'Gov BC'),
-    ('JOB ECONOMIC DEVELOPMENT AND INNOVATION', 'Gov BC'),
-    ('LAND AND WATER BC INC', 'Gov BC'),
-    ('MIN OF FINANCE BC', 'Gov BC'),
-    ('MIN OF JOBS TOURISM & INNOVATION', 'Gov BC'),
-    ('MIN OF LABOUR', 'Gov BC'),
-    ('MIN OF SOCIAL DEVELOPMENT', 'Gov BC'),
-    ('MINISTRY OF CITIZENS SERVICES', 'Gov BC'),
-    ('MINISTRY OF INFRASTRUCTURE', 'Gov BC'),
-    ('OFFICE OF THE PREMIER', 'Gov BC'),
-    ('TRANSPORTATION AND TRANSIT', 'Gov BC')
-  ) AS m(alias, entity_key)
+  -- Raw BGE name -> canonical BGE code, from the seed alias map (matched on norm_key).
+  SELECT reference_data.norm_key(bam.raw_name) AS raw_key,
+         bam.bge_alias                    AS mapped_bge
+  FROM seeds.bge_alias_map AS bam
+),
+sub_bge_map AS (
+  -- Raw SUB-BGE name -> its parent BGE code, via the seed alias map + reference data.
+  -- This is what routes school districts to 'School Districts' and ministry ECC to 'Gov BC'.
+  SELECT reference_data.norm_key(sbam.raw_name) AS sub_key,
+         b.code                            AS expected_bge
+  FROM seeds.sub_bge_alias_map AS sbam
+  JOIN reference_data.sub_bge  AS sb ON sb.code = sbam.sub_bge_alias
+  JOIN reference_data.bge      AS b  ON b.id    = sb.bge_id
 ),
 src AS (
   SELECT
@@ -119,6 +92,7 @@ src AS (
   FROM raw_data.raw_rogers_spend_cellular c
   JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
   WHERE r.provider = 'rogers'
+    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'cellular')
 
   UNION ALL
 
@@ -132,6 +106,7 @@ src AS (
   FROM raw_data.raw_rogers_spend_cellular c
   JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
   WHERE r.provider = 'rogers'
+    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'cellular')
 
   UNION ALL
 
@@ -148,6 +123,7 @@ src AS (
   FROM raw_data.raw_rogers_spend_data_voice v
   JOIN raw_data.ingestion_run r ON r.ingestion_run_id = v.ingestion_run_id
   WHERE r.provider = 'rogers'
+    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'data_voice')
 ),
 normalized AS (
   SELECT
@@ -156,34 +132,26 @@ normalized AS (
     s.month_start,
     s.amount,
     s.bucket,
-    upper(trim(COALESCE(s.bge, ''))) AS bge_key,
-    upper(trim(COALESCE(s.sub_bge, ''))) AS sub_bge_key
+    reference_data.norm_key(s.bge)     AS bge_key,
+    reference_data.norm_key(s.sub_bge) AS sub_bge_key
   FROM src s
 ),
 bucketed AS (
+  -- Resolve each row to its final BGE (bge_actual), the same way the per-check validations do:
+  -- a SUB-BGE that maps to a BGE (incl. school-district and ECC routing via reference_data)
+  -- wins; otherwise the BGE column's canonical alias; otherwise the normalized raw value.
   SELECT
     COALESCE(
-      CASE
-        WHEN sub_bge_key LIKE 'SCHOOL DISTRICT%'
-          OR sub_bge_key LIKE 'DISTRICT%'
-          OR bge_key LIKE 'SCHOOL DISTRICT%'
-          OR bge_key LIKE 'DISTRICT%'
-          THEN 'School Districts'
-        WHEN sub_bge_key LIKE '%FAMILY MAINTENANCE AGENCY%'
-          OR sub_bge_key LIKE '%PUBLIC SERVICE AGENCY%'
-          THEN 'Gov BC'
-        ELSE NULL
-      END,
-      sub_map.entity_key,
-      bge_map.entity_key
+      sm.expected_bge,
+      COALESCE(bm.mapped_bge, n.bge_key)
     ) AS entity_key,
-    month_start,
-    amount,
-    bucket
+    n.month_start,
+    n.amount,
+    n.bucket
   FROM normalized n
-  LEFT JOIN bge_map sub_map ON sub_map.alias = n.sub_bge_key
-  LEFT JOIN bge_map bge_map ON bge_map.alias = n.bge_key
-  WHERE month_start IS NOT NULL
+  LEFT JOIN bge_map     bm ON bm.raw_key = n.bge_key
+  LEFT JOIN sub_bge_map sm ON sm.sub_key = n.sub_bge_key
+  WHERE n.month_start IS NOT NULL
 ),
 -- One row per entity / month with a column per spend category.
 monthly AS (
