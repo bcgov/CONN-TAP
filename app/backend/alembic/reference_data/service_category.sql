@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS reference_data.service_category (
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- now
+-- temporary_services --> time_limited_services
+-- other_professional_services --> professional_services
+-- unknown
 INSERT INTO reference_data.service_category (code, name) VALUES
     ('cellular',                    'Cellular'),
     ('data',                        'Data'),
