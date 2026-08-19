@@ -78,12 +78,13 @@ def _add_status_legend(ws, header_font, header_align) -> None:
 
     headers = {str(c.value).strip().lower(): c.column for c in ws[1]}
     status_col = headers.get("status")
+    if not status_col:
+        return
     present = set()
-    if status_col:
-        for row in range(2, ws.max_row + 1):
-            value = ws.cell(row=row, column=status_col).value
-            if value is not None:
-                present.add(str(value).strip())
+    for row in range(2, ws.max_row + 1):
+        value = ws.cell(row=row, column=status_col).value
+        if value is not None:
+            present.add(str(value).strip())
     groups = [g for g in STATUS_GROUPS if any(status in present for status, _ in g)]
     if not groups:
         groups = STATUS_GROUPS
