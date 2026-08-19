@@ -146,6 +146,7 @@ $$;
 
 -- Expected: source_id 164 or 130 → source 'Wireless'; source_id 1001, 103, 104, 102, or 106
 -- → source 'Wireline'. Any other source_id or any source other than those two is flagged.
+-- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_source_id_matches_expected_source (
   p_statement_month date DEFAULT NULL
@@ -179,6 +180,8 @@ AS $$
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
+    AND t.amount IS NOT NULL
+    AND t.amount <> 0
     AND (
       p_statement_month IS NULL
       OR (
@@ -197,7 +200,9 @@ $$;
 
 -- Flags physical columns on raw_data.raw_telus_spend that have at least one NULL or all-whitespace value
 -- within each (sheet_name, statement month). Omitted columns (blanks allowed): bill_section,
--- service_address, service_description, detail_description, extras.
+-- service_address, service_description, detail_description, extras. Rows with amount NULL or 0
+-- are excluded before the check, as they carry no real spend to attribute; amount itself is
+-- therefore no longer a checked column.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_blanks_by_sheet_and_month (
   p_statement_month date DEFAULT NULL
@@ -214,13 +219,15 @@ AS $$
   WITH base AS (
     SELECT *
     FROM raw_data.raw_telus_spend AS t
-    WHERE (
-      p_statement_month IS NULL
-      OR (
-        t.statement_date IS NOT NULL
-        AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
+    WHERE t.amount IS NOT NULL
+      AND t.amount <> 0
+      AND (
+        p_statement_month IS NULL
+        OR (
+          t.statement_date IS NOT NULL
+          AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month)
+        )
       )
-    )
   ),
   g AS (
     SELECT
@@ -246,7 +253,6 @@ AS $$
       bool_or(
         b.record_type_description IS NULL OR trim(both FROM b.record_type_description) = ''
       ) AS record_type_description_blanks,
-      bool_or(b.amount IS NULL) AS amount_blanks,
       bool_or(b.invoice_number IS NULL OR trim(both FROM b.invoice_number) = '')
         AS invoice_number_blanks,
       bool_or(b.month IS NULL OR trim(both FROM b.month) = '') AS month_blanks,
@@ -271,7 +277,6 @@ AS $$
       ('statement_category', g.statement_category_blanks),
       ('statement_sub_category', g.statement_sub_category_blanks),
       ('record_type_description', g.record_type_description_blanks),
-      ('amount', g.amount_blanks),
       ('invoice_number', g.invoice_number_blanks),
       ('month', g.month_blanks),
       ('source', g.source_blanks),
