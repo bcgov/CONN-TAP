@@ -264,6 +264,7 @@ $$;
 
 -- 12) New/Removed BGE and SUB-BGE detection (month-over-month).
 -- Statuses: Newly Appeared, Unrecognized, New + Unrecognized, Removed, Still Removed.
+DROP FUNCTION IF EXISTS raw_data.rogers_cellular_new_removed_detection(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_new_removed_detection(p_month date DEFAULT NULL)
 RETURNS TABLE (current_month date, entity_type text, raw_value text, status text)
 LANGUAGE sql AS $$
