@@ -1,27 +1,19 @@
-export type YearType = "fiscal" | "calendar";
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
-export const periodsToYearsQuarters = (periods: string[]): { years: string[]; quarters: string[] } => {
-  const yearSet = new Set<string>();
-  const quarterSet = new Set<string>();
-  for (const p of periods) {
-    const [year, quarter] = p.split("_");
-    yearSet.add(year);
-    quarterSet.add(quarter);
-  }
-  return {
-    years: Array.from(yearSet).sort(),
-    quarters: Array.from(quarterSet).sort(),
-  };
-};
+/** `2025-04` -> `Apr`. Periods are month-grain, sortable as plain strings. */
+export const formatMonthLabel = (period: string): string =>
+  MONTHS[Number(period.split("-")[1]) - 1] ?? period;
 
-export const buildPeriodRangeLabel = (periods: string[], yearType: YearType = "fiscal"): string => {
+/** `2025-04` -> `Apr 2025`. */
+const formatPeriodLabel = (period: string): string =>
+  `${formatMonthLabel(period)} ${period.split("-")[0]}`;
+
+export const buildPeriodRangeLabel = (periods: string[]): string => {
   if (periods.length === 0) return "";
-  const toLabel = (p: string) => {
-    const [year, quarter] = p.split("_");
-    return yearType === "fiscal" ? `Q${quarter} FY${year}` : `Q${quarter} ${year}`;
-  };
-  const first = periods[0];
-  const last = periods[periods.length - 1];
-  if (first === last) return `(${toLabel(first)})`;
-  return `(${toLabel(first)} – ${toLabel(last)})`;
+  const first = formatPeriodLabel(periods[0]);
+  const last = formatPeriodLabel(periods[periods.length - 1]);
+  return first === last ? `(${first})` : `(${first} – ${last})`;
 };

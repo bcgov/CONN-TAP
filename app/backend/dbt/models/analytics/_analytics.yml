@@ -13,6 +13,9 @@ models:
           - relationships:
               to: source('reference_data', 'provider')
               field: id
+      - name: period_key
+        description: Month grain (first day of month). The period the dashboard filters on.
+        tests: [not_null]
       - name: fiscal_year
         tests: [not_null]
       - name: fiscal_quarter
@@ -37,6 +40,9 @@ models:
           - relationships:
               to: source('reference_data', 'service_category')
               field: id
+      - name: period_key
+        description: Month grain (first day of month). The period the dashboard filters on.
+        tests: [not_null]
       - name: fiscal_year
         tests: [not_null]
       - name: fiscal_quarter
@@ -61,6 +67,9 @@ models:
           - relationships:
               to: source('reference_data', 'bge')
               field: id
+      - name: period_key
+        description: Month grain (first day of month). The period the dashboard filters on.
+        tests: [not_null]
       - name: fiscal_year
         tests: [not_null]
       - name: fiscal_quarter
@@ -105,6 +114,9 @@ models:
           - relationships:
               to: source('reference_data', 'service_category')
               field: id
+      - name: period_key
+        description: Month grain (first day of month). The period the dashboard filters on.
+        tests: [not_null]
       - name: fiscal_year
         tests: [not_null]
       - name: fiscal_quarter
