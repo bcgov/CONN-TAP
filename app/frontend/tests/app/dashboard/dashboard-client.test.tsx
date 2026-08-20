@@ -41,7 +41,7 @@ vi.mock("@/components/spend-timeline-brush", () => ({
   SpendTimelineBrush: ({ onPeriodsChange }: { onPeriodsChange: (p: string[]) => void }) => (
     <button
       data-testid="select-periods"
-      onClick={() => onPeriodsChange(["2024_1", "2024_2"])}
+      onClick={() => onPeriodsChange(["2024-01", "2024-02"])}
     >
       select periods
     </button>
@@ -203,15 +203,15 @@ describe("DashboardClient query functions (data layer)", () => {
     stubFetch({
       valueLabel: "Spend",
       data: [
-        { period: "2023_4", label: "L0", value: 1 },
-        { period: "2024_1", label: "L1", value: 2 },
-        { period: "2025_2", label: "L2", value: 3 },
+        { period: "2023-12", label: "Dec 2023", value: 1 },
+        { period: "2024-01", label: "Jan 2024", value: 2 },
+        { period: "2025-04", label: "Apr 2025", value: 3 },
       ],
     });
     const result = (await queryFns["total-spend-over-time"]()) as {
       data: { period: string }[];
     };
-    expect(result.data.map((p) => p.period)).toEqual(["2024_1", "2025_2"]);
+    expect(result.data.map((p) => p.period)).toEqual(["2024-01", "2025-04"]);
   });
 
   it("timeline query returns null for a non-timeline payload", async () => {
@@ -270,15 +270,6 @@ describe("DashboardClient charts, labels and interactions", () => {
     );
   });
 
-  it("changing the year type updates the select", () => {
-    renderDashboard([]);
-    const select = screen.getByRole("combobox");
-
-    fireEvent.change(select, { target: { value: "calendar" } });
-
-    expect(select).toHaveValue("calendar");
-  });
-
   it("logs the user out when the logout button is clicked", () => {
     vi.stubGlobal("location", { href: "" });
     renderDashboard([]);
@@ -295,7 +286,7 @@ describe("DashboardClient charts, labels and interactions", () => {
 
     expect(screen.getByTestId("sector-chart")).toHaveAttribute(
       "data-date-range",
-      "(Q1 FY2024 – Q2 FY2024)",
+      "(Jan 2024 – Feb 2024)",
     );
   });
 });
