@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# Wireline Validation Report
-# Adapted from cellular validation script
+# wireline price validation
 
 import pandas as pd
 import re
@@ -17,6 +15,7 @@ data_price_xlsx=os.path.join(DATA_DIR,'data.xlsx')
 voice_price_xlsx=os.path.join(DATA_DIR,'voice.xlsx')
 report_xlsx=os.path.join(DATA_DIR,'BC_GOV_Wireline_report_20260531_Consolidated.xlsx')
 output_file=os.path.join(DATA_DIR,'Wireline_Service_ID_Comparison_Rate.xlsx')
+
 
 
 def find_col(columns, options):
@@ -92,8 +91,16 @@ def extract_amount(value):
 
     return pd.to_numeric(text, errors="coerce")
 
+# Find columns for charge description and type
+report_charge_description_col = find_col(
+    report.columns,
+    ["CHARGE_DESCRIPTION"]
+)
 
-
+report_charge_type_col = find_col(
+    report.columns,
+    ["CHARGETYPE"]
+)
 # Create clean numeric billed amount column
 report["Billed Amount Numeric"] = (
     report[report_billed_col]
@@ -123,6 +130,22 @@ report = report[
     .fillna(0)
     .abs() > 0.005
 ].copy()
+
+# Capture rows with blank Service IDs and non-zero billed amount
+missing_service_id = report[
+    report[report_service_id_col]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .eq("")
+].copy()
+
+missing_service_id = missing_service_id[
+    missing_service_id["Billed Amount Numeric"]
+        .fillna(0)
+        .abs() > 0.005
+].copy()
+
 
 # Remove rows with blank Service IDs
 report = report[
@@ -193,6 +216,35 @@ comparison.rename(columns={
  'Monthly Fixed Fee Numeric':'Monthly Fixed Fee (from the Price Book)'
 }, inplace=True)
 
+missing_service_id.rename(
+    columns={
+        report_service_id_col: "Monthly Report Service ID",
+        report_productline_col: "Product Line",
+        report_quantity_col: "Quantity",
+        report_charge_type_col: "Charge Type",
+        report_charge_description_col: "Charge Description"
+    },
+    inplace=True
+)
+missing_service_id["Match Status (Service ID)"] = "Missing Service ID from Report"
+
+# No Service ID means no match in the price book
+missing_service_id["Price Book Service ID"] = None
+missing_service_id["Monthly Fixed Fee (from the Price Book)"] = None
+
+# Keep report values
+missing_service_id["Report Rate"] = pd.to_numeric(
+    missing_service_id[report_rate_col].astype(str).str.replace(",", ""),
+    errors="coerce"
+)
+
+missing_service_id["Billed Amount (Pre-Tax)"] = (
+    missing_service_id["Billed Amount Numeric"]
+)
+
+# No difference can be calculated
+missing_service_id["Difference (Rate - Monthly Fixed Fee)"] = None
+
 
 def status(row):
     p=row['Monthly Fixed Fee (from the Price Book)']
@@ -205,24 +257,38 @@ def status(row):
         return 'Matched'
     return 'Rate Mismatch'
 
-comparison['Match Status']=comparison.apply(status, axis=1)
+comparison['Match Status (Service ID)']=comparison.apply(status, axis=1)
 comparison['Difference (Rate - Monthly Fixed Fee)']=None
 
 
-columns=[
- 'Price Book Service ID',
- 'Monthly Report Service ID',
- 'Product Line',
- 'Match Status',
- 'Monthly Fixed Fee (from the Price Book)',
- 'Report Rate',
- 'Quantity',
- 'Billed Amount (Pre-Tax)',
- 'Difference (Rate - Monthly Fixed Fee)'
+columns = [
+    'Price Book Service ID',
+    'Monthly Report Service ID',
+    'Product Line',
+    'Match Status (Service ID)',
+    'Monthly Fixed Fee (from the Price Book)',
+    'Report Rate',
+    'Quantity',
+    'Billed Amount (Pre-Tax)',
+    'Difference (Rate - Monthly Fixed Fee)'
 ]
+
+
+# print("\nMissing Service ID columns:")
+# print(missing_service_id.columns.tolist())
+missing_service_id_for_comparison = (
+    missing_service_id[columns].copy()
+)
+
 comparison=comparison[columns]
 
-
+comparison = pd.concat(
+    [
+        comparison,
+        missing_service_id_for_comparison
+    ],
+    ignore_index=True
+)
 
 
 
@@ -230,9 +296,21 @@ wb=Workbook()
 
 views=[
  ('Complete comparison',comparison),
- ('Matched',comparison[comparison['Match Status']=='Matched']),
- ('Rate Mismatch',comparison[comparison['Match Status']=='Rate Mismatch']),
- ('Missing from Price Book',comparison[comparison['Match Status']=='Missing from Price Book'])
+
+ ('Matched',
+  comparison[
+      comparison['Match Status (Service ID)']=='Matched'
+  ]),
+
+ ('Rate Mismatch',
+  comparison[
+      comparison['Match Status (Service ID)']=='Rate Mismatch'
+  ]),
+
+ ('Missing from Price Book',
+  comparison[
+      comparison['Match Status (Service ID)']=='Missing from Price Book'
+  ])
 ]
 
 header_fill=PatternFill('solid', fgColor='1F4E78')
@@ -251,15 +329,56 @@ for idx,(name,df) in enumerate(views):
         ws.cell(r,9,f'=IF(OR(E{r}="",F{r}=""),"",F{r}-E{r})')
 
 
+# Missing Service ID sheet
+ws = wb.create_sheet("Missing Service ID from Report")
+missing_columns = list(missing_service_id.columns)
+
+# Header row
+for c, h in enumerate(missing_columns, 1):
+    cell = ws.cell(1, c, h)
+    cell.fill = header_fill
+    cell.font = header_font
+
+# Data rows
+for r, row in enumerate(
+        missing_service_id[missing_columns]
+        .itertuples(index=False),
+        start=2):
+    for c, val in enumerate(row, start=1):
+        ws.cell(r, c, val)
+
+for c, h in enumerate(missing_columns, 1):
+    cell = ws.cell(1, c, h)
+    cell.fill = header_fill
+    cell.font = header_font
+
+for r, row in enumerate(
+        missing_service_id[missing_columns]
+        .itertuples(index=False),
+        start=2):
+    for c, val in enumerate(row, start=1):
+        ws.cell(r, c, val)
+
 summary=wb.create_sheet('Summary')
 summary['A1']='Summary'
-summary['A3']='Matched'; summary['B3']=len(comparison[comparison['Match Status']=='Matched'])
-summary['A4']='Rate Mismatch'; summary['B4']=len(comparison[comparison['Match Status']=='Rate Mismatch'])
-summary['A5']='Missing from Price Book'; summary['B5']=len(comparison[comparison['Match Status']=='Missing from Price Book'])
-summary['A6']='Total Rows'; summary['B6']=len(comparison)
+summary['A3']='Matched'; summary['B3']=len(comparison[comparison['Match Status (Service ID)']=='Matched'])
+summary['A4']='Rate Mismatch'; summary['B4']=len(comparison[comparison['Match Status (Service ID)']=='Rate Mismatch'])
+summary['A5']='Missing from Price Book'; summary['B5']=len(comparison[comparison['Match Status (Service ID)']=='Missing from Price Book'])
+summary['A6'] = 'Missing Service ID from Report'
+summary['B6'] = len(
+    comparison[
+        comparison['Match Status (Service ID)']
+        == 'Missing Service ID from Report'
+    ]
+)
+
+summary['A7']='Total Rows'
+summary['B7']=len(comparison)
+
 
 
 
 
 wb.save(output_file)
 print('Created', output_file)
+
