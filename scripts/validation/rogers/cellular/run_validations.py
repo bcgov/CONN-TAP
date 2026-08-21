@@ -96,7 +96,7 @@ VALIDATIONS = [
      "The mapping issues rolled up by SUB-BGE / reported BGE / expected BGE, with counts.",
      "SELECT * FROM raw_data.rogers_cellular_mapping_summary(%s)"),
     ("Unknown SUB-BGEs",
-     "SUB-BGE values present in the report that resolve to no BGE (no exclusions, for now).",
+     "SUB-BGE values that don't resolve to a real reference SUB-BGE.",
      "SELECT * FROM raw_data.rogers_cellular_unknown_sub_bge(%s)"),
     ("New BGEs",
      "Standardized BGEs in the report that are not a known canonical BGE.",

@@ -86,7 +86,7 @@ VALIDATIONS = [
      "The mapping issues rolled up by SUB-BGE / reported BGE / expected BGE, with counts.",
      "SELECT * FROM raw_data.rogers_data_voice_mapping_summary(%s)"),
     ("Unknown SUB-BGEs",
-     "SUB-BGE values present in the report that resolve to no BGE.",
+     "SUB-BGE values that don't resolve to a real reference SUB-BGE.",
      "SELECT * FROM raw_data.rogers_data_voice_unknown_sub_bge(%s)"),
     ("New BGEs",
      "Report BGE values with no alias mapping (unrecognized raw names).",
