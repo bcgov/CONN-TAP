@@ -24,16 +24,16 @@ def fmt_spend(millions: float) -> str:
     """
     dollars = millions * 1_000_000
     magnitude = abs(dollars)
+    if magnitude == 0:
+        return "$0"
     if magnitude >= 1_000_000:
         figure = f"${magnitude / 1_000_000:.1f}M"
     elif magnitude >= 1_000:
         figure = f"${magnitude / 1_000:.1f}K"
     elif magnitude >= 1:
         figure = f"${magnitude:,.0f}"
-    elif magnitude > 0:
-        figure = f"${magnitude:.2f}"
     else:
-        return "$0"
+        figure = f"${magnitude:.2f}"
     # Accounting parentheses for credits: labels read "Rogers - $2.7K", so a
     # leading minus would render as "Rogers - -$2.7K".
     return f"({figure})" if dollars < 0 else figure
