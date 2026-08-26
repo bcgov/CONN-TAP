@@ -1,3 +1,18 @@
+
+-- =====================================================================
+-- Rogers wireline price validation
+-- ---------------------------------------------------------------------
+--After running the rogers_wireline_function, you can check the price validation results.
+-- the Function contain the condition for report date:
+--p_billing_date IS NULL
+--OR billing_date = p_billing_date
+--when you pass NULL, the function does not filter by billing date and returns results for all billing dates/reports.
+-- Call it with a year and a month, e.g.
+--reporting.validate_rogers_wireline_prices('2026-07-31')
+
+
+-- ----------------------------------------------------------------------
+
 SELECT
     status,
     row_count
@@ -13,7 +28,7 @@ FROM (
             WHEN "Match Status (Service ID)" = 'Missing Report Rate' THEN 5
             ELSE 98
         END AS sort_order
-    FROM reporting.validate_rogers_wireline_prices('2026-07-31')
+    FROM reporting.validate_rogers_wireline_prices(NULL)
     GROUP BY "Match Status (Service ID)"
 
     UNION ALL
@@ -22,7 +37,7 @@ FROM (
         'Total Rows' AS status,
         COUNT(*) AS row_count,
         99 AS sort_order
-    FROM reporting.validate_rogers_wireline_prices('2026-07-31')
+    FROM reporting.validate_rogers_wireline_prices(NULL)
 ) s
 ORDER BY sort_order;
 
