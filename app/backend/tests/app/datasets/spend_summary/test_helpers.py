@@ -18,7 +18,7 @@ class FakeFrame:
 
 class FakeFilters:
     def model_dump(self, mode="python"):
-        return {"year_type": "fiscal", "period": None}
+        return {"period": None}
 
 
 def scaffold_row(bge_id, bge_name, sub_id=None, sub_name=None, kind=None, parent=None):
@@ -209,7 +209,7 @@ def test_flat_rows_match_nested_table():
 def test_metadata():
     result = build()
     assert result.metadata["dataset"] == "spend-summary"
-    assert result.metadata["filters"] == {"year_type": "fiscal", "period": None}
+    assert result.metadata["filters"] == {"period": None}
 
 
 def test_empty_spend():

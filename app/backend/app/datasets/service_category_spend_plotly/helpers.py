@@ -23,10 +23,7 @@ def run_query(service: DatasetService, db: Session, filters: Filters) -> pd.Data
     df = service.execute_sql(
         db,
         "service_category_vendor_spend",
-        params={
-            "year_type": filters.year_type.value,
-            "period": pg_text_array(filters.period),
-        },
+        params={"period": pg_text_array(filters.period)},
     )
 
     if df.empty:
