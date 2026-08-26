@@ -180,6 +180,7 @@ $$;
 -- 8) Unknown_SUB-BGE: SUB-BGE values that resolve to neither a real SUB-BGE nor a real BGE.
 -- A value matching a BGE alias (org name repeated in the sub-BGE column, incl. seeded school
 -- districts) is a known entity and excluded; anything else surfaces so it can be seeded.
+DROP FUNCTION IF EXISTS raw_data.rogers_data_voice_unknown_sub_bge(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_data_voice_unknown_sub_bge(p_month date DEFAULT NULL)
 RETURNS TABLE (unknown_sub_bge text)
 LANGUAGE sql AS $$
