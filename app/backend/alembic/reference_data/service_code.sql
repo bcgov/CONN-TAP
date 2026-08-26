@@ -47,7 +47,7 @@ FROM (VALUES
     ('ngta', 'rogers', 'business voice', 'voice',                       'Business Voice'),
     ('ngta', 'rogers', 'cable gateway',  'data',                        'Cable Gateway'),
     -- rogers: fallback for rows with no productline (eg: late fees, credit memos)
-    -- now unknown
+    -- now named unknown
     ('ngta', 'rogers', 'other',          'other_professional_services', 'Other')
 ) AS svc(source_system, provider_code, code, service_category_code, service_name)
 JOIN reference_data.provider p ON p.code = svc.provider_code
