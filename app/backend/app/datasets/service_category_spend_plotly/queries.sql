@@ -2,6 +2,7 @@
 WITH filtered AS (
     SELECT
         sc.name                                             AS service_category,
+        sc.code                                             AS service_category_code,
         p.code                                              AS vendor,
         SUM(scvs.spend_amount)::numeric(19, 4)             AS spend_amount,
         (SUM(scvs.spend_amount) / 1000000.0)::numeric(19, 6) AS spend_millions
@@ -12,11 +13,12 @@ WITH filtered AS (
             CAST(:period AS text) IS NULL
             OR to_char(scvs.period_key, 'YYYY-MM') = ANY(CAST(:period AS text[]))
         )
-    GROUP BY sc.name, p.code
+    GROUP BY sc.name, sc.code, p.code
 ),
 ranked AS (
     SELECT
         service_category,
+        service_category_code,
         vendor,
         spend_amount,
         spend_millions,
@@ -30,4 +32,7 @@ SELECT
     spend_millions,
     total_spend_millions
 FROM ranked
-ORDER BY total_spend_millions DESC, service_category, vendor
+-- Unknown is unattributed spend, not a service, so it's pinned to the end rather
+-- than competing for position by size (false sorts before true). The chart takes
+-- its bar order from this row order.
+ORDER BY (service_category_code = 'unknown'), total_spend_millions DESC, service_category, vendor
