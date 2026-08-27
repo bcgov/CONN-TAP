@@ -4,8 +4,21 @@ import { describe, expect, it, vi } from "vitest";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
 
 vi.mock("@/components/chart-download-button", () => ({
-  ChartDownloadButton: ({ title, label }: { title: string; label?: string }) => (
-    <button data-testid="download-btn" data-title={title} data-label={label ?? ""}>
+  ChartDownloadButton: ({
+    title,
+    label,
+    formats,
+  }: {
+    title: string;
+    label?: string;
+    formats?: string[];
+  }) => (
+    <button
+      data-testid="download-btn"
+      data-title={title}
+      data-label={label ?? ""}
+      data-formats={formats?.join(",") ?? ""}
+    >
       {label ?? "Download chart"}
     </button>
   ),
@@ -94,7 +107,7 @@ describe("CustomDashboardChart", () => {
       expect(screen.getByRole("heading", { name: "My heading" })).toBeInTheDocument();
     });
 
-    it("hides the download button on the table tab", async () => {
+    it("keeps the download button available on the table tab", async () => {
       const user = userEvent.setup();
       renderWithTable();
 
@@ -102,7 +115,39 @@ describe("CustomDashboardChart", () => {
 
       await user.click(screen.getByRole("tab", { name: "Table" }));
 
-      expect(screen.queryByTestId("download-btn")).not.toBeInTheDocument();
+      expect(screen.getByTestId("download-btn")).toBeInTheDocument();
+    });
+
+    it("switches to xls/csv/png/jpeg/pdf order on the table tab", async () => {
+      const user = userEvent.setup();
+      renderWithTable();
+
+      // Graph tab stays image-only, even with csvData passed — an explicit
+      // default (rather than leaving `formats` undefined) is what stops
+      // ChartDownloadButton from adding csv/xls on its own.
+      expect(screen.getByTestId("download-btn")).toHaveAttribute(
+        "data-formats",
+        "png,jpeg,pdf",
+      );
+
+      await user.click(screen.getByRole("tab", { name: "Table" }));
+
+      expect(screen.getByTestId("download-btn")).toHaveAttribute(
+        "data-formats",
+        "xls,csv,png,jpeg,pdf",
+      );
+    });
+
+    it("lets tableFormats override the table tab's default order", async () => {
+      const user = userEvent.setup();
+      renderWithTable({ tableFormats: ["csv", "pdf"] });
+
+      await user.click(screen.getByRole("tab", { name: "Table" }));
+
+      expect(screen.getByTestId("download-btn")).toHaveAttribute(
+        "data-formats",
+        "csv,pdf",
+      );
     });
 
     it("points each tab at the panel it controls", () => {
