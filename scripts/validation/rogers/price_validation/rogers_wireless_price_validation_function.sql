@@ -100,15 +100,18 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- Check accounting-style negative values like ($12.34)
-    IF v_text LIKE '(%' AND v_text LIKE '%)' THEN
-        v_parentheses_negative := true;
-    END IF;
-
     -- Clean common money characters
     v_clean := v_text;
     v_clean := replace(v_clean, ',', '');
     v_clean := replace(v_clean, '$', '');
+    v_clean := btrim(v_clean);
+
+    -- Check accounting-style negative values like (12.34)
+    IF v_clean LIKE '(%' AND v_clean LIKE '%)' THEN
+        v_parentheses_negative := true;
+    END IF;
+
+    -- Remove parentheses before extracting the numeric value
     v_clean := replace(v_clean, '(', '');
     v_clean := replace(v_clean, ')', '');
     v_clean := btrim(v_clean);
