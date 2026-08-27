@@ -208,6 +208,7 @@ $$;
 -- A value matching a BGE alias (the org name repeated in the sub-BGE column, incl. seeded
 -- school districts) is a known entity and excluded; anything else -- including unseeded
 -- school districts -- surfaces here so it can be added to the seeds.
+DROP FUNCTION IF EXISTS raw_data.rogers_cellular_unknown_sub_bge(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_unknown_sub_bge(p_month date DEFAULT NULL)
 RETURNS TABLE (unknown_sub_bge text)
 LANGUAGE sql AS $$
