@@ -144,7 +144,7 @@ $$;
 --   Missing Service ID from Report
 --   Difference calculation
 -- =========================================================
-CREATE OR REPLACE FUNCTION reporting.validate_rogers_cellular_prices()
+CREATE OR REPLACE FUNCTION reporting.validate_rogers_cellular_prices(p_month date DEFAULT NULL)
 RETURNS TABLE (
     invoice_date date,
     price_book_service_id text,
@@ -187,6 +187,8 @@ report_prepared AS (
         s.hardware,
         s.others
     FROM raw_data.raw_rogers_spend_cellular s
+    WHERE p_month IS NULL
+       OR date_trunc('month', s.invoice_date) = date_trunc('month', p_month)
 
 ),
 
@@ -301,7 +303,7 @@ $$;
 --
 -- Equivalent to your Python Summary sheet
 -- =========================================================
-CREATE OR REPLACE FUNCTION reporting.validate_rogers_cellular_summary()
+CREATE OR REPLACE FUNCTION reporting.validate_rogers_cellular_summary(p_month date DEFAULT NULL)
 RETURNS TABLE (
     metric text,
     value bigint
@@ -312,7 +314,7 @@ $$
 WITH comparison AS (
 
     SELECT *
-    FROM reporting.validate_rogers_cellular_prices()
+    FROM reporting.validate_rogers_cellular_prices(p_month)
 
 ),
 
@@ -321,6 +323,10 @@ zero_billed AS (
     SELECT count(*) AS cnt
     FROM raw_data.raw_rogers_spend_cellular
     WHERE billed_amount_pre_tax = 0
+      AND (
+        p_month IS NULL
+        OR date_trunc('month', invoice_date) = date_trunc('month', p_month)
+      )
 
 ),
 
