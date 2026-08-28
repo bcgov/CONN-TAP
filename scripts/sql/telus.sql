@@ -94,7 +94,10 @@ bucketed AS (
   FROM flagged
   WHERE is_included
     AND month_start IS NOT NULL
-    AND (NOT is_hw OR is_wireless)
+    -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
+    -- charges too); a hardware-detail-text row is only trusted as cellular
+    -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
+    AND (NOT is_hw OR is_wireless OR sid_n = '164')
 )
 SELECT
   'telus'::text AS provider,
