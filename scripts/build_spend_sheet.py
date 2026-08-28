@@ -11,7 +11,7 @@ Organized into 6 fillable categories:
   6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
 
 Run:  python3 scripts/build_spend_sheet.py
-Output: scripts/spend_tracking_<YYYY_MM_DD_HHMMAM/PM>.xlsx
+Output: scripts/spend_tracking_<YYYY_MM_DD_HHMMAMPM>.xlsx
 """
 
 import xlsxwriter
