@@ -280,3 +280,228 @@ def write_price_validation_workbook(
     # =========================
 
     wb.save(output_file)
+
+
+def write_wireline_price_validation_workbook(
+    comparison,
+    summary_rows,
+    output_file,
+    missing_service_id_df=None,
+):
+    """
+    Same visual style/structure as write_price_validation_workbook(), adapted
+    for the wireline comparison shape (column names + status values produced
+    by reporting.validate_rogers_wireline_prices(), see rogers_wireline_function.sql).
+
+    comparison: DataFrame with columns "Billing Date", "Price Book Service ID",
+        "Monthly Report Service ID", "Product Line", "Match Status (Service ID)",
+        "Monthly Fixed Fee (from the Price Book)", "Report Rate", "Quantity",
+        "Billed Amount (Pre-Tax)", "Difference (Rate - Monthly Fixed Fee)".
+    summary_rows: list of (label, value) tuples for the Summary sheet.
+    missing_service_id_df: optional wider DataFrame for the "Missing Service ID
+        from Report" sheet. If omitted, comparison filtered to that status is used.
+    """
+    comparison_columns = list(comparison.columns)
+    difference_column = "Difference (Rate - Monthly Fixed Fee)"
+    money_columns = {
+        "Monthly Fixed Fee (from the Price Book)",
+        "Report Rate",
+        "Billed Amount (Pre-Tax)",
+    }
+
+    if missing_service_id_df is not None:
+        missing_service_id_report = missing_service_id_df
+    else:
+        missing_service_id_report = comparison[
+            comparison["Match Status (Service ID)"] == "Missing Service ID from Report"
+        ]
+
+    wb = Workbook()
+
+    views = [
+        ("Complete comparison", comparison, comparison_columns),
+        ("Matched", comparison[comparison["Match Status (Service ID)"] == "Matched"], comparison_columns),
+        (
+            "Rate Mismatch",
+            comparison[comparison["Match Status (Service ID)"] == "Rate Mismatch"],
+            comparison_columns,
+        ),
+        (
+            "Missing from Price Book",
+            comparison[comparison["Match Status (Service ID)"] == "Missing from Price Book"],
+            comparison_columns,
+        ),
+        (
+            "Missing Report Rate",
+            comparison[comparison["Match Status (Service ID)"] == "Missing Report Rate"],
+            comparison_columns,
+        ),
+        (
+            "Missing Service ID from Report",
+            missing_service_id_report,
+            list(missing_service_id_report.columns),
+        ),
+    ]
+
+    header_fill = PatternFill("solid", fgColor="1F4E78")
+    header_font = Font(color="FFFFFF", bold=True)
+
+    status_fills = {
+        "Matched": PatternFill("solid", fgColor="E2F0D9"),
+        "Rate Mismatch": PatternFill("solid", fgColor="FCE4D6"),
+        "Missing from Price Book": PatternFill("solid", fgColor="FCE4D6"),
+        "Missing Report Rate": PatternFill("solid", fgColor="FFF2CC"),
+        "Missing Service ID from Report": PatternFill("solid", fgColor="FFF2CC"),
+    }
+
+    used_table_names = set()
+
+    for sheet_index, (sheet_name, df, sheet_columns) in enumerate(views):
+        if sheet_index == 0:
+            ws = wb.active
+        else:
+            ws = wb.create_sheet(sheet_name[:31])
+
+        ws.title = sheet_name[:31]
+        ws.sheet_view.showGridLines = False
+        ws.freeze_panes = "A2"
+
+        # Headers
+        for col_index, header in enumerate(sheet_columns, start=1):
+            cell = ws.cell(row=1, column=col_index, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True,
+            )
+
+        status_col_index = None
+        fee_col_letter = None
+        rate_col_letter = None
+
+        if "Match Status (Service ID)" in sheet_columns:
+            status_col_index = sheet_columns.index("Match Status (Service ID)") + 1
+
+        if "Monthly Fixed Fee (from the Price Book)" in sheet_columns:
+            fee_col_letter = get_column_letter(
+                sheet_columns.index("Monthly Fixed Fee (from the Price Book)") + 1
+            )
+
+        if "Report Rate" in sheet_columns:
+            rate_col_letter = get_column_letter(
+                sheet_columns.index("Report Rate") + 1
+            )
+
+        # Data rows
+        for row_index, row in enumerate(df.itertuples(index=False), start=2):
+            for col_index, value in enumerate(row, start=1):
+                cell = ws.cell(row=row_index, column=col_index, value=value)
+                cell.alignment = Alignment(
+                    horizontal="right",
+                    vertical="top",
+                    wrap_text=True,
+                )
+
+                column_name = sheet_columns[col_index - 1]
+
+                if column_name in money_columns:
+                    cell.number_format = '$#,##0.00;[Red]-$#,##0.00;-'
+
+                if column_name == difference_column:
+                    if fee_col_letter and rate_col_letter:
+                        cell.value = (
+                            f'=IF(OR({fee_col_letter}{row_index}="",'
+                            f'{rate_col_letter}{row_index}=""),"",'
+                            f'{rate_col_letter}{row_index}-{fee_col_letter}{row_index})'
+                        )
+                    cell.number_format = '$#,##0.00;$#,##0.00;-'
+
+            if status_col_index:
+                status_cell = ws.cell(row=row_index, column=status_col_index)
+                fill = status_fills.get(status_cell.value)
+                if fill:
+                    status_cell.fill = fill
+
+        # Column widths
+        for col_index, header in enumerate(sheet_columns, start=1):
+            width = max(14, min(42, len(str(header)) + 4))
+            ws.column_dimensions[get_column_letter(col_index)].width = width
+
+        ws.row_dimensions[1].height = 36
+
+        # Add Excel table
+        max_row = max(1, len(df) + 1)
+        max_col = len(sheet_columns)
+        table_ref = f"A1:{get_column_letter(max_col)}{max_row}"
+
+        if max_row >= 2 and max_col >= 1:
+            base_table_name = re.sub(r"[^A-Za-z0-9_]", "_", sheet_name[:20]).strip("_")
+
+            if not base_table_name:
+                base_table_name = f"Table{sheet_index + 1}"
+
+            table_name = base_table_name
+            suffix = 1
+            while table_name in used_table_names:
+                suffix += 1
+                table_name = f"{base_table_name}_{suffix}"
+
+            used_table_names.add(table_name)
+
+            table = Table(displayName=table_name, ref=table_ref)
+
+            style = TableStyleInfo(
+                name="TableStyleMedium2",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+
+            table.tableStyleInfo = style
+            ws.add_table(table)
+
+        # Highlight non-zero differences only on sheets that have the Difference column
+        if difference_column in sheet_columns and max_row >= 2:
+            difference_col = get_column_letter(
+                sheet_columns.index(difference_column) + 1
+            )
+
+            red_fill = PatternFill("solid", fgColor="FFC7CE")
+            red_font = Font(color="E06666", bold=True)
+
+            ws.conditional_formatting.add(
+                f"{difference_col}2:{difference_col}{max_row}",
+                FormulaRule(
+                    formula=[
+                        f'AND(ISNUMBER({difference_col}2),ABS({difference_col}2)>0.005)'
+                    ],
+                    fill=red_fill,
+                    font=red_font,
+                ),
+            )
+
+    # =========================
+    # Add Summary sheet
+    # =========================
+
+    summary = wb.create_sheet("Summary")
+    summary.sheet_view.showGridLines = False
+
+    summary["A1"] = "Summary"
+    summary["A1"].font = Font(bold=True, size=14, color="1F4E78")
+
+    for row_index, (label, value) in enumerate(summary_rows, start=3):
+        summary.cell(row=row_index, column=1, value=label).font = Font(bold=True)
+        summary.cell(row=row_index, column=2, value=value)
+
+    summary.column_dimensions["A"].width = 46
+    summary.column_dimensions["B"].width = 18
+
+    # =========================
+    # Save workbook
+    # =========================
+
+    wb.save(output_file)
