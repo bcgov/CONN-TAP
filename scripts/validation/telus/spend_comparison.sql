@@ -144,8 +144,8 @@ bucketed AS (
     month_start,
     amount,
     CASE
-      WHEN is_hw THEN 'cellular_hardware'
-      WHEN sid_n IN ('164','130') OR is_wireless THEN 'cellular_plans'
+      WHEN is_hw OR sid_n = '164' THEN 'cellular_hardware'
+      WHEN sid_n = '130' OR is_wireless THEN 'cellular_plans'
       WHEN sid_n IN ('1001', '103') THEN 'data'
       WHEN sid_n IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'

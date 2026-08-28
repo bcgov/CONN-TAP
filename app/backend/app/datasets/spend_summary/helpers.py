@@ -118,7 +118,10 @@ def _aggregate(
     """
     for r in df.itertuples(index=False):
         bge_id = int(r.bge_id)
+        # Cellular Hardware displays as part of Cellular in UI.
         cat = str(r.service_category_code)
+        if cat == "cellular_hardware":
+            cat = "cellular"
         millions = to_float(r.spend_millions)
 
         bge = bges.setdefault(

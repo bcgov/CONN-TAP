@@ -11,7 +11,7 @@ Organized into 6 fillable categories:
   6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
 
 Run:  python3 scripts/build_spend_sheet.py
-Output: scripts/spend_tracking.xlsx
+Output: scripts/spend_tracking_<YYYY_MM_DD_HHMMAM/PM>.xlsx
 """
 
 import xlsxwriter
@@ -40,7 +40,10 @@ from tsma import load_tsma_data, load_tsma_lite_data, write_tsma_detail_row
 from tsma_other import load_tsma_other, build_oos_section
 
 import os
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "spend_tracking.xlsx")
+from datetime import datetime
+
+TIMESTAMP = datetime.now().strftime("%Y_%m_%d_%I%M%p")
+OUTPUT_PATH = os.path.join(os.path.dirname(__file__), f"spend_tracking_{TIMESTAMP}.xlsx")
 
 # ---------------------------------------------------------------------------
 # TSMA BGE sub-row definitions
