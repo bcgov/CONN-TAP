@@ -38,15 +38,18 @@ _sa.orm = _orm
 
 
 # ---- pandas -----------------------------------------------------------------
-_pd = _ensure("pandas")
+# Real pandas is installed in CI
+try:
+    import pandas as _pd  # noqa: F401
+except ImportError:
+    _pd = _ensure("pandas")
 
+    class _DataFrame:
+        def __init__(self, *a, **k) -> None:
+            ...
 
-class _DataFrame:
-    def __init__(self, *a, **k) -> None:
-        ...
+    _pd.DataFrame = _DataFrame
 
-
-_pd.DataFrame = _DataFrame
 # Dataset helpers call ``pd.notna`` to spot missing ids; tests feed ``None`` for
 # those, so identity is a faithful enough stand-in for the real NaN check.
 if not hasattr(_pd, "notna"):

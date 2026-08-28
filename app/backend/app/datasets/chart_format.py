@@ -14,11 +14,26 @@ def to_float(value: Any) -> float:
 
 
 def fmt_spend(millions: float) -> str:
-    if millions == 0:
-        return ""
-    if millions >= 1:
-        return f"${millions:.1f}M"
-    thousands = millions * 1000
-    if thousands >= 1:
-        return f"${thousands:.1f}K"
-    return f"${millions * 1_000_000:,.0f}"
+    """Format a spend figure, keeping small and negative amounts readable.
+
+    Every non-null amount gets a label, down to cents and including an exact
+    $0 — a category whose charges and credits cancel (Unknown, mostly Rogers
+    late fees and their reversals) would otherwise render as a bar with no
+    number, which reads as broken rather than as balanced. Callers pass None
+    instead when a provider has no row at all; that is what stays unlabelled.
+    """
+    dollars = millions * 1_000_000
+    magnitude = abs(dollars)
+    if magnitude == 0:
+        return "$0"
+    if magnitude >= 1_000_000:
+        figure = f"${magnitude / 1_000_000:.1f}M"
+    elif magnitude >= 1_000:
+        figure = f"${magnitude / 1_000:.1f}K"
+    elif magnitude >= 1:
+        figure = f"${magnitude:,.0f}"
+    else:
+        figure = f"${magnitude:.2f}"
+    # Accounting parentheses for credits: labels read "Rogers - $2.7K", so a
+    # leading minus would render as "Rogers - -$2.7K".
+    return f"({figure})" if dollars < 0 else figure

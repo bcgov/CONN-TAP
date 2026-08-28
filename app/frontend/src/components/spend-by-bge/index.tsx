@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ChartDataTable } from "@/components/chart-data-table";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
+import type { CsvData } from "@/components/chart-download-button";
 import {
   bgeRowsWithTotals,
   VENDOR_COLOURS,
@@ -112,6 +113,16 @@ const BgeTable = ({ chart, rows }: { chart: BgeChart; rows: BgeRow[] }) => {
   );
 };
 
+const buildCsvData = (chart: BgeChart, rows: BgeRow[]): CsvData => ({
+  headers: ["BGE", "Organization", ...chart.vendors, "Total ($M)"],
+  rows: rows.map((row) => [
+    row.bge_code,
+    row.organization_name,
+    ...chart.vendors.map((vendor) => Number(row[vendor] ?? 0)),
+    row._total,
+  ]),
+});
+
 export const SpendByBge = ({
   chart,
   dateRangeLabel,
@@ -127,6 +138,7 @@ export const SpendByBge = ({
         title="Spend by BGE"
         label="Download spend by BGE chart as image"
         tabsLabel="BGE spend view"
+        csvData={chart ? buildCsvData(chart, rows) : undefined}
         state={{
           isLoading,
           isError,

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ChartDataTable } from "@/components/chart-data-table";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
+import type { CsvData } from "@/components/chart-download-button";
 import { displaySector, type SectorChart, type SectorSlice } from "@/lib/chart-utils";
 import { fmtMillions } from "@/lib/format-utils";
 import {
@@ -117,6 +118,15 @@ const SectorTable = ({ chart }: { chart: SectorChart }) => {
   return <ChartDataTable columns={columns} data={chart.data} />;
 };
 
+const buildCsvData = (chart: SectorChart): CsvData => ({
+  headers: ["Sector", "Spend ($M)", "Share (%)"],
+  rows: chart.data.map((slice) => [
+    displaySector(slice.sector),
+    slice.spend_millions,
+    slice.percentage,
+  ]),
+});
+
 export const SpendBySector = ({
   chart,
   dateRangeLabel,
@@ -128,6 +138,7 @@ export const SpendBySector = ({
       title="Telecom Spend Share by Sector"
       label="Download spend by sector chart as image"
       tabsLabel="Sector spend view"
+      csvData={chart ? buildCsvData(chart) : undefined}
       state={{
         isLoading,
         isError,

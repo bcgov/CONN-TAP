@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ChartDataTable } from "@/components/chart-data-table";
 import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
+import type { CsvData } from "@/components/chart-download-button";
 import {
   applyOutsideLabels,
   plotlyCategoryRows,
@@ -91,6 +92,15 @@ const CategoryTable = ({
   );
 };
 
+const buildCsvData = (providers: string[], rows: CategoryRow[]): CsvData => ({
+  headers: ["Service category", ...providers, "Total ($M)"],
+  rows: rows.map((row) => [
+    row.category,
+    ...providers.map((provider) => Number(row[provider] ?? 0)),
+    row.total,
+  ]),
+});
+
 export const SpendByCategory = ({
   chart,
   dateRangeLabel,
@@ -107,6 +117,7 @@ export const SpendByCategory = ({
         title="Spend by Service Category"
         label="Download spend by service category chart as image"
         tabsLabel="Service category spend view"
+        csvData={chart ? buildCsvData(providers, rows) : undefined}
         state={{
           isLoading,
           isError,

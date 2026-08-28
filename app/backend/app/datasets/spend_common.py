@@ -1,7 +1,6 @@
 """Shared filter models and constants for spend datasets."""
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import Any
 
 import pandas as pd
@@ -9,13 +8,8 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 
-class YearType(StrEnum):
-    calendar = "calendar"
-    fiscal = "fiscal"
-
-
 class Filters(BaseModel):
-    year_type: YearType = YearType.fiscal
+    #: Months to include, as `YYYY-MM` (the grain the timeline selector emits).
     period: list[str] | None = None
 
     @field_validator("period", mode="before")
@@ -37,9 +31,8 @@ def pg_text_array(values: list[str] | None) -> str | None:
 
 
 def run_period_query(service: Any, db: Session, filters: Filters) -> pd.DataFrame:
-    query_name = "calendar" if filters.year_type == "calendar" else "fiscal"
     return service.execute_sql(
         db,
-        query_name,
+        "spend",
         params={"period": pg_text_array(filters.period)},
     )
