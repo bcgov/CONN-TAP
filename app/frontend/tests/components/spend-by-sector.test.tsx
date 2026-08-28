@@ -90,7 +90,7 @@ describe("SpendBySector", () => {
     expect(within(totalRow).getByText("100%")).toBeInTheDocument();
   });
 
-  it("hides the download button on the Table tab", async () => {
+  it("keeps the download button available on the Table tab", async () => {
     const user = userEvent.setup();
     render(<SpendBySector chart={makeChart()} />);
 
@@ -98,7 +98,23 @@ describe("SpendBySector", () => {
 
     await user.click(screen.getByRole("tab", { name: "Table" }));
 
-    expect(screen.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();
+  });
+
+  it("only offers CSV/XLS on the Table tab, not the Graph tab", async () => {
+    const user = userEvent.setup();
+    render(<SpendBySector chart={makeChart()} />);
+
+    await user.click(screen.getByRole("button", { name: /Download/ }));
+    expect(screen.queryByRole("menuitem", { name: "CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "XLS" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("tab", { name: "Table" }));
+
+    await user.click(screen.getByRole("button", { name: /Download/ }));
+    expect(screen.getByRole("menuitem", { name: "CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "XLS" })).toBeInTheDocument();
   });
 
   it("renders the loading state", () => {
