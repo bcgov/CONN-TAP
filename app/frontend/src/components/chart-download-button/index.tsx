@@ -14,13 +14,29 @@ import { toJpeg, toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import styles from "./chart-download-button.module.css";
 
-type ExportFormat = "png" | "jpeg" | "pdf";
+export type ExportFormat = "png" | "jpeg" | "pdf" | "csv" | "xls";
 
-const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
-  { value: "png", label: "PNG" },
-  { value: "jpeg", label: "JPEG" },
-  { value: "pdf", label: "PDF" },
-];
+export type CsvData = {
+  headers: string[];
+  rows: (string | number)[][];
+};
+
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+  png: "PNG",
+  jpeg: "JPEG",
+  pdf: "PDF",
+  csv: "CSV",
+  xls: "XLS",
+};
+
+// CSV and XLS aren't offered by default — they only show up once `csvData`
+// is passed, or the caller explicitly opts in via `formats`.
+const DEFAULT_FORMATS: ExportFormat[] = ["png", "jpeg", "pdf"];
+const TABULAR_FORMATS = new Set<ExportFormat>(["csv", "xls"]);
+const TABULAR_MIME_TYPES: Record<"csv" | "xls", string> = {
+  csv: "text/csv;charset=utf-8;",
+  xls: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 
 const IMAGE_OPTIONS = {
   backgroundColor: "#ffffff",
@@ -29,12 +45,32 @@ const IMAGE_OPTIONS = {
 };
 const IMAGE_EXPORTERS = { png: toPng, jpeg: toJpeg };
 
-const triggerImageDownload = (href: string, filename: string) => {
+const triggerDownload = (href: string, filename: string) => {
   const link = document.createElement("a");
   link.download = filename;
   link.href = href;
   link.click();
 };
+
+// Same workbook feeds both writers, so CSV gets exceljs/fast-csv's escaping
+// (quotes, embedded newlines, etc.) instead of a hand-rolled regex.
+const buildTabularBuffer = async (
+  format: "csv" | "xls",
+  { headers, rows }: CsvData,
+) => {
+  const { Workbook } = await import("exceljs");
+  const workbook = new Workbook();
+  const sheet = workbook.addWorksheet("Sheet1");
+  sheet.addRow(headers);
+  for (const row of rows) sheet.addRow(row);
+  return format === "csv"
+    ? workbook.csv.writeBuffer()
+    : workbook.xlsx.writeBuffer();
+};
+
+const isTabularFormat = (
+  format: ExportFormat,
+): format is "csv" | "xls" => TABULAR_FORMATS.has(format);
 
 // filename format: {chart title} - YYYY Mon DD hh.mmaaa.{ext}
 const buildFilename = (title: string, extension: string) =>
@@ -47,6 +83,11 @@ type ChartDownloadButtonProps = {
   // When false, render in normal layout flow (e.g. inside a toolbar row)
   // instead of pinned to the card's top-right corner.
   floating?: boolean;
+  // Which export formats to offer
+  formats?: ExportFormat[];
+  // Row data for the CSV/XLS options. Passing this makes both available even
+  // without listing them in `formats`.
+  csvData?: CsvData;
 };
 
 export const ChartDownloadButton = ({
@@ -54,12 +95,38 @@ export const ChartDownloadButton = ({
   title,
   label = "Download chart",
   floating = true,
+  formats,
+  csvData,
 }: ChartDownloadButtonProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const resolvedFormats =
+    formats ??
+    (csvData ? [...DEFAULT_FORMATS, ...TABULAR_FORMATS] : DEFAULT_FORMATS);
+  const formatOptions = resolvedFormats
+    .filter((value) => !isTabularFormat(value) || csvData)
+    .map((value) => ({ value, label: FORMAT_LABELS[value] }));
 
   const handleDownload = async (format: ExportFormat) => {
+    if (isDownloading) return;
+
+    if (isTabularFormat(format)) {
+      if (!csvData) return;
+      setIsDownloading(true);
+      try {
+        const content = await buildTabularBuffer(format, csvData);
+        const blob = new Blob([content], { type: TABULAR_MIME_TYPES[format] });
+        const url = URL.createObjectURL(blob);
+        const extension = format === "csv" ? "csv" : "xlsx";
+        triggerDownload(url, buildFilename(title, extension));
+        URL.revokeObjectURL(url);
+      } finally {
+        setIsDownloading(false);
+      }
+      return;
+    }
+
     const node = targetRef.current;
-    if (!node || isDownloading) return;
+    if (!node) return;
 
     setIsDownloading(true);
     try {
@@ -77,7 +144,7 @@ export const ChartDownloadButton = ({
       } else {
         // format PNG or JPEG
         const dataUrl = await IMAGE_EXPORTERS[format](node, IMAGE_OPTIONS);
-        triggerImageDownload(dataUrl, buildFilename(title, format));
+        triggerDownload(dataUrl, buildFilename(title, format));
       }
     } finally {
       setIsDownloading(false);
@@ -100,7 +167,7 @@ export const ChartDownloadButton = ({
             className={styles.menu}
             onAction={(key) => handleDownload(key as ExportFormat)}
           >
-            {FORMAT_OPTIONS.map((option) => (
+            {formatOptions.map((option) => (
               <MenuItem
                 key={option.value}
                 id={option.value}

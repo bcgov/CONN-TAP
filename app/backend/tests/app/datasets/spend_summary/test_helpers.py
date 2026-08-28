@@ -71,8 +71,8 @@ SPEND = FakeFrame([
     spend_row(1, "Alpha", "data", 10.0, 100, "Des A1", "service_designee", parent=10),
     spend_row(1, "Alpha", "voice", 2.0, 100, "Des A1", "service_designee", parent=10),
     spend_row(1, "Alpha", "cellular", 3.0, 101, "Des A2", "service_designee", parent=10),
-    spend_row(1, "Alpha", "temporary_services", 4.0, 11, "Sub B", "sub_org"),
-    spend_row(1, "Alpha", "other_professional_services", 6.0, 12, "Lone SD", "service_designee"),
+    spend_row(1, "Alpha", "time_limited_services", 4.0, 11, "Sub B", "sub_org"),
+    spend_row(1, "Alpha", "professional_services", 6.0, 12, "Lone SD", "service_designee"),
     # BGE-direct spend (no sub_bge), split across the two source families so the
     # residue becomes two "BGE" lines: 0.6 NGTA + 0.4 TSMA = 1.0 total voice.
     spend_row(1, "Alpha", "voice", 0.6, source_group="ngta"),
@@ -95,6 +95,9 @@ def test_build_summary_table():
     rows = rows_by_id(result)
 
     assert [c["code"] for c in table["categories"]] == list(CATEGORY_CODES)
+    # Unattributed spend sits in its own trailing column, never folded into a
+    # real service category.
+    assert table["categories"][-1] == {"code": "unknown", "name": "Unknown"}
     assert table["total_millions"] == 51.0  # 31 under Alpha + 20 under Beta
 
     alpha = rows["bge:1"]
@@ -105,8 +108,9 @@ def test_build_summary_table():
         "voice": 8.0,  # 5 Sub A + 2 Des A1 + 1 direct
         "data": 10.0,
         "cellular": 3.0,
-        "other_professional_services": 6.0,
-        "temporary_services": 4.0,
+        "professional_services": 6.0,
+        "time_limited_services": 4.0,
+        "unknown": 0.0,
     }
     assert alpha["total"] == 31.0
 
@@ -140,10 +144,10 @@ def test_build_summary_table():
     assert lone["type"] == "Service Designee"
     assert lone["level"] == 1
     assert lone["parent_id"] == "bge:1"
-    assert lone["values"]["other_professional_services"] == 6.0
+    assert lone["values"]["professional_services"] == 6.0
 
     # Childless sub-org: a plain level-1 row, no residue.
-    assert rows["sub:11"]["values"]["temporary_services"] == 4.0
+    assert rows["sub:11"]["values"]["time_limited_services"] == 4.0
     assert "sub:11:direct" not in rows
 
     # BGE spend not booked to any sub-org becomes a BGE residue row per source
