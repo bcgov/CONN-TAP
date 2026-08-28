@@ -100,7 +100,7 @@ AS $$
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
-      OR trim(both FROM t.source) = 'Wireless'
+      OR lower(trim(both FROM t.source)) = 'wireless'
       OR lower(trim(both FROM t.source)) = 'onetime'
     )
     AND t.detail_description IS NOT NULL
@@ -173,7 +173,7 @@ AS $$
   FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireless'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireless'
         AND trim(both FROM COALESCE(t.source_id, '')) = '130'
       )
       OR (
@@ -181,7 +181,7 @@ AS $$
         AND trim(both FROM COALESCE(t.source_id, '')) = '164'
       )
       OR (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireline'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireline'
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
