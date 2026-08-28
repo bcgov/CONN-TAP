@@ -22,13 +22,17 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "app/backend/**"
-      - "app/frontend/**"
-      - "helm/**"
-      - ".github/workflows/app-build.yaml"
-      - ".github/workflows/app-deploy-dev.yml"
-      - ".github/workflows/app-deploy-test.yml"
+    # No path filter: every merge to main must produce a SHA-tagged image,
+    # otherwise app-deploy-dev/test (which deploy the exact merge SHA) have
+    # nothing to find in ECR and hang waiting for an image that never comes.
+    # To restore path-scoped builds, re-add:
+    # paths:
+    #   - "app/backend/**"
+    #   - "app/frontend/**"
+    #   - "helm/**"
+    #   - ".github/workflows/app-build.yaml"
+    #   - ".github/workflows/app-deploy-dev.yml"
+    #   - ".github/workflows/app-deploy-test.yml"
 
 permissions:
   contents: read
