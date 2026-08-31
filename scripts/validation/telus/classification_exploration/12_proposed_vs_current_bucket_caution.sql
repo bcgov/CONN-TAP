@@ -30,7 +30,8 @@ pb_bucket AS (
   SELECT
     s.raw_id,
     CASE
-      WHEN s.source = 'Wireless' OR s.source_id IN ('164', '130') THEN 'cellular_plans'
+      WHEN s.source_id = '164' THEN 'cellular_hardware'
+      WHEN s.source = 'Wireless' OR s.source_id = '130' THEN 'cellular_plans'
       WHEN d.service_id IS NOT NULL THEN 'data'
       WHEN v.service_id IS NOT NULL THEN 'voice'
       WHEN dd.service_id IS NOT NULL THEN 'data'
@@ -63,7 +64,8 @@ current_bucket AS (
   SELECT
     raw_id,
     CASE
-      WHEN source = 'Wireless' OR source_id IN ('164', '130') THEN 'cellular_plans'
+      WHEN source_id = '164' THEN 'cellular_hardware'
+      WHEN source = 'Wireless' OR source_id = '130' THEN 'cellular_plans'
       WHEN source_id IN ('1001', '103') THEN 'data'
       WHEN source_id IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'
@@ -85,7 +87,7 @@ SELECT
 FROM spend s
 JOIN current_bucket c ON c.raw_id = s.raw_id
 JOIN deduped_proposed p ON p.raw_id = s.raw_id
-WHERE c.current_bucket IN ('cellular_plans', 'data', 'voice')
+WHERE c.current_bucket IN ('cellular_plans', 'cellular_hardware', 'data', 'voice')
   AND c.current_bucket <> p.proposed_bucket
 GROUP BY 1, 2
 ORDER BY total_amount DESC;

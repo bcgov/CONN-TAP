@@ -72,7 +72,8 @@ current_bucket AS (
   SELECT
     raw_id,
     CASE
-      WHEN source = 'Wireless' OR source_id IN ('164', '130') THEN 'cellular_plans'
+      WHEN source_id = '164' THEN 'cellular_hardware'
+      WHEN source = 'Wireless' OR source_id = '130' THEN 'cellular_plans'
       WHEN source_id IN ('1001', '103') THEN 'data'
       WHEN source_id IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'

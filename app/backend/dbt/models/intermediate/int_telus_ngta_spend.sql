@@ -37,10 +37,13 @@ filtered as (
             or source_service_description not in (select detail_description from telus_excluded_details)
         )
 
-        -- Hardware rows: keep only if wireless family; all other rows: drop excluded categories
+        -- Hardware rows: keep only if wireless-plan-sourced or explicitly source_id 164
+        -- (the confirmed cellular one-time equipment code); all other rows: drop excluded
+        -- categories. 'onetime' isn't a safe signal by itself -- it covers non-cellular
+        -- one-time charges too, so it isn't accepted here on its own.
         and case
             when source_service_description in (select detail_description from telus_hardware_details)
-                then source_service_family = 'wireless'
+                then source_service_family = 'wireless' or source_service_id = '164'
             else coalesce(statement_category, '') not in (
                 select statement_category from telus_excluded_categories
             )
