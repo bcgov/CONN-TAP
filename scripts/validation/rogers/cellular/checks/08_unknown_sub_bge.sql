@@ -5,23 +5,20 @@
 -- matching uses raw_data.norm_key(text) from helpers/_shared.sql. p_month := NULL scans
 -- every month; pass any date within a month to restrict to that month.
 
--- 8) Unknown_SUB-BGE: SUB-BGE values that resolve to neither a real SUB-BGE nor a real BGE.
--- A value matching a BGE alias (the org name repeated in the sub-BGE column, incl. seeded
--- school districts) is a known entity and excluded; anything else -- including unseeded
--- school districts -- surfaces here so it can be added to the seeds.
+-- 8) Unknown_SUB-BGE: any non-blank SUB-BGE value that does not resolve, via
+-- seeds.sub_bge_alias_map, to an actual reference_data.sub_bge record for that BGE.
+-- This includes a BGE's own name repeated in the SUB-BGE column (e.g. 'BC Hydro' or
+-- 'BC Lottery') -- that is not technically wrong, but it is not a real SUB-BGE either
+-- (whether or not the BGE has real SUB-BGEs elsewhere, e.g. BC Hydro's Powertech/Power Ex),
+-- so it is flagged the same as any other unrecognized value.
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_unknown_sub_bge(p_month date DEFAULT NULL)
-RETURNS TABLE (unknown_sub_bge text)
+RETURNS TABLE (bge text, unknown_sub_bge text)
 LANGUAGE sql AS $$
-    SELECT DISTINCT v.sub_bge_norm::text
+    SELECT DISTINCT v.bge_original::text, v.sub_bge_norm::text
     FROM raw_data.v_rogers_cellular_validated v
     WHERE v.sub_bge_norm IS NOT NULL
       AND v.sub_bge_norm <> ''
       AND v.expected_bge IS NULL
       AND (p_month IS NULL OR date_trunc('month', v.invoice_date::date) = date_trunc('month', p_month))
-      AND NOT EXISTS (
-          SELECT 1
-          FROM seeds.bge_alias_map bam
-          WHERE raw_data.norm_key(bam.raw_name) = v.sub_bge_norm
-      )
-    ORDER BY 1
+    ORDER BY 1, 2
 $$;

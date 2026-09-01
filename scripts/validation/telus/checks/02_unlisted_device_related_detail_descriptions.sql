@@ -9,6 +9,8 @@
 -- detail_description values that look device/hardware/equipment/Easy Payment related must match
 -- a known allowlist (after trim). Heuristic: hardware, equipment (incl. typo equipement), easy pay /
 -- easypay, or device (case-insensitive). Only rows whose source is NULL/blank or Wireless.
+-- Onetime (source_id 164, the cellular one-time equipment code, is tagged Onetime, not Wireless).
+-- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_unlisted_device_related_detail_descriptions (
@@ -40,7 +42,8 @@ AS $$
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
-      OR trim(both FROM t.source) = 'Wireless'
+      OR lower(trim(both FROM t.source)) = 'wireless'
+      OR lower(trim(both FROM t.source)) = 'onetime'
     )
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
@@ -62,6 +65,8 @@ AS $$
       'TELUS Easy Payment Balance',
       'Equipment Adjustment'
     )
+    AND t.amount IS NOT NULL
+    AND t.amount <> 0
     AND (
       p_statement_month IS NULL
       OR (

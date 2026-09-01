@@ -42,7 +42,11 @@ BEGIN
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
     b.code AS missing_bge
   FROM reference_data.bge AS b
-  WHERE NOT EXISTS (
+  WHERE b.code <> 'School Districts'
+    -- 'School Districts' is a made-up rollup BGE, not a real billed org (see the comment
+    -- on that row in reference_data/bge.sql) -- excluded so a quiet month for it isn't
+    -- reported as a validation gap.
+    AND NOT EXISTS (
     SELECT 1
     FROM base AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code

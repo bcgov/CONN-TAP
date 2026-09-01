@@ -8,12 +8,17 @@
 -- 4) Missing_BGEs: real BGEs (from reference data) that no report row resolves to.
 -- Presence is tested against the FINAL resolved BGE (bge_actual), which includes SUB-BGE
 -- routing -- so made-up routing targets like 'School Districts' are correctly counted present.
+-- 'School Districts' itself is excluded outright: it's not a real billed org (see the
+-- comment on that row in reference_data/bge.sql), just a rollup bucket for ~90 real
+-- districts, so it going quiet for a month is far weaker signal than any other BGE
+-- going quiet and shouldn't be reported as a validation gap.
 CREATE OR REPLACE FUNCTION raw_data.rogers_data_voice_missing_bges(p_month date DEFAULT NULL)
 RETURNS TABLE (missing_bge text)
 LANGUAGE sql AS $$
     SELECT b.code::text
     FROM reference_data.bge b
-    WHERE NOT EXISTS (
+    WHERE b.code <> 'School Districts'
+      AND NOT EXISTS (
         SELECT 1
         FROM raw_data.v_rogers_data_voice_validated v
         WHERE v.bge_actual = b.code

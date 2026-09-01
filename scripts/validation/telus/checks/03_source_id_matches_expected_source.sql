@@ -6,8 +6,8 @@
 -- included only when p_statement_month IS NULL; they return NULL for contradiction_year /
 -- contradiction_month.
 
--- Expected: source_id 164 or 130 → source 'Wireless'; source_id 1001, 103, 104, 102, or 106
--- → source 'Wireline'. Any other source_id or any source other than those two is flagged.
+-- Expected: source_id 130 → source 'Wireless'; source_id 164 → source 'Onetime'; source_id
+-- 1001, 103, 104, 102, or 106 → source 'Wireline'. Any other pairing is flagged.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_source_id_matches_expected_source (
   p_statement_month date DEFAULT NULL
@@ -33,11 +33,15 @@ AS $$
   FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireless'
-        AND trim(both FROM COALESCE(t.source_id, '')) IN ('164', '130')
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireless'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '130'
       )
       OR (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireline'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'onetime'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '164'
+      )
+      OR (
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireline'
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
