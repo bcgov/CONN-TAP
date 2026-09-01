@@ -50,7 +50,10 @@ Example rules:
 - BC MIN HEALTH → GOV BC  
 
 ### 5. Unknown SUB-BGE Values
-Flags SUB-BGE values that are not defined in the mapping dictionary.
+Flags any non-blank SUB-BGE value that does not resolve to a real reference SUB-BGE. This
+includes a BGE's own name repeated in the SUB-BGE column (e.g. BC Hydro, BC Lottery) -- not
+technically wrong, but not a real SUB-BGE either, whether or not that BGE has real SUB-BGEs
+elsewhere (e.g. BC Hydro's Powertech/Power Ex).
 
 The validation is resilient to:
 - Case differences
