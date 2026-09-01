@@ -100,11 +100,10 @@ VALIDATIONS = [
     ("Post-Tax Issues",
      "Rows where PRE-TAX plus GST/PST does not reconcile to TOTALAMOUNT (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_data_voice_post_tax_issues(%s)"),
-    # Hidden for now -- the detection function still exists in the SQL; uncomment to show it.
-    # ("New-Removed BGEs",
-    #  "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
-    #  "New + Unrecognized, Removed, Still Removed.",
-    #  "SELECT * FROM raw_data.rogers_data_voice_new_removed_detection(%s)"),
+    ("New-Removed BGEs",
+     "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
+     "New + Unrecognized, Removed, Still Removed.",
+     "SELECT * FROM raw_data.rogers_data_voice_new_removed_detection(%s)"),
 ]
 
 
