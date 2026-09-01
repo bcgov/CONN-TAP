@@ -51,9 +51,11 @@ HERE = Path(__file__).resolve().parent
 SCRIPTS_DIR = HERE.parent.parent
 
 # SQL files that contain CREATE [OR REPLACE] FUNCTION definitions to (re)load.
+# checks/*.sql are applied in filename order -- 00_bge_alias_matches.sql defines
+# telus_bge_alias_matches, which several later checks call, so it must load first.
+# checks/13_spend_comparison.sql defines the month-over-month comparison function.
 DDL_FILES = [
-    HERE / "telus_validation.sql",
-    HERE / "spend_comparison.sql",
+    *sorted(HERE.glob("checks/*.sql")),
     HERE / "helpers" / "get_duplicates.sql",
 ]
 
