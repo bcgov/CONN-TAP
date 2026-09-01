@@ -2,7 +2,11 @@
 
 import { useId, useRef, useState } from "react";
 import { Tab, Tabs } from "@mui/material";
-import { ChartDownloadButton } from "@/components/chart-download-button";
+import {
+  ChartDownloadButton,
+  type CsvData,
+  type ExportFormat,
+} from "@/components/chart-download-button";
 import styles from "./custom-dashboard-chart.module.css";
 
 export type ChartState = {
@@ -13,6 +17,9 @@ export type ChartState = {
   errorLabel?: string;
   emptyLabel: string;
 };
+
+const TABLE_FORMATS: ExportFormat[] = ["xls", "csv", "png", "jpeg", "pdf"];
+const GRAPH_FORMATS: ExportFormat[] = ["png", "jpeg", "pdf"];
 
 // Loading / error / empty placeholder, or the view itself when there's data.
 const stateView = (state: ChartState | undefined, view: React.ReactNode) => {
@@ -36,6 +43,9 @@ type CustomDashboardChartProps = {
   // Applied to whichever view is active, so a card declares its loading /
   // error / empty handling once instead of per tab.
   state?: ChartState;
+  formats?: ExportFormat[];
+  tableFormats?: ExportFormat[];
+  csvData?: CsvData;
   children: React.ReactNode;
 };
 
@@ -47,6 +57,9 @@ export function CustomDashboardChart({
   table,
   tabsLabel = "Chart view",
   state,
+  formats,
+  tableFormats,
+  csvData,
   children,
 }: CustomDashboardChartProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -54,15 +67,19 @@ export function CustomDashboardChart({
   // Unique per instance so tab/panel ids stay distinct across cards.
   const baseId = useId();
 
-  // Temp disable download until we add functionality
-  const showDownload = downloadable && (!table || view === 0);
+  const activeFormats =
+    table && view === 1
+      ? (tableFormats ?? TABLE_FORMATS)
+      : (formats ?? GRAPH_FORMATS);
 
-  const downloadButton = showDownload && (
+  const downloadButton = downloadable && (
     <ChartDownloadButton
       targetRef={ref}
       title={title}
       label={label}
       floating={!table}
+      formats={activeFormats}
+      csvData={csvData}
     />
   );
 

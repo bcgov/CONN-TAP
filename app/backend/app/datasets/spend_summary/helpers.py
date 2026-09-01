@@ -22,8 +22,11 @@ CATEGORY_ORDER: tuple[tuple[str, str], ...] = (
     ("voice", "Voice"),
     ("data", "Data"),
     ("cellular", "Cellular"),
-    ("other_professional_services", "Other Professional Services"),
-    ("temporary_services", "Temporary Services"),
+    ("professional_services", "Professional Services"),
+    ("time_limited_services", "Time Limited Services"),
+    # Spend we can't attribute to a real service (eg. Rogers rows with no
+    # productline: late fees, credit memos). Always last.
+    ("unknown", "Unknown"),
 )
 CATEGORY_CODES: tuple[str, ...] = tuple(code for code, _ in CATEGORY_ORDER)
 
@@ -115,7 +118,10 @@ def _aggregate(
     """
     for r in df.itertuples(index=False):
         bge_id = int(r.bge_id)
+        # Cellular Hardware displays as part of Cellular in UI.
         cat = str(r.service_category_code)
+        if cat == "cellular_hardware":
+            cat = "cellular"
         millions = to_float(r.spend_millions)
 
         bge = bges.setdefault(
