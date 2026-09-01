@@ -68,6 +68,7 @@ $$;
 -- detail_description values that look device/hardware/equipment/Easy Payment related must match
 -- a known allowlist (after trim). Heuristic: hardware, equipment (incl. typo equipement), easy pay /
 -- easypay, or device (case-insensitive). Only rows whose source is NULL/blank or Wireless.
+-- Onetime (source_id 164, the cellular one-time equipment code, is tagged Onetime, not Wireless).
 -- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 -- Optional month filter like other telus validators.
 
@@ -100,7 +101,8 @@ AS $$
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
-      OR trim(both FROM t.source) = 'Wireless'
+      OR lower(trim(both FROM t.source)) = 'wireless'
+      OR lower(trim(both FROM t.source)) = 'onetime'
     )
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
@@ -147,8 +149,8 @@ AS $$
     detail_description;
 $$;
 
--- Expected: source_id 164 or 130 → source 'Wireless'; source_id 1001, 103, 104, 102, or 106
--- → source 'Wireline'. Any other source_id or any source other than those two is flagged.
+-- Expected: source_id 130 → source 'Wireless'; source_id 164 → source 'Onetime'; source_id
+-- 1001, 103, 104, 102, or 106 → source 'Wireline'. Any other pairing is flagged.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_source_id_matches_expected_source (
   p_statement_month date DEFAULT NULL
@@ -174,11 +176,15 @@ AS $$
   FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireless'
-        AND trim(both FROM COALESCE(t.source_id, '')) IN ('164', '130')
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireless'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '130'
       )
       OR (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireline'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'onetime'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '164'
+      )
+      OR (
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireline'
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
