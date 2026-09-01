@@ -5,6 +5,13 @@
   z-index: 1;
 }
 
+/* In-flow variant: sits in a normal layout row (e.g. next to tabs) instead of
+   pinned to the card corner. */
+.wrapperInline {
+  position: relative;
+  z-index: 1;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

@@ -42,10 +42,38 @@
   white-space: nowrap;
 }
 
+/* The frame holds two years; older months scroll in from the left. */
+.scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
 .chart {
   cursor: crosshair;
   user-select: none;
   outline: none;
+}
+
+/* Year strip under the month ticks — one band per run of months in a year,
+   sized by month count so it tracks the plot's category spacing. */
+.yearAxis {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+.yearBand {
+  flex-basis: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.15rem 0;
+  font-size: 0.6875rem;
+  color: var(--typography-color-secondary, var(--color-text-hint));
+  text-align: center;
+  background: var(--surface-color-border-light, #f2f2f2);
+  border-radius: 0.125rem;
 }
 
 .chart :global(.recharts-wrapper),

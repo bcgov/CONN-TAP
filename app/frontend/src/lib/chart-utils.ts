@@ -1,6 +1,11 @@
 import type { Data, Layout } from "plotly.js";
 
-export type PlotlyTrace = { name?: string; text?: string[]; x?: unknown[] };
+export type PlotlyTrace = {
+  name?: string;
+  text?: string[];
+  x?: unknown[];
+  y?: unknown[];
+};
 
 export type PlotlyChart = {
   data: Data[];
@@ -66,6 +71,16 @@ export type SectorChart = {
   nameKey: "sector";
 };
 
+// Giving separate display names for some sectors to allow better customization
+const SECTOR_DISPLAY_NAMES: Record<string, string> = {
+  "Gov & ECC": "Gov BC",
+  "Health Authorities": "Health",
+  "Crown Corporations": "Crown Corp",
+};
+
+export const displaySector = (sector: string) =>
+  SECTOR_DISPLAY_NAMES[sector] ?? sector;
+
 export const isSectorChart = (chart: unknown): chart is SectorChart =>
   Boolean(
     chart &&
@@ -86,6 +101,23 @@ export type BgeChart = {
   vendors: string[];
   total_millions: number;
 };
+
+export type BgeRow = BgeBarEntry & { _total: number };
+
+/**
+ * Rows that actually have spend, with their vendor totals summed. Shared by the
+ * BGE graph and table so both show the same set.
+ */
+export const bgeRowsWithTotals = (chart: BgeChart): BgeRow[] =>
+  chart.data
+    .map((entry) => ({
+      ...entry,
+      _total: chart.vendors.reduce(
+        (sum, vendor) => sum + Number(entry[vendor] ?? 0),
+        0,
+      ),
+    }))
+    .filter((entry) => entry._total > 0);
 
 export const isBgeChart = (chart: unknown): chart is BgeChart =>
   Boolean(
@@ -147,4 +179,48 @@ export const applyOutsideLabels = (traces: Data[], activeProviders: Set<string>)
     );
     return { ...trace, text: combined, textposition: "outside" };
   });
+};
+
+export type CategoryRow = {
+  category: string;
+  total: number;
+  [provider: string]: string | number;
+};
+
+/**
+ * Flattens the service-category Plotly traces (one per provider, each with the
+ * categories on x and spend on y) into a row per category for the table view.
+ */
+export const plotlyCategoryRows = (
+  chart: PlotlyChart,
+): { providers: string[]; rows: CategoryRow[] } => {
+  const traces = (chart.data as PlotlyTrace[]).filter(
+    (trace): trace is PlotlyTrace & { name: string } => Boolean(trace.name),
+  );
+  const providers = traces.map((trace) => trace.name);
+
+  const categories: string[] = [];
+  for (const trace of traces) {
+    for (const value of trace.x ?? []) {
+      const category = String(value);
+      if (!categories.includes(category)) categories.push(category);
+    }
+  }
+
+  const rows = categories
+    .map((category) => {
+      const row: CategoryRow = { category, total: 0 };
+      for (const trace of traces) {
+        const index = (trace.x ?? []).findIndex(
+          (value) => String(value) === category,
+        );
+        const spend = index >= 0 ? Number((trace.y ?? [])[index] ?? 0) : 0;
+        row[trace.name] = spend;
+        row.total += spend;
+      }
+      return row;
+    })
+    .filter((row) => row.total > 0);
+
+  return { providers, rows };
 };

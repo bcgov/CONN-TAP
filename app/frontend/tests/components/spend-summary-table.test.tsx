@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { SummaryTable } from "@/lib/chart-utils";
 import { SpendSummaryTable } from "@/components/spend-summary-table";
@@ -10,6 +10,7 @@ import { SpendSummaryTable } from "@/components/spend-summary-table";
 function makeTable(): SummaryTable {
   return {
     total_millions: 30,
+    providers: ["TELUS", "Rogers"],
     categories: [
       { code: "voice", name: "Voice" },
       { code: "data", name: "Data" },
@@ -62,6 +63,15 @@ describe("SpendSummaryTable", () => {
 
     expect(screen.getByText("No data for this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("offers a download of the table", () => {
+    render(<SpendSummaryTable table={makeTable()} />);
+    expect(
+      screen.getByRole("button", {
+        name: "Download spend summary table as image",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("renders the date range label when provided", () => {
@@ -161,6 +171,39 @@ describe("SpendSummaryTable", () => {
 
     await toggle();
     expect(screen.queryByText("Health IT")).not.toBeInTheDocument();
+  });
+
+  it("exports only leaf rows to CSV, excluding roll-up totals", async () => {
+    const user = userEvent.setup();
+    if (!URL.createObjectURL) URL.createObjectURL = vi.fn();
+    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn();
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:fake-url");
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<SpendSummaryTable table={makeTable()} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Download spend summary table as image" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "CSV" }));
+
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalled());
+    const blob = createObjectURL.mock.calls[0][0] as Blob;
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsText(blob);
+    });
+
+    // Leaf rows (no children) are included.
+    expect(text).toContain("Vendor A");
+    expect(text).toContain("Ministry of Education");
+    // Roll-up rows (have children, so their total double-counts the leaves)
+    // are excluded.
+    expect(text).not.toContain("Ministry of Health");
+    expect(text).not.toContain("Health IT");
   });
 
   it("shows sub-$1M spend as whole dollars rather than $0M", () => {

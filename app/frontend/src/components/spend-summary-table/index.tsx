@@ -12,13 +12,20 @@ import {
   type MRT_Row,
 } from "material-react-table";
 import { MinusSquare, PlusSquare } from "lucide-react";
+import { CustomDashboardChart } from "@/components/custom-dashboard-chart";
+import type {
+  CsvData,
+  ExportFormat,
+} from "@/components/chart-download-button";
 import type { SummaryRow, SummaryTable } from "@/lib/chart-utils";
 import { fmtMillions } from "@/lib/format-utils";
 import styles from "./spend-summary-table.module.css";
 
 type Props = {
-  table: SummaryTable;
+  table?: SummaryTable | null;
   dateRangeLabel?: string;
+  isLoading?: boolean;
+  isError?: boolean;
 };
 
 type TreeRow = SummaryRow & { subRows: TreeRow[] };
@@ -42,6 +49,13 @@ const ExpandToggle = ({ row }: { row: MRT_Row<TreeRow> }) => {
   );
 };
 
+// Indent sub-rows (sub-orgs, service designees) so they visually nest under
+const NameCell = ({ row }: { row: MRT_Row<TreeRow> }) => (
+  <span style={{ display: "block", paddingLeft: `${row.depth * 3}ch` }}>
+    {row.original.name}
+  </span>
+);
+
 // Filters
 const nameFilter: MRT_FilterFn<TreeRow> = (row, _columnId, filterValue) => {
   const query = String(filterValue ?? "").trim().toLowerCase();
@@ -59,7 +73,7 @@ const typeFilter: MRT_FilterFn<TreeRow> = (row, _columnId, filterValue) => {
   );
 };
 
-export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
+const SummaryGrid = ({ table }: { table: SummaryTable }) => {
   const [expanded, setExpanded] = useState<MRT_ExpandedState>({});
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<MRT_ColumnFiltersState>([]);
@@ -100,7 +114,7 @@ export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
       filterVariant: "range", // min/max inputs, in millions; default betweenInclusive
       muiTableHeadCellProps: {
         align: "right",
-        // Allow long category headers ("Other Professional Services") to wrap
+        // Allow long category headers ("Professional Services") to wrap
         // rather than forcing the column wide.
         sx: { whiteSpace: "normal" },
       },
@@ -161,9 +175,15 @@ export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
         size: 280,
         minSize: 210,
         grow: false, // fixed; the money columns absorb the leftover width
+        // Long entity names wrap to multiple lines rather than truncating.
+        muiTableHeadCellProps: { sx: { whiteSpace: "normal" } },
+        muiTableBodyCellProps: {
+          sx: { whiteSpace: "normal", overflow: "visible", textOverflow: "clip" },
+        },
         filterVariant: "text",
         filterFn: nameFilter,
         muiFilterTextFieldProps: smallFilterProps,
+        Cell: NameCell,
       },
       {
         accessorKey: "type",
@@ -253,14 +273,80 @@ export const SpendSummaryTable = ({ table, dateRangeLabel }: Props) => {
         : {},
   });
 
-  if (table.rows.length === 0) {
-    return <p className={styles.empty}>No data for this period.</p>;
-  }
-
   return (
     <div className={styles.wrapper}>
-      {dateRangeLabel && <p className={styles.dateRange}>{dateRangeLabel}</p>}
       <MaterialReactTable table={mrt} />
     </div>
   );
 };
+
+const DOWNLOAD_FORMATS: ExportFormat[] = ["xls", "csv", "png", "jpeg", "pdf"];
+
+// CSV export includes leaf rows only (not affected by the tree's
+// expand/collapse state)
+const buildCsvData = (table: SummaryTable): CsvData => {
+  const parentIds = new Set(
+    table.rows
+      .filter((row) => row.parent_id)
+      .map((row) => row.parent_id as string),
+  );
+  const leafRows = table.rows.filter((row) => !parentIds.has(row.id));
+
+  return {
+    headers: [
+      "Name",
+      "Type",
+      ...table.categories.map((category) => category.name),
+      "Total Spend ($M)",
+    ],
+    rows: leafRows.map((row) => [
+      row.name,
+      row.type,
+      ...table.categories.map((category) => row.values[category.code] ?? 0),
+      row.total,
+    ]),
+  };
+};
+
+// The one table-only card: no graph view, so no tab strip — the download button
+// sits pinned to the card corner and captures the table as it's currently
+// filtered and expanded.
+export const SpendSummaryTable = ({
+  table,
+  dateRangeLabel,
+  isLoading = false,
+  isError,
+}: Props) => (
+  <article className="dashboard-card">
+    <CustomDashboardChart
+      title="Spend Summary"
+      label="Download spend summary table as image"
+      formats={DOWNLOAD_FORMATS}
+      csvData={table ? buildCsvData(table) : undefined}
+      state={{
+        isLoading,
+        isError,
+        isEmpty: !table || table.rows.length === 0,
+        loadingLabel: "Loading summary table…",
+        errorLabel: "Unable to load summary data.",
+        emptyLabel: "No data for this period.",
+      }}
+      header={
+        <div className="dashboard-card__header">
+          <h2>Spend summary</h2>
+          {dateRangeLabel && (
+            <p className="dashboard-card__date-range">{dateRangeLabel}</p>
+          )}
+          <p>
+            Telecom spend by BGE, sub-organization, and service designee, broken
+            out by service category.
+          </p>
+        </div>
+      }
+    >
+      <div className="dashboard-card__chart">
+        {table && table.rows.length > 0 && <SummaryGrid table={table} />}
+      </div>
+    </CustomDashboardChart>
+  </article>
+);

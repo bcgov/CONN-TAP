@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import to_float
+from app.datasets.spend_common import pg_text_array
 
 from .schema import Filters
 
@@ -19,16 +20,10 @@ class Service(DatasetService):
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
 
-        def _pg_text_array(values: list[str] | None) -> str | None:
-            return "{" + ",".join(values) + "}" if values else None
-
         df = self.execute_sql(
             db,
             "isp_spend_indicators",
-            params={
-                "year_type": parsed.year_type.value,
-                "period": _pg_text_array(parsed.period),
-            },
+            params={"period": pg_text_array(parsed.period)},
         )
 
         if df.empty or df.iloc[0]["total_spend"] is None:

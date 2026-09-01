@@ -35,10 +35,7 @@ select
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
     'TSMA LITE SCHOOL DISTRICTS'::text as organization_name,
-    coalesce(
-        nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), ''),
-        nullif(trim(regexp_replace(lcd_cust_cd,  '[\x00-\x1f\x7f]', '', 'g')), '')
-    ) as sub_organization_name,
+    nullif(trim(regexp_replace(rcid_cust_nm, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'wireless'::text as source_service_family,
     lower(nullif(trim(regexp_replace(charge_type, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
     null::text as source_service_id,
