@@ -10,8 +10,13 @@
 - 🟦 Interior Health Authority
 - 🟦 Northern Health Authority
 - 🟦 Provincial Health Services Authority
+  - 🟧 BC Emergency Health Services (BC Ambulance)
+  - 🟧 BC Cancer Agency
+  - 🟧 BC Centre for Disease Control
+  - 🟧 BC Shared Health Services
 - 🟦 Vancouver Coastal Health Authority
   - 🟧 Providence Health Care
+  - 🟧 Vancouver General Hospital
 - 🟦 Vancouver Island Health Authority
 
 ## 🟪 Crown Corporations
