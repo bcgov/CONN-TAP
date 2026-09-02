@@ -67,8 +67,10 @@ Required columns that contain a NULL or whitespace-only value within a (sheet, m
 Values that are not coercible to their expected type
 (numeric `account_number` / `invoice_number` / `source_id`, and a valid `month` format).
 
-### 7. Duplicate Rows
-Rows that are identical on every meaningful column within a (sheet, month).
+### 7. Duplicate Rows  *(hidden)*
+This check exists in SQL but is not currently emitted as a worksheet tab
+(it is redundant with Duplicate Summary + All Duplicate Rows).
+Uncomment it in `run_validations.py` to include it in the workbook.
 
 ### 8. Duplicate Summary
 The same duplicate detection as above, summarized per sheet/month with an amount sum.
@@ -112,7 +114,6 @@ exact-text, or cellular plan-name mapping). Reuses `fetch_unmatched()` from
 | Blanks by Sheet     | Blank/whitespace values in required columns            |
 | Category Allowlist  | `statement_category` outside the allowlist             |
 | Column Value Types  | Values not coercible to the expected type              |
-| Duplicate Rows      | Duplicate rows by sheet and month                      |
 | Duplicate Summary   | Duplicate rows summary (with amount sum)               |
 | All Duplicate Rows  | Every individual raw row in a duplicate group          |
 | Missing BGEs        | Expected BGEs with no matching sheet this month        |

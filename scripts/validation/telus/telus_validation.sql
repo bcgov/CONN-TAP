@@ -68,6 +68,8 @@ $$;
 -- detail_description values that look device/hardware/equipment/Easy Payment related must match
 -- a known allowlist (after trim). Heuristic: hardware, equipment (incl. typo equipement), easy pay /
 -- easypay, or device (case-insensitive). Only rows whose source is NULL/blank or Wireless.
+-- Onetime (source_id 164, the cellular one-time equipment code, is tagged Onetime, not Wireless).
+-- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_unlisted_device_related_detail_descriptions (
@@ -99,7 +101,8 @@ AS $$
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
-      OR trim(both FROM t.source) = 'Wireless'
+      OR lower(trim(both FROM t.source)) = 'wireless'
+      OR lower(trim(both FROM t.source)) = 'onetime'
     )
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
@@ -121,6 +124,8 @@ AS $$
       'TELUS Easy Payment Balance',
       'Equipment Adjustment'
     )
+    AND t.amount IS NOT NULL
+    AND t.amount <> 0
     AND (
       p_statement_month IS NULL
       OR (
@@ -144,8 +149,8 @@ AS $$
     detail_description;
 $$;
 
--- Expected: source_id 164 or 130 → source 'Wireless'; source_id 1001, 103, 104, 102, or 106
--- → source 'Wireline'. Any other source_id or any source other than those two is flagged.
+-- Expected: source_id 130 → source 'Wireless'; source_id 164 → source 'Onetime'; source_id
+-- 1001, 103, 104, 102, or 106 → source 'Wireline'. Any other pairing is flagged.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_source_id_matches_expected_source (
   p_statement_month date DEFAULT NULL
@@ -171,11 +176,15 @@ AS $$
   FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireless'
-        AND trim(both FROM COALESCE(t.source_id, '')) IN ('164', '130')
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireless'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '130'
       )
       OR (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireline'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'onetime'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '164'
+      )
+      OR (
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireline'
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
@@ -331,7 +340,11 @@ BEGIN
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
     b.code AS missing_bge
   FROM reference_data.bge AS b
-  WHERE NOT EXISTS (
+  WHERE b.code <> 'School Districts'
+    -- 'School Districts' is a made-up rollup BGE, not a real billed org (see the comment
+    -- on that row in reference_data/bge.sql) -- excluded so a quiet month for it isn't
+    -- reported as a validation gap.
+    AND NOT EXISTS (
     SELECT 1
     FROM base AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code

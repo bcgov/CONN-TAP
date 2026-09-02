@@ -124,12 +124,17 @@ $$;
 -- Presence is tested against the FINAL resolved BGE (bge_actual), which includes SUB-BGE
 -- routing -- so made-up routing targets like 'School Districts' (reached only via a
 -- school-district SUB-BGE, never named in the BGE column) are correctly counted present.
+-- 'School Districts' itself is excluded outright: it's not a real billed org (see the
+-- comment on that row in reference_data/bge.sql), just a rollup bucket for ~90 real
+-- districts, so it going quiet for a month is far weaker signal than any other BGE
+-- going quiet and shouldn't be reported as a validation gap.
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_missing_bges(p_month date DEFAULT NULL)
 RETURNS TABLE (missing_bge text)
 LANGUAGE sql AS $$
     SELECT b.code::text
     FROM reference_data.bge b
-    WHERE NOT EXISTS (
+    WHERE b.code <> 'School Districts'
+      AND NOT EXISTS (
         SELECT 1
         FROM raw_data.v_rogers_cellular_validated v
         WHERE v.bge_actual = b.code
@@ -141,13 +146,16 @@ $$;
 -- 5) Missing_SUB_BGEs: real SUB-BGEs (from reference data) that no report row resolves to.
 -- Expected list is reference_data.sub_bge (one row per real sub-BGE, with its parent BGE);
 -- the alias map only tests presence, so alternate raw spellings never fan out as "missing".
+-- Individual school districts are excluded for now (b.code <> 'School Districts') -- same
+-- noisy-rollup concern as the top-level Missing_BGEs check, just applied per-district here.
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_missing_sub_bges(p_month date DEFAULT NULL)
 RETURNS TABLE (related_bge text, missing_sub_bge text)
 LANGUAGE sql AS $$
     SELECT b.code::text, sb.code::text
     FROM reference_data.sub_bge sb
     JOIN reference_data.bge b ON b.id = sb.bge_id
-    WHERE NOT EXISTS (
+    WHERE b.code <> 'School Districts'
+      AND NOT EXISTS (
         SELECT 1
         FROM raw_data.raw_rogers_spend_cellular r
         JOIN seeds.sub_bge_alias_map sbam
@@ -189,25 +197,22 @@ LANGUAGE sql AS $$
     ORDER BY COUNT(*) DESC
 $$;
 
--- 8) Unknown_SUB-BGE: SUB-BGE values that resolve to neither a real SUB-BGE nor a real BGE.
--- A value matching a BGE alias (the org name repeated in the sub-BGE column, incl. seeded
--- school districts) is a known entity and excluded; anything else -- including unseeded
--- school districts -- surfaces here so it can be added to the seeds.
+-- 8) Unknown_SUB-BGE: any non-blank SUB-BGE value that does not resolve, via
+-- seeds.sub_bge_alias_map, to an actual reference_data.sub_bge record for that BGE.
+-- This includes a BGE's own name repeated in the SUB-BGE column (e.g. 'BC Hydro' or
+-- 'BC Lottery') -- that is not technically wrong, but it is not a real SUB-BGE either
+-- (whether or not the BGE has real SUB-BGEs elsewhere, e.g. BC Hydro's Powertech/Power Ex),
+-- so it is flagged the same as any other unrecognized value.
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_unknown_sub_bge(p_month date DEFAULT NULL)
-RETURNS TABLE (unknown_sub_bge text)
+RETURNS TABLE (bge text, unknown_sub_bge text)
 LANGUAGE sql AS $$
-    SELECT DISTINCT v.sub_bge_norm::text
+    SELECT DISTINCT v.bge_original::text, v.sub_bge_norm::text
     FROM raw_data.v_rogers_cellular_validated v
     WHERE v.sub_bge_norm IS NOT NULL
       AND v.sub_bge_norm <> ''
       AND v.expected_bge IS NULL
       AND (p_month IS NULL OR date_trunc('month', v.invoice_date::date) = date_trunc('month', p_month))
-      AND NOT EXISTS (
-          SELECT 1
-          FROM seeds.bge_alias_map bam
-          WHERE reference_data.alias_matches(v.sub_bge_norm, bam.raw_name)
-      )
-    ORDER BY 1
+    ORDER BY 1, 2
 $$;
 
 -- 9) New_BGEs: report BGE values with no alias mapping (unrecognized raw names).
@@ -257,6 +262,7 @@ $$;
 
 -- 12) New/Removed BGE and SUB-BGE detection (month-over-month).
 -- Statuses: Newly Appeared, Unrecognized, New + Unrecognized, Removed, Still Removed.
+DROP FUNCTION IF EXISTS raw_data.rogers_cellular_new_removed_detection(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_new_removed_detection(p_month date DEFAULT NULL)
 RETURNS TABLE (current_month date, entity_type text, raw_value text, status text)
 LANGUAGE sql AS $$

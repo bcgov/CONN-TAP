@@ -95,7 +95,7 @@ VALIDATIONS = [
      "The mapping issues rolled up by SUB-BGE / reported BGE / expected BGE, with counts.",
      "SELECT * FROM raw_data.rogers_cellular_mapping_summary(%s)"),
     ("Unknown SUB-BGEs",
-     "SUB-BGE values present in the report that resolve to no BGE (no exclusions, for now).",
+     "SUB-BGE values that don't resolve to a real reference SUB-BGE.",
      "SELECT * FROM raw_data.rogers_cellular_unknown_sub_bge(%s)"),
     ("New BGEs",
      "Standardized BGEs in the report that are not a known canonical BGE.",
@@ -106,11 +106,10 @@ VALIDATIONS = [
     ("Post-Tax Issues",
      "Rows where PRE-TAX plus GST/PST/HST does not reconcile to POST-TAX (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_cellular_post_tax_issues(%s)"),
-    # Hidden for now -- the detection function still exists in the SQL; uncomment to show it.
-    # ("New-Removed BGEs",
-    #  "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
-    #  "New + Unrecognized, Removed, Still Removed.",
-    #  "SELECT * FROM raw_data.rogers_cellular_new_removed_detection(%s)"),
+    ("New-Removed BGEs",
+     "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
+     "New + Unrecognized, Removed, Still Removed.",
+     "SELECT * FROM raw_data.rogers_cellular_new_removed_detection(%s)"),
 ]
 
 
