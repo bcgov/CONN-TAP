@@ -67,8 +67,9 @@ $$;
 
 -- detail_description values that look device/hardware/equipment/Easy Payment related must match
 -- a known allowlist (after trim). Heuristic: hardware, equipment (incl. typo equipement), easy pay /
--- easypay, or device (case-insensitive). Only rows whose source is NULL/blank, Wireless, or
+-- easypay, or device (case-insensitive). Only rows whose source is NULL/blank or Wireless.
 -- Onetime (source_id 164, the cellular one-time equipment code, is tagged Onetime, not Wireless).
+-- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_unlisted_device_related_detail_descriptions (
@@ -123,6 +124,8 @@ AS $$
       'TELUS Easy Payment Balance',
       'Equipment Adjustment'
     )
+    AND t.amount IS NOT NULL
+    AND t.amount <> 0
     AND (
       p_statement_month IS NULL
       OR (
@@ -343,7 +346,11 @@ BEGIN
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
     b.code AS missing_bge
   FROM reference_data.bge AS b
-  WHERE NOT EXISTS (
+  WHERE b.code <> 'School Districts'
+    -- 'School Districts' is a made-up rollup BGE, not a real billed org (see the comment
+    -- on that row in reference_data/bge.sql) -- excluded so a quiet month for it isn't
+    -- reported as a validation gap.
+    AND NOT EXISTS (
     SELECT 1
     FROM base AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
