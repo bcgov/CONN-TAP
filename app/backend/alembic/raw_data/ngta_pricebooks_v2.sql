@@ -230,3 +230,31 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_tls_pricebook (
   short_service_description text, monthly_fee text, overage_charges text,
   extras jsonb
 );
+
+-- Professional Services book. Old raw_telus_data_professional_services_pricebook
+-- and raw_telus_voice_professional_services_pricebook had identical
+-- (title, service_id) key sets — duplicate copies of the same catalogue,
+-- not a genuine data/voice split (confirmed against the real old files).
+-- The new workbook consolidates them into one sheet, so this merges into
+-- one new table too.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_professional_services_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  professional_service_category text, title text, service_supported text, service_id text,
+  business_hours_rate_hourly text, after_business_hours_rate_hourly text,
+  extras jsonb
+);
+
+-- New catalogue, no old precedent: one-time setup/activation fees
+-- supporting the Connected Worker family from the Cellular Services v2.0
+-- book (Connected Worker Solution / Hardware / Usage Rate).
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_professional_services_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  item text, description text, service_id text, rate text, dependencies text,
+  extras jsonb
+);

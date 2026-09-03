@@ -355,12 +355,42 @@ def _parse_tls_sipa_v1(ws: Worksheet) -> list[dict[str, Any]]:
     return rows_out
 
 
+def _parse_professional_services(ws: Worksheet) -> list[dict[str, Any]]:
+    """Header is row 4. Section-banner rows (e.g. "Billing and Reporting")
+    have only column A populated (professional_service_category) and no
+    Title — real data rows always carry their own, more specific category
+    text in column A too, so banner rows are skipped outright rather than
+    forward-filled."""
+    max_row = ws.max_row
+    rows_out: list[dict[str, Any]] = []
+
+    for r in range(5, max_row + 1):
+        category, title, supported, service_id, biz_hours, after_hours = _row_values(ws, r, 6)
+        if title is None:
+            continue  # blank row or section-banner row
+        rows_out.append(
+            {
+                "pricebook_ingestion_run_id": None,
+                "excel_row_number": r,
+                "professional_service_category": as_text(category),
+                "title": as_text(title),
+                "service_supported": as_text(supported),
+                "service_id": as_text(service_id),
+                "business_hours_rate_hourly": as_text(biz_hours, _cell_format(ws, r, 5)),
+                "after_business_hours_rate_hourly": as_text(after_hours, _cell_format(ws, r, 6)),
+                "extras": None,
+            }
+        )
+    return rows_out
+
+
 MULTI_BLOCK_PARSERS: dict[str, Callable[[Worksheet], list[dict[str, Any]]]] = {
     "control_center": _parse_control_center,
     "fleet_complete": _parse_fleet_complete,
     "connected_worker": _parse_connected_worker,
     "voice_data_usage_rates": _parse_voice_data_usage_rates,
     "tls_sipa_v1": _parse_tls_sipa_v1,
+    "professional_services": _parse_professional_services,
 }
 
 

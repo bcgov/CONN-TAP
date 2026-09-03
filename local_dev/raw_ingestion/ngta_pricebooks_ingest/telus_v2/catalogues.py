@@ -368,11 +368,52 @@ TIME_LIMITED_SERVICES_V2 = BookSpec(
     ),
 )
 
+PROFESSIONAL_SERVICES_V2 = BookSpec(
+    book_code="professional_services_v2",
+    file_match="professional services",
+    sheets=(
+        # Old raw_telus_data_professional_services_pricebook and
+        # raw_telus_voice_professional_services_pricebook had IDENTICAL
+        # (title, service_id) key sets (verified against the real old
+        # files) — they were duplicate copies of the same catalogue, not a
+        # genuine data/voice split. The new workbook consolidates them into
+        # one sheet, so this merges into one new table too, matching what
+        # the new file actually is rather than preserving a redundant old
+        # split. 70 of 71 rows match the old catalogues exactly; 1 new item
+        # ("Intelliroute Professional Service").
+        MultiBlockSheetSpec(
+            sheet_name="Professional Services",
+            table_name="raw_telus_v2_professional_services_pricebook",
+            columns=(
+                "professional_service_category",
+                "title",
+                "service_supported",
+                "service_id",
+                "business_hours_rate_hourly",
+                "after_business_hours_rate_hourly",
+            ),
+            feed_code="professional_services",
+            parser="professional_services",
+        ),
+        # New catalogue, no old precedent: one-time setup/activation fees
+        # supporting the Connected Worker family from the Cellular Services
+        # v2.0 book (Connected Worker Solution / Hardware / Usage Rate).
+        SimpleSheetSpec(
+            sheet_name="Connected Worker Pro Svcs",
+            table_name="raw_telus_v2_connected_worker_professional_services_pricebook",
+            columns=("item", "description", "service_id", "rate", "dependencies"),
+            feed_code="connected_worker_professional_services",
+            header_row=6,
+        ),
+    ),
+)
+
 BOOKS: tuple[BookSpec, ...] = (
     CELLULAR_SERVICES_V2,
     CELLULAR_DEVICES_V2,
     VOICE_AND_DATA_V2,
     TIME_LIMITED_SERVICES_V2,
+    PROFESSIONAL_SERVICES_V2,
 )
 
 

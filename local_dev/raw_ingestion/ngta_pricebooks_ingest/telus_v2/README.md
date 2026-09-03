@@ -1,14 +1,5 @@
 # Telus NGTA Pricebook v2 — Raw Table Mapping
 
-DDL: [`alembic/raw_data/ngta_pricebooks_v2.sql`](../../../../app/backend/alembic/raw_data/ngta_pricebooks_v2.sql)
-Migration: [`007_telus_ngta_pricebook_v2.py`](../../../../app/backend/alembic/versions/007_telus_ngta_pricebook_v2.py)
-
-**Bold** = column added in the new table. ~~Strikethrough~~ = old column not
-carried over (dropped, or renamed — renames are shown as `old → new`).
-`type_of_service` was a constant literal in each old file — it's hardcoded
-back into every new table that had it, since the new sheets don't repeat
-that column themselves.
-
 ## Old tables (`raw_data`) → New tables (`raw_data_v2`)
 
 | Old table | Old fields | New table | New fields |
@@ -48,13 +39,9 @@ diff of actual service IDs / names, old source files vs the new workbook.
 | Long Distance | 241 | 241 | none | none — but see data-quality note below |
 | MMS | 7 | 7 | none (see note below) | none |
 | Control Center *(old catalog_and_price_list + control_center_services combined)* | 13 | 25 | **1**: `NGTA Access + private APN` (old service ID `2311214`) | **13**: Pooled Rate Plans tier (10 items, `NGTA 2000`–`2009`, 50MB–250GB) + SIM pricing block (3 items: Standard/Industrial physical SIM, eSIM QR Voucher) |
-| Cellular Devices Catalogue | 86 | 86 | none | none — but see data-quality note below |
+| Cellular Devices Catalogue | 86 | 86 | none | none |
 
 Notes:
-- **Cellular Devices Catalogue — prices**: the old file had real prices for
-  73/86 devices; the new file has device_price blank on **all 86** rows
-  (more thoroughly masked than the Cellular Services file's `$x.xx`
-  placeholders).
 - **MMS bundle rows** ("BYOD (3)", "Corp Bundle (5)"): the old file's
   free-text service-ID list was truncated mid-string; the new file has the
   full untruncated text. Same 7 services on both sides — not a real content
@@ -85,12 +72,6 @@ that column's value — preserving the old table boundary (`data_services` /
 shape), the same principle as the `type_of_service` merge above, just
 applied in the opposite direction.
 
-Also confirmed here: real prices in this workbook are numeric cells with
-Excel currency (`"$"#,##0.00`) and percentage (`0%`) formatting, not literal
-"$"/"%" text like the old catalogues — ingestion renders `monthly_fee` as
-`"$345.00"` and `ecf_rate` as `"25%"` to match the old text convention
-either way.
-
 ## Old tables (`raw_data`) → New tables (`raw_data_v2`)
 
 | Old table | Old fields | New table | New fields |
@@ -115,7 +96,7 @@ same technique as Control Center's `section` column.
 | Section | Old count | New count | Missing (in old, not new) | Added (in new, not old) |
 |---|---|---|---|---|
 | Data Services | 186 | 186 | none | none |
-| Voice Services | 285 | 310 | **10** — see note below | **22**: new Cloud Fax Service (`NG024`–`NG035`, ~8 items), 7 more "ice Contact Centre" fee-based features, `NGLL27` (Business Line optional feature), `TEL1010` (Cloud PBX optional feature), 1 SIP Trunking item |
+| Voice Services | 285 | 310 | **10** moved — see note below | **22**: new Cloud Fax Service (`NG024`–`NG035`, ~8 items), 7 more "ice Contact Centre" fee-based features, `NGLL27` (Business Line optional feature), `TEL1010` (Cloud PBX optional feature), 1 SIP Trunking item |
 | LD International Fees | 231 | 231 | none | none |
 | CPM-Usage Rates | 0 (new) | 22 | — | all new |
 
@@ -225,3 +206,69 @@ Notes:
   had the same behavior for the old catalogues), not something new to this
   book, and low-stakes here since it's a one-off note rather than price
   data — flagging for awareness, not fixed.
+
+---
+
+# Professional Services book
+
+Source: `TCI NGTA Price Book Professional Services v1.1.xlsx`, 2 sheets
+(`Professional Services`, `Connected Worker Pro Svcs`), diffed against the
+real old files `u_ngta_data_professional_services_catalogue.xlsx` and
+`u_ngta_voice_professional_services_catalogue.xlsx`.
+
+**Finding: the two old files were duplicates on structure, not on price.**
+Unlike Data/Voice Services (which had a genuine `Service Category` column
+partitioning rows into `Data` vs `Voice`), `raw_telus_data_professional_services_pricebook`
+and `raw_telus_voice_professional_services_pricebook` have **identical**
+`(category, title, service_supported, service_id)` values on all 70 rows —
+verified with a full-row multiset comparison, not just a set, so duplicate
+rows and counts are checked too. Same 70 professional-service roles, same
+service IDs, listed twice under different filenames. The new workbook's
+single `Professional Services` sheet consolidates them structurally, so
+this merges into one new table too — not because I chose to merge, but
+because that's what the new file actually is.
+
+**Rates are a different story.** `old_data` and `old_voice` don't even
+match each other on `business_hours_rate_hourly`/`after_business_hours_rate_hourly`
+— each was masked with its own independent incrementing placeholder
+sequence (`$0.00, $0.01, $0.02...`). The new file was masked a third way
+(flat `$0.00` on nearly every row). Of the 70 shared rows, only 2
+coincidentally match one of the old files' rate values — the other 68
+differ from both. This isn't a real business change, just three
+independently-sanitized test copies with unrelated placeholder pricing —
+but it means rates are **not** safe to treat as continuous with the old
+data the way the service IDs are.
+
+## Old tables (`raw_data`) → New table (`raw_data_v2`)
+
+| Old table | Old fields | New table | New fields |
+|---|---|---|---|
+| `raw_telus_data_professional_services_pricebook` + `raw_telus_voice_professional_services_pricebook` (duplicate content) | professional_service_category, title, service_supported, service_id, business_hours_rate_hourly, after_business_hours_rate_hourly | `raw_telus_v2_professional_services_pricebook` | *(identical — same 6 columns)* |
+
+## New table with no old table
+
+| New table | Source sheet | Columns |
+|---|---|---|
+| `raw_telus_v2_connected_worker_professional_services_pricebook` | Connected Worker Pro Svcs | item, description, service_id, rate, dependencies |
+
+New catalogue, no old precedent: one-time setup/activation fees (e.g.
+`NGTA-PS-TCW-SETUP-PERUSER`, `NGTA-PS-BIVY-SETUP`, `NGTA-PS-GARMIN-SETUP`,
+`NGTA-PS-SATACTIVATION`) supporting the Connected Worker family already
+built in the Cellular Services v2.0 book (Connected Worker Solution /
+Hardware / Usage Rate).
+
+## Item-level diff
+
+| Section | Old count | New count | Missing (in old, not new) | Added (in new, not old) |
+|---|---|---|---|---|
+| Professional Services | 70 (both old files, identical) | 71 | none | **1**: "Intelliroute Professional Service" — "Intelliroute Set Up Fee" |
+| Connected Worker Pro Svcs | 0 (new) | 7 | — | all new |
+
+Notes:
+- **Section-banner rows** (e.g. `"Billing and Reporting"`, `"Project /
+  Program Management"`) sit above groups of real rows with only column A
+  populated and no `Title` — skipped outright rather than forward-filled,
+  since every real row already carries its own (more specific)
+  `professional_service_category` value directly (e.g. `"Voice/Data /
+  Cellular Billing"`), unlike Cellular Services' merged-cell `Category`
+  column which genuinely needed fill-down.
