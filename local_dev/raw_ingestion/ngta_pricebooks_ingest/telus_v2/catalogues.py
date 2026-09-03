@@ -40,7 +40,23 @@ class MultiBlockSheetSpec:
     parser: str  # key into telus_v2.excel.MULTI_BLOCK_PARSERS
 
 
-SheetSpec = SimpleSheetSpec | MultiBlockSheetSpec
+@dataclass(frozen=True)
+class SplitByValueSheetSpec:
+    """One sheet whose rows fan out into several tables based on a column's
+    value, e.g. "Data & Voice Fees" has a Service Category column of
+    'Data'/'Voice' and each old table (raw_telus_data_services_pricebook,
+    raw_telus_voice_services_pricebook) already existed as its own file —
+    this preserves that old table boundary instead of merging them."""
+
+    sheet_name: str
+    split_column: str  # canonical column name whose value selects the table
+    table_by_value: dict[str, str]  # {"data": table_name, "voice": table_name} — keys casefolded
+    columns: tuple[str, ...]
+    feed_code: str
+    header_row: int = 1
+
+
+SheetSpec = SimpleSheetSpec | MultiBlockSheetSpec | SplitByValueSheetSpec
 
 
 @dataclass(frozen=True)
@@ -198,7 +214,62 @@ CELLULAR_DEVICES_V2 = BookSpec(
     ),
 )
 
-BOOKS: tuple[BookSpec, ...] = (CELLULAR_SERVICES_V2, CELLULAR_DEVICES_V2)
+VOICE_AND_DATA_V2 = BookSpec(
+    book_code="voice_and_data_v2",
+    file_match="voice and data",
+    sheets=(
+        # Mirrors the old raw_telus_data_services_pricebook /
+        # raw_telus_voice_services_pricebook split: those were two separate
+        # old files (identical column shape, each internally one constant
+        # Service Category), now merged into one sheet in the new workbook.
+        # Splitting by the sheet's own Service Category column preserves the
+        # old table boundary instead of introducing a new merged table.
+        SplitByValueSheetSpec(
+            sheet_name="Data & Voice Fees",
+            split_column="service_category",
+            table_by_value={
+                "data": "raw_telus_v2_data_services_pricebook",
+                "voice": "raw_telus_v2_voice_services_pricebook",
+            },
+            columns=(
+                "service_category",
+                "service_id",
+                "service_name",
+                "short_service_description",
+                "monthly_fee",
+                "ecf_rate",
+                "service_sla",
+                "technical_services_support",
+                "ordering_lead_times_objectives",
+                "delivery_lead_times_objectives_service_interval",
+                "technical_service_standards",
+            ),
+            feed_code="data_voice_services",
+            header_row=5,
+        ),
+        # Mirrors the old raw_telus_voice_long_distance_fees_pricebook exactly.
+        SimpleSheetSpec(
+            sheet_name="LD International Fees",
+            table_name="raw_telus_v2_voice_long_distance_fees_pricebook",
+            columns=("country", "landline_termination_cpm_rate", "mobile_termination_cpm_rate"),
+            feed_code="voice_long_distance_fees",
+            header_row=4,
+        ),
+        # New catalogue, no old precedent: usage/CPM rates for toll-free,
+        # SIP trunking, long distance, and ice Contact Centre features that
+        # used to live as flat rows inside the old voice_services catalogue
+        # (moved out here since they're usage-based, not flat monthly fees).
+        MultiBlockSheetSpec(
+            sheet_name="CPM-Usage Rates",
+            table_name="raw_telus_v2_voice_data_usage_rates_pricebook",
+            columns=("id_type", "service_id", "service", "description", "rate_type", "rate"),
+            feed_code="voice_data_usage_rates",
+            parser="voice_data_usage_rates",
+        ),
+    ),
+)
+
+BOOKS: tuple[BookSpec, ...] = (CELLULAR_SERVICES_V2, CELLULAR_DEVICES_V2, VOICE_AND_DATA_V2)
 
 
 def resolve_book(file_stem: str) -> BookSpec:

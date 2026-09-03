@@ -66,3 +66,71 @@ Notes:
 - **Control Center — `NGTA Access + private APN`**: no counterpart found in
   the new file (fuzzy name-matched against all 25 new items) — worth
   confirming with Telus whether it was dropped or folded into another item.
+
+---
+
+# Voice and Data book
+
+Source: `TCI NGTA Price Book Voice and Data v2.9.xlsx`, 3 sheets (`Data &
+Voice Fees`, `CPM-Usage Rates`, `LD International Fees`), diffed against the
+real old files `u_ngta_data_services_catalogue.xlsx`,
+`u_ngta_voice_services_catalogue.xlsx`,
+`u_ngta_voice_long_distance_fees_catalogue.xlsx`.
+
+**New pattern**: `Data & Voice Fees` is one sheet with a `Service Category`
+column (`Data`/`Voice`) instead of two separate old-style files. Rather than
+merge it into one new table, ingestion splits it back into two tables by
+that column's value — preserving the old table boundary (`data_services` /
+`voice_services` were always separate old files with identical column
+shape), the same principle as the `type_of_service` merge above, just
+applied in the opposite direction.
+
+Also confirmed here: real prices in this workbook are numeric cells with
+Excel currency (`"$"#,##0.00`) and percentage (`0%`) formatting, not literal
+"$"/"%" text like the old catalogues — ingestion renders `monthly_fee` as
+`"$345.00"` and `ecf_rate` as `"25%"` to match the old text convention
+either way.
+
+## Old tables (`raw_data`) → New tables (`raw_data_v2`)
+
+| Old table | Old fields | New table | New fields |
+|---|---|---|---|
+| `raw_telus_data_services_pricebook` | service_category, service_id, service_name, short_service_description, monthly_fee, ecf_rate, service_sla, technical_services_support, ordering_lead_times_objectives, delivery_lead_times_objectives_service_interval, technical_service_standards | `raw_telus_v2_data_services_pricebook` | *(identical — same 11 columns)* |
+| `raw_telus_voice_services_pricebook` | *(same 11 columns as above)* | `raw_telus_v2_voice_services_pricebook` | *(identical — same 11 columns)* |
+| `raw_telus_voice_long_distance_fees_pricebook` | country, landline_termination_cpm_rate, mobile_termination_cpm_rate | `raw_telus_v2_voice_long_distance_fees_pricebook` | *(identical)* |
+
+## New tables with no old table
+
+| New table | New fields |
+|---|---|
+| `raw_telus_v2_voice_data_usage_rates_pricebook` | id_type, service_id, service, description, rate_type, rate |
+
+`CPM-Usage Rates` packs 6 repeating header blocks onto one sheet (header
+labels vary: `Service ID` vs `Parent Service ID`, `Usage Rate` vs `CPM
+Rate`) — `id_type`/`rate_type` record which variant each row's block used,
+same technique as Control Center's `section` column.
+
+## Item-level diff (old file vs new file, by service ID / name)
+
+| Section | Old count | New count | Missing (in old, not new) | Added (in new, not old) |
+|---|---|---|---|---|
+| Data Services | 186 | 186 | none | none |
+| Voice Services | 285 | 310 | **10** — see note below | **22**: new Cloud Fax Service (`NG024`–`NG035`, ~8 items), 7 more "ice Contact Centre" fee-based features, `NGLL27` (Business Line optional feature), `TEL1010` (Cloud PBX optional feature), 1 SIP Trunking item |
+| LD International Fees | 231 | 231 | none | none |
+| CPM-Usage Rates | 0 (new) | 22 | — | all new |
+
+Notes:
+- **Voice Services — the 10 "missing" items aren't gone, they moved**: every
+  one of them (Toll Free `COURTESY RESPONSE`/`CALL PROMPTER`/`DATABASE
+  ROUTING`/`ENROUTE`, `NGTFDOM`, `NGLDDOM`, and 4 "ice Contact Centre"
+  usage-based features) now appears as a row in the new `CPM-Usage Rates`
+  sheet instead — a genuine reclassification (usage-based rate, not a flat
+  monthly fee), not a dropped service. Confirmed by matching service ID
+  across both sheets.
+- **ECF Rate / ordering & delivery lead-time columns**: several old-style
+  column names needed fuzzy header matching (not exact match) because the
+  new sheet's header text carries extra subtitle text, e.g. `"Service
+  SLA\nService Levels are described in Service Descriptions"` instead of
+  just `"Service SLA"`, and singular `"Ordering Lead Time Objectives"`
+  instead of the old plural `"Ordering Lead Times Objectives"`. Handled the
+  same way the old `telus/excel.py` handled similar header drift.

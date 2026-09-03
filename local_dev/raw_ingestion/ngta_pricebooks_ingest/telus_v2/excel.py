@@ -14,7 +14,14 @@ from typing import Any, Callable, Optional
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from telus_v2.catalogues import BookSpec, MultiBlockSheetSpec, SheetSpec, SimpleSheetSpec, resolve_sheet
+from telus_v2.catalogues import (
+    BookSpec,
+    MultiBlockSheetSpec,
+    SheetSpec,
+    SimpleSheetSpec,
+    SplitByValueSheetSpec,
+    resolve_sheet,
+)
 
 HEADER_OVERRIDES: dict[str, str] = {
     "service_id": "service_id",
@@ -38,22 +45,42 @@ def canonical_header(value: Any) -> str:
     s = s.replace("(", " ").replace(")", " ").replace("*", " ")
     s = re.sub(r"[^a-z0-9]+", "_", s)
     s = re.sub(r"_+", "_", s).strip("_")
-    return HEADER_OVERRIDES.get(s, s)
-
-
-def _looks_like_currency(number_format: Optional[str]) -> bool:
-    return bool(number_format) and "$" in number_format
+    if s in HEADER_OVERRIDES:
+        return HEADER_OVERRIDES[s]
+    # Long descriptive headers carry extra subtitle/qualifier text (e.g.
+    # "Service SLA\nService Levels are described in...") that breaks an
+    # exact match against the DB column name — fall back to substring
+    # matching, same technique the old telus/excel.py used.
+    if "landline" in s and "termination" in s and "cpm" in s:
+        return "landline_termination_cpm_rate"
+    if "mobile" in s and "termination" in s and "cpm" in s:
+        return "mobile_termination_cpm_rate"
+    if "sla" in s:
+        return "service_sla"
+    if "technical" in s and "support" in s:
+        return "technical_services_support"
+    if "technical" in s and "standard" in s:
+        return "technical_service_standards"
+    if "ordering" in s and "lead" in s:
+        return "ordering_lead_times_objectives"
+    if "delivery" in s and "lead" in s:
+        return "delivery_lead_times_objectives_service_interval"
+    return s
 
 
 def as_text(value: Any, number_format: Optional[str] = None) -> Optional[str]:
-    """Stringify a cell value. Numeric cells with a currency number format
-    (e.g. Excel's "$5.00" display) are rendered as "$5.00" rather than the
-    bare underlying number (5), since Telus enters real prices as formatted
-    numeric cells, not literal "$"-prefixed text like the old catalogues did."""
+    """Stringify a cell value. Numeric cells with a currency or percentage
+    number format (e.g. Excel's "$5.00" or "25%" display) are rendered that
+    way rather than as the bare underlying number (5, 0.25), since Telus
+    enters real prices/rates as formatted numeric cells, not literal
+    "$"/"%"-suffixed text like the old catalogues did."""
     if value is None:
         return None
-    if isinstance(value, (int, float)) and not isinstance(value, bool) and _looks_like_currency(number_format):
-        return f"${value:,.2f}"
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and number_format:
+        if "$" in number_format:
+            return f"${value:,.2f}"
+        if "%" in number_format:
+            return f"{value * 100:g}%"
     s = str(value).strip()
     return s if s else None
 
@@ -89,11 +116,16 @@ def _fill_down_merges(ws: Worksheet, values_by_row: dict[int, list[Any]], column
                 row_vals[merged_range.min_col - 1] = top_value
 
 
-def parse_simple_sheet(ws: Worksheet, spec: SimpleSheetSpec) -> list[dict[str, Any]]:
+def _extract_header_rows(
+    ws: Worksheet, header_row: int, columns: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    """Shared header-row-plus-data-rows extraction used by both
+    parse_simple_sheet (one table) and parse_split_by_value_sheet (several
+    tables from one sheet)."""
     max_col = ws.max_column
     max_row = ws.max_row
 
-    header_values = _row_values(ws, spec.header_row, max_col)
+    header_values = _row_values(ws, header_row, max_col)
     colmap: dict[int, str] = {}
     for idx, raw in enumerate(header_values):
         canon = canonical_header(raw)
@@ -101,17 +133,17 @@ def parse_simple_sheet(ws: Worksheet, spec: SimpleSheetSpec) -> list[dict[str, A
             colmap[idx] = canon
 
     values_by_row: dict[int, list[Any]] = {
-        r: _row_values(ws, r, max_col) for r in range(spec.header_row + 1, max_row + 1)
+        r: _row_values(ws, r, max_col) for r in range(header_row + 1, max_row + 1)
     }
     formats_by_row: dict[int, list[Optional[str]]] = {
-        r: _row_formats(ws, r, max_col) for r in range(spec.header_row + 1, max_row + 1)
+        r: _row_formats(ws, r, max_col) for r in range(header_row + 1, max_row + 1)
     }
 
     fill_cols = [c + 1 for c in colmap if colmap[c] == "category"]
     if fill_cols:
         _fill_down_merges(ws, values_by_row, fill_cols)
 
-    db_cols = frozenset(spec.columns)
+    db_cols = frozenset(columns)
     rows_out: list[dict[str, Any]] = []
     for r in sorted(values_by_row):
         raw_values = values_by_row[r]
@@ -127,14 +159,31 @@ def parse_simple_sheet(ws: Worksheet, spec: SimpleSheetSpec) -> list[dict[str, A
                 vals[canon] = text
             elif text is not None:
                 extras[str(header_values[idx])] = text
-        if not any(vals.get(c) for c in spec.columns):
+        if not any(vals.get(c) for c in columns):
             continue
-        if spec.literal_columns:
-            vals.update(spec.literal_columns)
         if extras:
             vals["extras"] = json.dumps(extras)
         rows_out.append(vals)
     return rows_out
+
+
+def parse_simple_sheet(ws: Worksheet, spec: SimpleSheetSpec) -> list[dict[str, Any]]:
+    rows_out = _extract_header_rows(ws, spec.header_row, spec.columns)
+    if spec.literal_columns:
+        for vals in rows_out:
+            vals.update(spec.literal_columns)
+    return rows_out
+
+
+def parse_split_by_value_sheet(ws: Worksheet, spec: SplitByValueSheetSpec) -> dict[str, list[dict[str, Any]]]:
+    rows = _extract_header_rows(ws, spec.header_row, spec.columns)
+    results: dict[str, list[dict[str, Any]]] = {table: [] for table in spec.table_by_value.values()}
+    for vals in rows:
+        key = vals.get(spec.split_column)
+        table = spec.table_by_value.get(str(key).strip().casefold()) if key else None
+        if table:
+            results[table].append(vals)
+    return results
 
 
 def _parse_control_center(ws: Worksheet) -> list[dict[str, Any]]:
@@ -233,10 +282,43 @@ def _parse_connected_worker(ws: Worksheet) -> list[dict[str, Any]]:
     return rows_out
 
 
+def _parse_voice_data_usage_rates(ws: Worksheet) -> list[dict[str, Any]]:
+    """Six repeating header blocks, e.g. ('Service ID'|'Parent Service ID',
+    'Service', 'Description', 'Usage Rate'|'CPM Rate'). id_type/rate_type
+    record which header variant each row's block used."""
+    max_row = ws.max_row
+    rows_out: list[dict[str, Any]] = []
+    id_type: Optional[str] = None
+    rate_type: Optional[str] = None
+
+    for r in range(1, max_row + 1):
+        a, b, c, d = _row_values(ws, r, 4)
+        if _is_blank_row([a, b, c, d]):
+            continue
+        if b is not None and str(b).strip().casefold() == "service" and c is not None and str(c).strip().casefold() == "description":
+            id_type = as_text(a)
+            rate_type = as_text(d)
+            continue
+        vals = {
+            "pricebook_ingestion_run_id": None,
+            "excel_row_number": r,
+            "id_type": id_type,
+            "service_id": as_text(a),
+            "service": as_text(b),
+            "description": as_text(c),
+            "rate_type": rate_type,
+            "rate": as_text(d, _cell_format(ws, r, 4)),
+            "extras": None,
+        }
+        rows_out.append(vals)
+    return rows_out
+
+
 MULTI_BLOCK_PARSERS: dict[str, Callable[[Worksheet], list[dict[str, Any]]]] = {
     "control_center": _parse_control_center,
     "fleet_complete": _parse_fleet_complete,
     "connected_worker": _parse_connected_worker,
+    "voice_data_usage_rates": _parse_voice_data_usage_rates,
 }
 
 
@@ -261,6 +343,10 @@ def parse_workbook(path: Path, book: BookSpec) -> dict[str, list[dict[str, Any]]
         if spec is None:
             continue
         ws = wb[sheet_name]
+        if isinstance(spec, SplitByValueSheetSpec):
+            for table_name, rows in parse_split_by_value_sheet(ws, spec).items():
+                results.setdefault(table_name, []).extend(rows)
+            continue
         if isinstance(spec, MultiBlockSheetSpec):
             parser = MULTI_BLOCK_PARSERS[spec.parser]
             rows = parser(ws)

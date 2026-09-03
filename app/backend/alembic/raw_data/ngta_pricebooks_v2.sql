@@ -154,3 +154,55 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_hardware_pr
   item text, description text, service_id text, price text, dependencies text,
   extras jsonb
 );
+
+-- Voice and Data book. "Data & Voice Fees" is one sheet with a Service
+-- Category column ('Data'/'Voice'); split into these two tables to mirror
+-- the old raw_telus_data_services_pricebook / raw_telus_voice_services_pricebook
+-- boundary (those were two separate old files, identical column shape).
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_data_services_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  service_category text, service_id text, service_name text,
+  short_service_description text, monthly_fee text, ecf_rate text, service_sla text,
+  technical_services_support text, ordering_lead_times_objectives text,
+  delivery_lead_times_objectives_service_interval text, technical_service_standards text,
+  extras jsonb
+);
+
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_services_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  service_category text, service_id text, service_name text,
+  short_service_description text, monthly_fee text, ecf_rate text, service_sla text,
+  technical_services_support text, ordering_lead_times_objectives text,
+  delivery_lead_times_objectives_service_interval text, technical_service_standards text,
+  extras jsonb
+);
+
+-- Mirrors the old raw_telus_voice_long_distance_fees_pricebook exactly.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_long_distance_fees_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  country text, landline_termination_cpm_rate text, mobile_termination_cpm_rate text,
+  extras jsonb
+);
+
+-- New catalogue, no old precedent: usage/CPM rates for toll-free, SIP
+-- trunking, long distance, and ice Contact Centre features that moved out
+-- of the old voice_services catalogue (they're usage-based, not flat
+-- monthly fees). id_type/rate_type record which of the sheet's six
+-- repeating header variants a row's block used.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_data_usage_rates_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  id_type text, service_id text, service text, description text, rate_type text, rate text,
+  extras jsonb
+);

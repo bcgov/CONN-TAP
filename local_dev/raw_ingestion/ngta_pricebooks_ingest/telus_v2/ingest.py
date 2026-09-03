@@ -16,7 +16,7 @@ from typing import Optional
 import psycopg
 
 from common import fq
-from telus_v2.catalogues import resolve_book
+from telus_v2.catalogues import SplitByValueSheetSpec, resolve_book
 from telus_v2.excel import parse_workbook
 
 # New v2 tables live in their own schema, separate from raw_data (where
@@ -45,7 +45,13 @@ def process_file(
         if not rows:
             raise ValueError(f"No data rows extracted from {path} for {table_name}")
 
-    table_columns = {spec.table_name: spec.columns for spec in book.sheets}
+    table_columns: dict[str, tuple[str, ...]] = {}
+    for spec in book.sheets:
+        if isinstance(spec, SplitByValueSheetSpec):
+            for table_name in spec.table_by_value.values():
+                table_columns[table_name] = spec.columns
+        else:
+            table_columns[spec.table_name] = spec.columns
     row_total = sum(len(rows) for rows in rows_by_table.values())
 
     if dry_run:
