@@ -134,3 +134,94 @@ Notes:
   just `"Service SLA"`, and singular `"Ordering Lead Time Objectives"`
   instead of the old plural `"Ordering Lead Times Objectives"`. Handled the
   same way the old `telus/excel.py` handled similar header drift.
+
+---
+
+# Time Limited Services book
+
+Source: `TCI NGTA Price Book Time Limited Services (Combined) v1.7.xlsx`, 8
+sheets, each a distinct legacy product (SIPA V1, Analog Private Line,
+Centrex, Carrier Optical Ethernet, Managed Router, Copper Services, ADSL
+Services, IP Trunking R2).
+
+**No old→new mapping exists for this book.** Unlike Cellular Services and
+Voice and Data, there's no old `raw_telus_*` table for any of these 8
+products — the old schema never had a "Time Limited Services" pricebook
+file, and no old source file for it has been added to the repo. This is
+confirmed, not assumed: I checked `scripts/old price books/` and the
+original `ngta_pricebooks.sql` DDL, and neither has anything matching these
+product names. If an old file surfaces later, this section should be
+redone as an old→new diff like the others above.
+
+Each sheet has its own single header row (no repeating blocks). Column
+shapes differ per sheet (some have a service ID, some don't; only SIPA V1
+has overage charges), but there's no old-schema precedent either way, so —
+per your call — all 8 share **one table**, `raw_telus_v2_tls_pricebook`,
+with a `product` column naming which sheet a row came from and columns a
+given sheet doesn't use left `NULL`.
+
+## One combined table (no old table to compare against)
+
+| New table | Columns |
+|---|---|
+| `raw_telus_v2_tls_pricebook` | product, service_category, service_name, service_id, id_type, short_service_description, monthly_fee, overage_charges |
+
+| `product` value | Source sheet | Columns populated (beyond product/service_category/service_name/monthly_fee) | Row count |
+|---|---|---|---|
+| `SIPA V1` | SIPA V1 | service_id, id_type, overage_charges | 20 (see below) |
+| `Analog Private Line` | Analog Private Line | short_service_description | 43 |
+| `Centrex` | Centrex | short_service_description | 58 |
+| `Carrier Optical Ethernet` | Carrier Optical Ethernet | service_id | 7 |
+| `Managed Router` | Managed Router | short_service_description | 3 |
+| `Copper Services` | Copper Services | service_id | 40 |
+| `ADSL Services` | ADSL Services | short_service_description | 40 |
+| `IP Trunking R2` | IP Trunking R2 | service_id | 10 |
+
+`Service ID/ Billing ID` (Carrier Optical Ethernet, Copper Services, IP
+Trunking R2) and SIPA V1's `Service ID` both land in the same `service_id`
+column — same concept, just worded differently per sheet, and never both
+present on one sheet — so there's no ambiguity in reusing one column for it.
+
+Row counts (verified against the actual file): 20 (SIPA V1, see below) + 43 +
+58 + 7 + 3 + 40 + 40 + 10 = **221 rows total**.
+
+## SIPA V1 — unpivoted service IDs
+
+Unlike the other 7 sheets, SIPA V1 has a second, real service ID column
+("Service ID (Monthly Top Up)") on 5 of its 15 real rows — an alternate
+billing code for the same add-on (e.g. `XSTSM10G` base vs `XS10GBTUP`
+top-up), not a separately-priced item. Since downstream lookups need to
+match a spend row's `service_id` directly, this table is unpivoted: every
+row gets an `id_type` of `'base'` or `'monthly_top_up'`, and each real
+service ID — base or top-up — is its own row rather than two IDs packed
+into one row.
+
+- 15 real rows → 15 `'base'` rows (unchanged shape/values).
+- 5 of those rows also produce a `'monthly_top_up'` row: same
+  `service_category`/`service_name`/`short_service_description`, `service_id`
+  = the top-up ID, `overage_charges` copied across unchanged (it's the same
+  underlying add-on's usage rate either way), **`monthly_fee` left `NULL`**
+  — the sheet has no distinct price for the top-up variant, so it's left
+  honestly unknown rather than guessed or borrowed from `overage_charges`
+  (which is a per-MB usage rate, not a monthly fee — a different unit
+  entirely).
+- Total: 15 + 5 = 20 rows.
+- Bonus fix from this change: 3 footnote rows ("* As per specific M2M
+  Shared Add-on", etc.) that the generic single-header parser was
+  previously picking up as spurious data rows are now correctly excluded.
+
+`id_type` reuses the same naming convention as
+`raw_telus_v2_voice_data_usage_rates_pricebook.id_type` in the Voice and
+Data book, which already distinguishes `'Service ID'` vs `'Parent Service
+ID'` rows the same way.
+
+Notes:
+- **Carrier Optical Ethernet — a footnote is silently dropped**: row 3 has a
+  billing-correction note ("Note: SS1RN433306 is billed at $9,650 and
+  $2,685...") in an unnamed column (no header text above it). Unnamed
+  columns are excluded from the column map entirely — including from
+  `extras` — so this text is lost on ingestion. This is a pre-existing
+  limitation from the very first version of this pipeline (`telus/excel.py`
+  had the same behavior for the old catalogues), not something new to this
+  book, and low-stakes here since it's a one-off note rather than price
+  data — flagging for awareness, not fixed.

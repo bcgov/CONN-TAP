@@ -206,3 +206,27 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_data_usage_rates_price
   id_type text, service_id text, service text, description text, rate_type text, rate text,
   extras jsonb
 );
+
+-- Time Limited Services book. No old raw_telus_* table exists for any of
+-- these 8 sheets (the old schema never had a Time Limited Services
+-- pricebook file). All 8 share this one table; `product` names which sheet
+-- a row came from, and columns unused by a given sheet are NULL there (e.g.
+-- overage_charges/id_type are SIPA-V1-only). "Service ID/ Billing ID" and
+-- SIPA's "Service ID" both land in service_id (same concept, different
+-- header wording per sheet, never both present on one sheet).
+--
+-- SIPA V1 has a second, real service ID (Monthly Top Up) on 5 of its 15
+-- rows — an alternate billing code for the same add-on, not a separately
+-- priced item. Unpivoted so both IDs are independently queryable rows.
+-- id_type: 'base' | 'monthly_top_up'. The top-up row's monthly_fee is left
+-- NULL (this sheet has no distinct price for it); overage_charges carries
+-- over unchanged since that rate applies to the add-on either way.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_tls_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  product text, service_category text, service_name text, service_id text, id_type text,
+  short_service_description text, monthly_fee text, overage_charges text,
+  extras jsonb
+);

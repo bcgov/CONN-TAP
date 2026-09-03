@@ -27,6 +27,7 @@ HEADER_OVERRIDES: dict[str, str] = {
     "service_id": "service_id",
     "serviceid": "service_id",
     "service_id_for_ordering": "service_id",
+    "service_id_billing_id": "service_id",
     "rate_plan": "rate_plan",
     "monthly_fee": "monthly_fee",
     "cpm_rate": "cpm_rate",
@@ -314,11 +315,52 @@ def _parse_voice_data_usage_rates(ws: Worksheet) -> list[dict[str, Any]]:
     return rows_out
 
 
+def _parse_tls_sipa_v1(ws: Worksheet) -> list[dict[str, Any]]:
+    """Header is row 2; data starts row 3. Column D ("Service ID (Monthly
+    Top Up)") holds a second, real service ID on 5 of 15 rows — unpivoted
+    into a second row (id_type='monthly_top_up') so both IDs are
+    independently queryable. See catalogues.py for why monthly_fee is left
+    NULL on the top-up row rather than copied or backfilled from
+    overage_charges."""
+    max_row = ws.max_row
+    rows_out: list[dict[str, Any]] = []
+
+    for r in range(3, max_row + 1):
+        category, name, service_id, topup_id, desc, monthly_fee, overage = _row_values(ws, r, 7)
+        if category is None and service_id is None:
+            continue  # blank row, or a footnote row like "* As per specific M2M Shared Add-on"
+
+        base_row = {
+            "pricebook_ingestion_run_id": None,
+            "excel_row_number": r,
+            "product": "SIPA V1",
+            "service_category": as_text(category),
+            "service_name": as_text(name),
+            "service_id": as_text(service_id),
+            "id_type": "base",
+            "short_service_description": as_text(desc),
+            "monthly_fee": as_text(monthly_fee, _cell_format(ws, r, 6)),
+            "overage_charges": as_text(overage, _cell_format(ws, r, 7)),
+            "extras": None,
+        }
+        rows_out.append(base_row)
+
+        topup_text = as_text(topup_id)
+        if topup_text and topup_text.strip().casefold() != "n/a":
+            topup_row = dict(base_row)
+            topup_row["service_id"] = topup_text
+            topup_row["id_type"] = "monthly_top_up"
+            topup_row["monthly_fee"] = None
+            rows_out.append(topup_row)
+    return rows_out
+
+
 MULTI_BLOCK_PARSERS: dict[str, Callable[[Worksheet], list[dict[str, Any]]]] = {
     "control_center": _parse_control_center,
     "fleet_complete": _parse_fleet_complete,
     "connected_worker": _parse_connected_worker,
     "voice_data_usage_rates": _parse_voice_data_usage_rates,
+    "tls_sipa_v1": _parse_tls_sipa_v1,
 }
 
 

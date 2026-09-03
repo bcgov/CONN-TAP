@@ -269,7 +269,111 @@ VOICE_AND_DATA_V2 = BookSpec(
     ),
 )
 
-BOOKS: tuple[BookSpec, ...] = (CELLULAR_SERVICES_V2, CELLULAR_DEVICES_V2, VOICE_AND_DATA_V2)
+_TLS_COLUMNS = (
+    "product",
+    "service_category",
+    "service_name",
+    "service_id",
+    "id_type",
+    "short_service_description",
+    "monthly_fee",
+    "overage_charges",
+)
+
+TIME_LIMITED_SERVICES_V2 = BookSpec(
+    book_code="time_limited_services_v2",
+    file_match="time limited services",
+    sheets=(
+        # No old raw_telus_* table exists for any of these 8 sheets — the
+        # old schema never had a "Time Limited Services" pricebook file, so
+        # there's nothing to mirror here. All 8 share one table
+        # (raw_telus_v2_tls_pricebook), with `product` naming which sheet a
+        # row came from and unused columns left NULL per sheet (e.g.
+        # `overage_charges` is SIPA-V1-only). "Service ID/ Billing ID" and
+        # SIPA's "Service ID" both canonicalize to `service_id` (see
+        # HEADER_OVERRIDES in excel.py) since they're the same concept
+        # under different header wording, never both present on one sheet.
+        #
+        # SIPA V1 has a second, real service ID (Monthly Top Up) on 5 of its
+        # 15 rows — an alternate billing code for the same add-on, not a
+        # separately-priced item. Unpivoted so both IDs are independently
+        # queryable rows (needed for spend/validation lookups by
+        # service_id): id_type distinguishes 'base' from 'monthly_top_up'.
+        # The top-up row's monthly_fee is left NULL (this sheet has no
+        # distinct price for it) while overage_charges carries over
+        # unchanged, since that rate applies to the add-on either way.
+        MultiBlockSheetSpec(
+            sheet_name="SIPA V1",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_sipa_v1",
+            parser="tls_sipa_v1",
+        ),
+        SimpleSheetSpec(
+            sheet_name="Analog Private Line",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_analog_private_line",
+            header_row=2,
+            literal_columns={"product": "Analog Private Line"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="Centrex",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_centrex",
+            header_row=2,
+            literal_columns={"product": "Centrex"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="Carrier Optical Ethernet",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_carrier_optical_ethernet",
+            header_row=2,
+            literal_columns={"product": "Carrier Optical Ethernet"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="Managed Router",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_managed_router",
+            header_row=2,
+            literal_columns={"product": "Managed Router"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="Copper Services",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_copper_services",
+            header_row=2,
+            literal_columns={"product": "Copper Services"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="ADSL Services",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_adsl_services",
+            header_row=2,
+            literal_columns={"product": "ADSL Services"},
+        ),
+        SimpleSheetSpec(
+            sheet_name="IP Trunking R2",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_ip_trunking_r2",
+            header_row=2,
+            literal_columns={"product": "IP Trunking R2"},
+        ),
+    ),
+)
+
+BOOKS: tuple[BookSpec, ...] = (
+    CELLULAR_SERVICES_V2,
+    CELLULAR_DEVICES_V2,
+    VOICE_AND_DATA_V2,
+    TIME_LIMITED_SERVICES_V2,
+)
 
 
 def resolve_book(file_stem: str) -> BookSpec:
