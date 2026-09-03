@@ -11,6 +11,7 @@
 -- 'BC Lottery') -- that is not technically wrong, but it is not a real SUB-BGE either
 -- (whether or not the BGE has real SUB-BGEs elsewhere, e.g. BC Hydro's Powertech/Power Ex),
 -- so it is flagged the same as any other unrecognized value.
+DROP FUNCTION IF EXISTS raw_data.rogers_cellular_unknown_sub_bge(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_unknown_sub_bge(p_month date DEFAULT NULL)
 RETURNS TABLE (bge text, unknown_sub_bge text)
 LANGUAGE sql AS $$
