@@ -10,13 +10,18 @@
 - 🟦 Interior Health Authority
 - 🟦 Northern Health Authority
 - 🟦 Provincial Health Services Authority
+  - 🟩 BC Emergency Health Services (BC Ambulance)
+  - 🟧 BC Cancer Agency
+  - 🟧 BC Centre for Disease Control
+  - 🟧 BC Shared Health Services
 - 🟦 Vancouver Coastal Health Authority
-  - 🟧 Providence Health Care
+  - 🟧 Providence Health Care Society
+  - 🟩 Vancouver General Hospital
 - 🟦 Vancouver Island Health Authority
 
 ## 🟪 Crown Corporations
 - 🟦 BC Hydro
-  - 🟧 Powertech
+  - 🟧 Powertech Labs
   - 🟧 Powerex
 - 🟦 BC Lottery Corporation
 - 🟦 WorkSafe BC
@@ -85,10 +90,10 @@
   - 🟧 School District 92 Nisga'a
   - 🟧 School District 93 Conseil scolaire francophone
 - 🟦 BC Government
-  - 🟩 Agriculture and Food
-  - 🟩 Attorney General
-  - 🟩 Children and Family Development
-  - 🟩 Citizens' Services
+  - 🟩 BC Min Agriculture & Food
+  - 🟩 BC Min Attorney General
+  - 🟩 BC Min Children & Family Development
+  - 🟩 BC Min Citizens' Services (CSBC)
     - 🟧 BC Assessment
     - 🟧 BC Liquor Distribution Branch
     - 🟧 BC Family Maintenance Agency
@@ -99,9 +104,9 @@
     - 🟧 Community Living BC
     - 🟧 Destination BC
     - 🟧 Elections BC
-    - 🟧 Forest Practice Board
+    - 🟧 Forest Practices Board
     - 🟧 Islands Trust Conservancy
-    - 🟧 Legislative Assembly
+    - 🟧 BC Legislative Assembly
     - 🟧 Office of the Auditor General of BC
     - 🟧 Office of the Information & Privacy Commissioner
     - 🟧 Office of the Merit Commissioner
@@ -111,25 +116,25 @@
     - 🟧 Public Guardian and Trustee
     - 🟧 Royal BC Museum
     - 🟧 Superior Court Judiciary Branch
-    - 🟧 TI Corp
-  - 🟩 Education and Child Care
-  - 🟩 Emergency Management and Climate Readiness
-  - 🟩 Energy and Climate Solutions
-  - 🟩 Environment and Parks
-  - 🟩 Finance
-  - 🟩 Forests
-  - 🟩 Health
-  - 🟩 Housing and Municipal Affairs
-  - 🟩 Indigenous Relations and Reconciliation
-  - 🟩 Infrastructure
-  - 🟩 Jobs & Economic Growth
-  - 🟩 Labour
-  - 🟩 Mining and Critical Minerals
-  - 🟩 Post-Secondary Education and Future Skills
-  - 🟩 Public Safety and Solicitor General
-  - 🟩 Social Development and Poverty Reduction
-  - 🟩 Tourism Arts Culture and Sport
-  - 🟩 Transportation and Transit
-  - 🟩 Water Land and Resource Stewardship
-  - 🟩 Office of the Premier
+    - 🟧 Transportation Investment Corp
+  - 🟩 BC Min Education & Childcare
+  - 🟩 BC Min Emerg Mgmt & Climate Readiness
+  - 🟩 BC Min Energy & Climate Solutions
+  - 🟩 BC Min Environment and Parks
+  - 🟩 BC Min Finance
+  - 🟩 BC Min Forests
+  - 🟩 BC Min Health
+  - 🟩 BC Min Housing & Municipal Affairs
+  - 🟩 BC Min Indigenous Relations and Reconciliation
+  - 🟩 BC Min Infrastructure
+  - 🟩 BC Min Jobs & Economic Growth
+  - 🟩 BC Min Labour
+  - 🟩 BC Min Mining & Critical Minerals
+  - 🟩 BC Min Post-Secondary Ed & Future Skills
+  - 🟩 BC Min Public Safety & Solicitor Gen
+  - 🟩 BC Min Social Dev & Poverty Reduction
+  - 🟩 BC Min Tourism, Arts, Culture, and Sport
+  - 🟩 BC Min Transportation & Transit
+  - 🟩 BC Min Water Land & Resource Steward
+  - 🟩 BC Office of the Premier
   - 🟩 BC Public Service Agency

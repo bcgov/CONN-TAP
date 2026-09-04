@@ -62,7 +62,6 @@ SCRIPTS_DIR = HERE.parents[2]
 # SQL files that contain the CREATE [OR REPLACE] VIEW/FUNCTION definitions to (re)load.
 # spend_comparison.sql lives at the Rogers level (it spans cellular + voice/data).
 DDL_FILES = [
-    HERE.parent / "_shared.sql",
     HERE / "validation_rogers_ngta_cellular.sql",
     HERE.parent / "spend_comparison.sql",
 ]
