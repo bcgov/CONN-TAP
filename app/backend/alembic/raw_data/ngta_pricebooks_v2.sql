@@ -258,3 +258,89 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_professiona
   item text, description text, service_id text, rate text, dependencies text,
   extras jsonb
 );
+
+-- Rogers (RCCI) pricebook v2 workbooks. Mirrors the old
+-- raw_data.raw_rogers_cellular_pricebook exactly (same 11 fields) — the old
+-- table was built from cellular.pdf, this is the same catalogue sent as an
+-- Excel workbook instead. Monthly Fixed Fee / RLH overage fees are all
+-- zeroed in the source file (RCCI masked pricing before sending it), same
+-- situation as several of the Telus v2 books above.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  service_id text, service_name text, service_component text,
+  speed_mbps_or_capacity_mb text, monthly_fixed_fee text, ecf_rate text,
+  rlh_roam_like_home_usa_overage_fee text, rlh_roam_like_home_intl_overage_fee text,
+  ecf_unit_of_measure text, fixed_fee text, overage_charge text,
+  extras jsonb
+);
+
+-- New catalogue, no old table precedent — Rogers pricebook ingestion never
+-- had a device catalogue feed before this. Price is zeroed on every row,
+-- same masking as raw_rogers_v2_cellular_pricebook above.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_device_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  status text, service_id text, device_name text, type text, brand text,
+  model text, series text, trim text, capacity text, color text, price text,
+  extras jsonb
+);
+
+-- Mirrors the old raw_data.raw_rogers_data_pricebook exactly (same 7
+-- fields) — the old table was built from data.pdf, this is the same
+-- catalogue sent as an Excel workbook instead. Monthly Fixed Fee is zeroed
+-- in the source file, same masking as raw_rogers_v2_cellular_pricebook.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_data_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  service_id text, service_name text, service_component text,
+  speed_mbps_or_capacity_mb text, monthly_fixed_fee text, ecf_rate text,
+  ecf_unit_of_measure text,
+  extras jsonb
+);
+
+-- Mirrors the old raw_data.raw_rogers_voice_pricebook exactly (same 10
+-- fields, including voice_table_section) — the old table held voice.pdf's
+-- two tables (base_service, long_distance) together; this workbook's
+-- "Voice Services" and "Long Distance Rates" sheets are the same two
+-- tables, fanned into this one table the same way.
+--
+-- NOT fully masked like the other RCCI v2 tables: "Voice Services" row
+-- AV_P_A ("Advantage Voice Analog") carries a real price ($0.95 per
+-- Account) — every other row across both sheets is $0.00 / "No Charge" /
+-- blank.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_voice_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  voice_table_section text NOT NULL DEFAULT 'base_service',
+  service_id text, service_name text, service_subcategory text, service_component text,
+  monthly_fixed_fee text, cpm_rate text, terminating_country text,
+  ecf_rate text, ecf_unit_of_measure text,
+  extras jsonb
+);
+
+-- Mirrors the old raw_data.raw_rogers_professional_services_pricebook
+-- exactly (same 7 fields) — the old table was built from
+-- professional_services.pdf, this is the same catalogue sent as an Excel
+-- workbook instead. Unlike the other RCCI v2 tables, pricing here is NOT
+-- masked (real rates). Source workbook's other tabs (TO Change Log, S&U
+-- Price Book, S&U Gap Analysis) are a QC comparison report, not pricebook
+-- data, and are not ingested.
+CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_professional_services_pricebook (
+  raw_id bigserial PRIMARY KEY,
+  pricebook_ingestion_run_id bigint NOT NULL
+    REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
+  excel_row_number integer,
+  title text, services_supported text, service_id text,
+  business_hours_rate_hourly text, after_business_hours_rate_hourly text,
+  minimum_billing_increment text, fixed_fee text,
+  extras jsonb
+);

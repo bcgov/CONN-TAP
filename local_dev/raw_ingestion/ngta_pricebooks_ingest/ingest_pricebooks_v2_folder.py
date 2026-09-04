@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """
-Load Telus NGTA pricebook v2 workbooks from a folder into Postgres raw tables.
+Load NGTA pricebook v2 workbooks from a folder into Postgres raw tables.
 
-The v2 price books are single multi-sheet Excel workbooks (one sheet per
-catalogue), replacing the old one-file-per-catalogue u_ngta_*.xlsx layout
-handled by ingest_pricebooks_folder.py / telus/. This is a sibling script for
+The v2 price books are single-workbook Excel files (one sheet per
+catalogue), replacing the old one-file-per-catalogue layout handled by
+ingest_pricebooks_folder.py / telus/ / rogers/. This is a sibling script for
 that new format only — it does not touch the existing telus/rogers ingestion.
+
+Provider is inferred from a filename prefix: Telus sends "TCI ..." (e.g.
+"TCI NGTA Price Book Cellular Services v2.0.xlsx"), Rogers sends "RCCI ..."
+(RCCI = Rogers Communications Canada Inc., e.g.
+"RCCI NGTA Price Book Cellular Services v1.2.xlsx"). Both providers use the
+same "Cellular Services" sheet name and "cellular services"/"devices
+catalogue" file_match substrings, so the provider prefix has to be checked
+first — each provider's BookSpec.file_match is only resolved within its own
+BOOKS list, never across both.
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/ngta_pricebooks_ingest/requirements.txt
   cd app/backend && alembic upgrade head   # creates the raw_data_v2 schema and its
-                                            # raw_telus_v2_* tables (see
-                                            # alembic/raw_data/ngta_pricebooks_v2.sql)
+                                            # raw_telus_v2_* / raw_rogers_v2_* tables
+                                            # (see alembic/raw_data/ngta_pricebooks_v2.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
@@ -21,10 +30,13 @@ Usage:
 Layout (files are not committed; place locally):
   price_books_v2/
     TCI NGTA Price Book Cellular Services v2.0.xlsx
-    ... (more books as they're added; see telus_v2/catalogues.py BOOKS)
+    RCCI NGTA Price Book Cellular Services v1.2.xlsx
+    ... (more books as they're added; see telus_v2/catalogues.py and
+    rogers_v2/catalogues.py BOOKS)
 
 The book is inferred from the filename (see BookSpec.file_match in
-telus_v2/catalogues.py); it does not need to sit under a rogers/telus subdir.
+telus_v2/catalogues.py or rogers_v2/catalogues.py); it does not need to sit
+under a rogers/telus subdir.
 """
 
 from __future__ import annotations
@@ -35,7 +47,7 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import psycopg
 
@@ -44,9 +56,23 @@ if str(_PKG_ROOT) not in sys.path:
     sys.path.insert(0, str(_PKG_ROOT))
 
 from common import parse_period  # noqa: E402
+from rogers_v2 import process_file as process_rogers_v2_file  # noqa: E402
 from telus_v2 import process_file as process_telus_v2_file  # noqa: E402
 
 _EXCEL_SUFFIXES = frozenset({".xlsx", ".xlsm"})
+
+ProcessFn = Callable[..., tuple[int, str]]
+
+
+def resolve_processor(path: Path) -> ProcessFn:
+    stem = path.stem.casefold()
+    if "rcci" in stem:
+        return process_rogers_v2_file
+    if "tci" in stem:
+        return process_telus_v2_file
+    raise ValueError(
+        f"{path.name}: can't tell provider from filename; expected a 'TCI' (Telus) or 'RCCI' (Rogers) prefix"
+    )
 
 
 def iter_workbook_files(folder: Path) -> list[Path]:
@@ -92,11 +118,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     for path in files:
         try:
+            process_file = resolve_processor(path)
             if args.dry_run:
-                n, book = process_telus_v2_file(None, path, source_period=period, dry_run=True)
+                n, book = process_file(None, path, source_period=period, dry_run=True)
             else:
                 with psycopg.connect(args.dsn, autocommit=False) as conn:
-                    n, book = process_telus_v2_file(conn, path, source_period=period, dry_run=False)
+                    n, book = process_file(conn, path, source_period=period, dry_run=False)
             totals["files"] += 1
             totals["rows"] += n
             totals["by_book"][book] = totals["by_book"].get(book, 0) + n
