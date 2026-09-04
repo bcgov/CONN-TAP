@@ -15,7 +15,7 @@
   - 🟧 BC Centre for Disease Control
   - 🟧 BC Shared Health Services
 - 🟦 Vancouver Coastal Health Authority
-  - 🟧 Providence Health Care
+  - 🟧 Providence Health Care Society
   - 🟧 Vancouver General Hospital
 - 🟦 Vancouver Island Health Authority
 
@@ -104,7 +104,7 @@
     - 🟧 Community Living BC
     - 🟧 Destination BC
     - 🟧 Elections BC
-    - 🟧 Forest Practice Board
+    - 🟧 Forest Practices Board
     - 🟧 Islands Trust Conservancy
     - 🟧 Legislative Assembly
     - 🟧 Office of the Auditor General of BC
@@ -116,7 +116,7 @@
     - 🟧 Public Guardian and Trustee
     - 🟧 Royal BC Museum
     - 🟧 Superior Court Judiciary Branch
-    - 🟧 TI Corp
+    - 🟧 Transportation Investment Corp
   - 🟩 Education and Child Care
   - 🟩 Emergency Management and Climate Readiness
   - 🟩 Energy and Climate Solutions
