@@ -8,10 +8,10 @@ Missing_SUB_BGEs, Mapping_Issues, Mapping_Summary, Unknown_SUB-BGE, New_BGEs,
 Total_Amount_Pre-Tax_Issues, Total_Amount_Post-Tax_Issues), plus a month-over-month
 New/Removed detection.
 
-Like the Telus validator, the validation logic lives in the sibling
-``validation_rogers_ngta_cellular.sql`` as Postgres functions against
+Like the Telus validator, the validation logic lives in the sibling ``checks/*.sql`` files
+(applied in filename order) as Postgres functions against
 ``raw_data.raw_rogers_spend_cellular`` and the ``seeds``/``reference_data`` tables. By
-default this script (re)creates those functions from the SQL file before running them, so
+default this script (re)creates those functions from the SQL files before running them, so
 the workbook always reflects the current SQL.
 
 Usage
@@ -61,9 +61,11 @@ SCRIPTS_DIR = HERE.parents[2]
 
 # SQL files that contain the CREATE [OR REPLACE] VIEW/FUNCTION definitions to (re)load.
 # spend_comparison.sql lives at the Rogers level (it spans cellular + voice/data).
+# checks/*.sql are applied in filename order -- 00_view_validated.sql defines the view
+# every later check selects from, so it must load first.
 DDL_FILES = [
     HERE.parent / "_shared.sql",
-    HERE / "validation_rogers_ngta_cellular.sql",
+    *sorted(HERE.glob("checks/*.sql")),
     HERE.parent / "spend_comparison.sql",
 ]
 

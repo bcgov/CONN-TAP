@@ -6,8 +6,8 @@ the row (issue) count and PASS/FAIL status for every check -- reproducing the ta
 legacy Python/Excel report, plus a month-over-month New/Removed detection and (with --month)
 a Spend Comparison.
 
-Like the cellular validator, the validation logic lives in the sibling
-``validation_rogers_ngta_data_voice.sql`` as Postgres functions against
+Like the cellular validator, the validation logic lives in the sibling ``checks/*.sql`` files
+(applied in filename order) as Postgres functions against
 ``raw_data.raw_rogers_spend_data_voice`` and the ``seeds``/``reference_data`` tables. By
 default this script (re)creates those functions before running them, so the workbook always
 reflects the current SQL.
@@ -52,9 +52,11 @@ SCRIPTS_DIR = HERE.parents[2]
 
 # SQL files that contain the CREATE [OR REPLACE] VIEW/FUNCTION definitions to (re)load.
 # spend_comparison.sql lives at the Rogers level (it spans cellular + voice/data).
+# checks/*.sql are applied in filename order -- 00_view_validated.sql defines the view
+# every later check selects from, so it must load first.
 DDL_FILES = [
     HERE.parent / "_shared.sql",
-    HERE / "validation_rogers_ngta_data_voice.sql",
+    *sorted(HERE.glob("checks/*.sql")),
     HERE.parent / "spend_comparison.sql",
 ]
 
