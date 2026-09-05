@@ -145,6 +145,9 @@ VALIDATIONS = [
     ("New-Removed BGEs",
      "Sheet names added or removed compared to the prior month.",
      monthly_check("SELECT * FROM telus_raw_validate_new_bges_in_sheets(%s)")),
+    ("New-Removed Sub-BGEs",
+     "account_description values (sub-organizations) added or removed compared to the prior month.",
+     monthly_check("SELECT * FROM telus_raw_validate_new_sub_bges_in_accounts(%s)")),
     ("Spend Comparison",
      "Month-over-month spend by entity across categories, with a >50% difference flag "
      "(comparison report rather than a strict pass/fail check).",
