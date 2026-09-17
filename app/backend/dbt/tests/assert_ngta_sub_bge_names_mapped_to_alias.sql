@@ -2,7 +2,9 @@
 
 -- Data-quality guard: every non-null raw sub-BGE / service-designee name coming
 -- from the Telus NGTA and Rogers NGTA spend tables must resolve to a sub_bge
--- alias via sub_bge_alias_map. Severity is 'warn' (does not fail the build): a
+-- alias via sub_bge_alias_map, matched on reference_data.match_key -- the same
+-- key the staging models join on, so this reports exactly what the pipeline
+-- would fail to resolve. Severity is 'warn' (does not fail the build): a
 -- new raw spelling that lacks a seed mapping is surfaced as a warning naming
 -- exactly what to add to sub_bge_alias_map.csv. Flip to 'error' above to enforce.
 --
@@ -50,7 +52,7 @@ select distinct
     s.sub_raw as unmapped_sub_bge_name
 from src s
 left join {{ ref('sub_bge_alias_map') }} sbm
-    on {{ norm_key('sbm.raw_name') }} = {{ norm_key('s.sub_raw') }}
+    on reference_data.match_key(sbm.raw_name) = reference_data.match_key(s.sub_raw)
 where s.sub_raw is not null
     and sbm.raw_name is null
 order by s.vendor, s.source_table, unmapped_sub_bge_name
