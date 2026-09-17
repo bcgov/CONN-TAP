@@ -151,5 +151,7 @@ select
     source_amount_name,
     spend_amount
 from cleaned
-left join {{ ref('bge_alias_map') }} bm on {{ norm_key('bm.raw_name') }} = {{ norm_key('cleaned.organization_name') }}
-left join {{ ref('sub_bge_alias_map') }} sbm on {{ norm_key('sbm.raw_name') }} = {{ norm_key('cleaned.sub_organization_name') }}
+left join {{ ref('bge_alias_map') }} bm
+    on reference_data.match_key(bm.raw_name) = reference_data.match_key(cleaned.organization_name)
+left join {{ ref('sub_bge_alias_map') }} sbm
+    on reference_data.match_key(sbm.raw_name) = reference_data.match_key(cleaned.sub_organization_name)
