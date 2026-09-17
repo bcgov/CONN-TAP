@@ -29,7 +29,7 @@ select distinct
     s.sub_raw as unmapped_sub_bge_name
 from src s
 left join {{ ref('sub_bge_alias_map') }} sbm
-    on {{ norm_key('sbm.raw_name') }} = {{ norm_key('s.sub_raw') }}
+    on reference_data.match_key(sbm.raw_name) = reference_data.match_key(s.sub_raw)
 where s.sub_raw is not null
     and sbm.raw_name is null
 order by s.source_table, unmapped_sub_bge_name
