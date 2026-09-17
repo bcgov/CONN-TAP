@@ -6,7 +6,7 @@ mappings in `mapping.py`.
 
 They have been **replaced** by the SQL/database path in the parent folder:
 
-- `../validation_rogers_ngta_cellular.sql` — a view + one Postgres function per check, using
+- `../checks/*.sql` — a view + one Postgres function per check, using
   the DB **seeds/reference data** (`seeds.bge_alias_map`, `seeds.sub_bge_alias_map`,
   `reference_data.bge/sub_bge`) as the source of truth, and the shared `norm_key` matching.
 - `../run_validations.py` — connects to Postgres, runs each function, and writes the same
