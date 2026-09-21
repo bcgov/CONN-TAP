@@ -1,23 +1,41 @@
 #!/usr/bin/env python3
 """
-Load NGTA Rogers / Telus pricebooks from a folder into Postgres raw tables.
+Load NGTA pricebook workbooks from a folder into Postgres raw tables.
+
+The price books are single-workbook Excel files (one sheet per catalogue).
+Each workbook fans out into one or more raw_telus_v2_* / raw_rogers_v2_* tables
+in raw_data under a single pricebook_ingestion_run row.
+
+Provider is inferred from a filename prefix: Telus sends "TCI ..." (e.g.
+"TCI NGTA Price Book Cellular Services v2.0.xlsx"), Rogers sends "RCCI ..."
+(RCCI = Rogers Communications Canada Inc., e.g.
+"RCCI NGTA Price Book Cellular Services v1.2.xlsx"). Both providers use the
+same "Cellular Services" sheet name and "cellular services"/"devices
+catalogue" file_match substrings, so the provider prefix has to be checked
+first — each provider's BookSpec.file_match is only resolved within its own
+BOOKS list, never across both.
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/ngta_pricebooks_ingest/requirements.txt
-  cd app/backend && alembic upgrade head   # creates raw_data (see alembic/raw_data/ngta_pricebooks.sql)
+  cd app/backend && alembic upgrade head   # creates the raw_data v2 tables, i.e. its
+                                            # raw_telus_v2_* / raw_rogers_v2_* tables
+                                            # (see alembic/raw_data/ngta_pricebooks_v2.sql)
 
 Usage:
   export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
-  python local_dev/raw_ingestion/ngta_pricebooks_ingest/ingest_pricebooks_folder.py /path/to/price_books
-  python ... /path/to/price_books --dry-run
+  python local_dev/raw_ingestion/ngta_pricebooks_ingest/ingest_pricebooks_folder.py /path/to/price_books_v2
+  python ... /path/to/price_books_v2 --dry-run
 
 Layout (files are not committed; place locally):
-  Rogers (PDF under price_books/rogers/):
-    professional_services.pdf, data.pdf, cellular.pdf, voice.pdf
-  Telus (Excel under price_books/telus/):
-    u_ngta_cellular_additional_fees_catalogue.xlsx, u_ngta_cellular_services_catalogue.xlsx, ...
+  price_books_v2/
+    TCI NGTA Price Book Cellular Services v2.0.xlsx
+    RCCI NGTA Price Book Cellular Services v1.2.xlsx
+    ... (more books as they're added; see telus/catalogues.py and
+    rogers/catalogues.py BOOKS)
 
-Carrier is inferred from path segments rogers or telus (case-insensitive).
+The book is inferred from the filename (see BookSpec.file_match in
+telus/catalogues.py or rogers/catalogues.py); it does not need to sit
+under a rogers/telus subdir.
 """
 
 from __future__ import annotations
@@ -28,7 +46,7 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import psycopg
 
@@ -36,44 +54,36 @@ _PKG_ROOT = Path(__file__).resolve().parent
 if str(_PKG_ROOT) not in sys.path:
     sys.path.insert(0, str(_PKG_ROOT))
 
-from common import Provider, iter_pricebook_files, parse_period, provider_from_path  # noqa: E402
-from rogers import process_pdf as process_rogers_pdf  # noqa: E402
-from telus import process_file as process_telus_file  # noqa: E402
+from common import parse_period  # noqa: E402
+from rogers import process_file as process_rogers_v2_file  # noqa: E402
+from telus import process_file as process_telus_v2_file  # noqa: E402
 
 _EXCEL_SUFFIXES = frozenset({".xlsx", ".xlsm"})
 
+ProcessFn = Callable[..., tuple[int, str]]
 
-def process_path(
-    conn: Optional[psycopg.Connection],
-    path: Path,
-    *,
-    root: Path,
-    period: Optional[date],
-    force_provider: Optional[Provider],
-    dry_run: bool,
-) -> tuple[int, str]:
-    prov = provider_from_path(path, root, force_provider)
-    if prov is None:
-        raise ValueError(
-            f"Expected path under .../rogers/... or .../telus/... relative to {root}: {path}"
-        )
-    suffix = path.suffix.casefold()
-    if prov == "rogers":
-        if suffix != ".pdf":
-            raise ValueError(f"Rogers pricebooks must be PDF, got {path.name!r}")
-        return process_rogers_pdf(conn, path, source_period=period, dry_run=dry_run)
-    if suffix not in _EXCEL_SUFFIXES:
-        raise ValueError(f"Telus pricebooks must be Excel (.xlsx), got {path.name!r}")
-    return process_telus_file(conn, path, source_period=period, dry_run=dry_run)
+
+def resolve_processor(path: Path) -> ProcessFn:
+    stem = path.stem.casefold()
+    if "rcci" in stem:
+        return process_rogers_v2_file
+    if "tci" in stem:
+        return process_telus_v2_file
+    raise ValueError(
+        f"{path.name}: can't tell provider from filename; expected a 'TCI' (Telus) or 'RCCI' (Rogers) prefix"
+    )
+
+
+def iter_workbook_files(folder: Path) -> list[Path]:
+    paths: list[Path] = []
+    for pat in ("*.xlsx", "*.xlsm"):
+        paths.extend(folder.glob(pat))
+    return sorted(p for p in paths if not p.name.startswith("~$") and not p.name.startswith("."))
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "folder",
-        type=Path,
-        help="Root directory containing rogers/ and telus/ pricebook files",
-    )
+    parser.add_argument("folder", type=Path, help="Directory containing v2 pricebook .xlsx files")
     parser.add_argument(
         "--dsn",
         default=os.environ.get("DATABASE_URL"),
@@ -85,20 +95,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=None,
         help="Effective period as YYYY-MM-DD (stored on pricebook_ingestion_run)",
     )
-    parser.add_argument(
-        "--no-recursive",
-        dest="recursive",
-        action="store_false",
-        help="Only match files at root and one level under rogers/ or telus/",
-    )
-    parser.set_defaults(recursive=True)
     parser.add_argument("--dry-run", action="store_true", help="Parse and count rows only")
-    parser.add_argument(
-        "--force-provider",
-        choices=("telus", "rogers"),
-        default=None,
-        help="Override carrier inferred from folder path",
-    )
     args = parser.parse_args(argv)
 
     if not args.dsn and not args.dry_run:
@@ -111,41 +108,25 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     period = parse_period(args.source_period)
-    files = iter_pricebook_files(folder, args.recursive)
+    files = iter_workbook_files(folder)
     if not files:
-        print(f"No pricebook files (.pdf / .xlsx) under {folder}")
+        print(f"No .xlsx/.xlsm pricebook files under {folder}")
         return 0
 
-    totals: dict[str, Any] = {"files": 0, "rows": 0, "by_table": {}, "skipped": []}
+    totals: dict[str, Any] = {"files": 0, "rows": 0, "by_book": {}, "skipped": []}
 
     for path in files:
         try:
+            process_file = resolve_processor(path)
             if args.dry_run:
-                n, table = process_path(
-                    None,
-                    path,
-                    root=folder,
-                    period=period,
-                    force_provider=args.force_provider,
-                    dry_run=True,
-                )
+                n, book = process_file(None, path, source_period=period, dry_run=True)
             else:
                 with psycopg.connect(args.dsn, autocommit=False) as conn:
-                    n, table = process_path(
-                        conn,
-                        path,
-                        root=folder,
-                        period=period,
-                        force_provider=args.force_provider,
-                        dry_run=False,
-                    )
+                    n, book = process_file(conn, path, source_period=period, dry_run=False)
             totals["files"] += 1
             totals["rows"] += n
-            totals["by_table"][table] = totals["by_table"].get(table, 0) + n
-            print(f"[ok] {path.name}: {n} rows -> {table}")
-        except NotImplementedError as e:
-            totals["skipped"].append(str(path))
-            print(f"[skip] {path.name}: {e}", file=sys.stderr)
+            totals["by_book"][book] = totals["by_book"].get(book, 0) + n
+            print(f"[ok] {path.name}: {n} rows -> book {book}")
         except Exception as e:
             totals["skipped"].append(str(path))
             print(f"[error] {path.name}: {e}", file=sys.stderr)

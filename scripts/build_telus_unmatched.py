@@ -100,38 +100,65 @@ _CELL_MAP = """
 _BASE_SQL = f"""
 WITH data_ids AS (
   SELECT DISTINCT UPPER(TRIM(service_id)) AS sid
-  FROM raw_data.raw_telus_data_services_pricebook
+  FROM raw_data.raw_telus_v2_data_services_pricebook
   WHERE NULLIF(TRIM(service_id), '') IS NOT NULL
 ),
 voice_ids AS (
   SELECT DISTINCT UPPER(TRIM(service_id)) AS sid
-  FROM raw_data.raw_telus_voice_services_pricebook
+  FROM raw_data.raw_telus_v2_voice_services_pricebook
   WHERE NULLIF(TRIM(service_id), '') IS NOT NULL
 ),
 data_names AS (
   SELECT nm FROM (
-    SELECT {_norm_pb('service_name')} AS nm FROM raw_data.raw_telus_data_services_pricebook
+    SELECT {_norm_pb('service_name')} AS nm FROM raw_data.raw_telus_v2_data_services_pricebook
     UNION
-    SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_data_services_pricebook
+    SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_v2_data_services_pricebook
   ) n WHERE nm IS NOT NULL AND nm <> ''
 ),
 voice_names AS (
   SELECT nm FROM (
-    SELECT {_norm_pb('service_name')} AS nm FROM raw_data.raw_telus_voice_services_pricebook
+    SELECT {_norm_pb('service_name')} AS nm FROM raw_data.raw_telus_v2_voice_services_pricebook
     UNION
-    SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_voice_services_pricebook
+    SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_v2_voice_services_pricebook
   ) n WHERE nm IS NOT NULL AND nm <> ''
 ),
 cell_ids AS (
   SELECT sid FROM (
-    SELECT TRIM(service_id) AS sid FROM raw_data.raw_telus_cellular_services_pricebook
+    SELECT TRIM(service_id) AS sid FROM raw_data.raw_telus_v2_cellular_services_pricebook
     UNION
-    SELECT TRIM(service_id) FROM raw_data.raw_telus_cellular_catalog_and_price_list_pricebook
+    SELECT TRIM(service_id) FROM raw_data.raw_telus_v2_cellular_additional_fee_based_features_pricebook
     UNION
-    SELECT TRIM(service_id) FROM raw_data.raw_telus_control_center_services_pricebook
+    SELECT TRIM(service_id) FROM raw_data.raw_telus_v2_control_center_pricebook
     UNION
-    SELECT TRIM(service_id) FROM raw_data.raw_telus_cellular_mms_pricebook
+    SELECT TRIM(service_id) FROM raw_data.raw_telus_v2_cellular_mms_pricebook
   ) c WHERE sid IS NOT NULL AND sid <> ''
+),
+-- v2 catalogues with no old-schema equivalent (plus voice/data usage rates, which
+-- absorbed some services that used to sit in the voice services table). Matched
+-- on NG code / exact text only; there is no plan-name mapping for these.
+other_ids AS (
+  SELECT DISTINCT sid FROM (
+    SELECT UPPER(TRIM(service_id)) AS sid FROM raw_data.raw_telus_v2_voice_data_usage_rates_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_professional_services_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_connected_worker_professional_services_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_gms_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_connected_worker_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_connected_worker_usage_rate_pricebook
+    UNION ALL SELECT UPPER(TRIM(service_id)) FROM raw_data.raw_telus_v2_connected_worker_hardware_pricebook
+    UNION ALL SELECT UPPER(TRIM(code)) FROM raw_data.raw_telus_v2_fleet_complete_pricebook
+  ) o WHERE sid IS NOT NULL AND sid <> ''
+),
+other_names AS (
+  SELECT nm FROM (
+    SELECT {_norm_pb('service_name')} AS nm FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION
+    SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION
+    SELECT {_norm_pb('service')} FROM raw_data.raw_telus_v2_voice_data_usage_rates_pricebook
+    UNION
+    SELECT {_norm_pb('description')} FROM raw_data.raw_telus_v2_voice_data_usage_rates_pricebook
+  ) n WHERE nm IS NOT NULL AND nm <> ''
 ),
 spend AS (
   SELECT
@@ -183,6 +210,8 @@ WHERE NOT (
     OR EXISTS (SELECT 1 FROM data_names  dn WHERE dn.nm  = s.norm_detail)
     OR EXISTS (SELECT 1 FROM voice_names vn WHERE vn.nm  = s.norm_detail)
     OR EXISTS (SELECT 1 FROM cell_ids  ci WHERE ci.sid = s.mapped_cell_id)
+    OR EXISTS (SELECT 1 FROM other_ids oi WHERE oi.sid IN (s.ng_data, s.ng_any))
+    OR EXISTS (SELECT 1 FROM other_names ont WHERE ont.nm = s.norm_detail)
   )
   {_MONTH_FILTER_TOKEN}
 ORDER BY s.month_start NULLS FIRST, s.sheet_name, s.amount DESC

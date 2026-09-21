@@ -61,12 +61,22 @@ Requires `DATABASE_URL` (or `--dsn`), `psycopg`, and `xlsxwriter`.
 **Pricebooks:**
 
 - `service_id`, `service_name`, `short_service_description`, `monthly_fee` — data +
-  voice (`raw_telus_data_services_pricebook`, `raw_telus_voice_services_pricebook`).
-- `service_id`, `monthly_fee` — the 4 cellular tables
-  (`raw_telus_cellular_services_pricebook`,
-  `raw_telus_cellular_catalog_and_price_list_pricebook`,
-  `raw_telus_control_center_services_pricebook`,
-  `raw_telus_cellular_mms_pricebook`).
+  voice (`raw_telus_v2_data_services_pricebook`, `raw_telus_v2_voice_services_pricebook`).
+- `service_id`, `monthly_fee` — cellular services, control center and MMS
+  (`raw_telus_v2_cellular_services_pricebook`,
+  `raw_telus_v2_control_center_pricebook`,
+  `raw_telus_v2_cellular_mms_pricebook`). The old catalog-and-price-list and
+  control-center tables were merged into `control_center` in v2.
+- `service_id`, `fee` — cellular additional fee-based features
+  (`raw_telus_v2_cellular_additional_fee_based_features_pricebook`; the fee column
+  is `fee`, not `monthly_fee`, and the table now carries a `service_id`).
+- `service_id`, `monthly_fee` (plus `service_name`, `short_service_description` for
+  text matching on `tls`) — new v2 catalogues with a monthly fee:
+  `raw_telus_v2_tls_pricebook`, `raw_telus_v2_gms_pricebook`,
+  `raw_telus_v2_connected_worker_pricebook`. Matched on NG code / exact text only,
+  reported as Type `other`. Usage-rate, hourly-rate and hardware-price tables
+  (`voice_data_usage_rates`, `professional_services`, `connected_worker_*` rates and
+  hardware, `fleet_complete`) are **not** cost-compared: those are not monthly fees.
 
 ## Matching — same logic as the unmatched report
 
@@ -98,6 +108,7 @@ order (first hit wins), recorded in the **Type** and **Pricebook** columns:
 3. Data pricebook via exact text
 4. Voice pricebook via exact text
 5. Cellular pricebooks via plan-name mapping
+6. Other v2 catalogues (TLS, GMS, Connected Worker) via NG code, then TLS via exact text
 
 **Parsing the fee.** `monthly_fee` is stored as text (e.g. `$380.00`,
 `$4,500.00`, `$ 6.49`). It is parsed by stripping whitespace, `$`, and `,`, then
