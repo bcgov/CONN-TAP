@@ -5,7 +5,7 @@ single-sheet Excel workbooks, replacing the old rogers/*.pdf feeds for the
 catalogues they cover. Both are plain header-row-plus-data-rows sheets (no
 merged cells, no repeating header blocks), so this reuses SimpleSheetSpec
 only — no MultiBlockSheetSpec/SplitByValueSheetSpec machinery is needed here
-the way telus_v2 needed it.
+the way telus needed it.
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ DATA_SERVICES_V2 = BookSpec(
 # two tables (base_service pp.1-2, long_distance), and this workbook sends
 # the same two tables as two sheets. Both sheets fan into the *same* new
 # table, same as the old table did, with voice_table_section as a literal
-# per sheet (mirrors telus_v2's TLS book: several sheets, one table).
+# per sheet (mirrors telus's TLS book: several sheets, one table).
 #
 # NOT fully masked like the other RCCI books: "Voice Services" row
 # AV_P_A / "Advantage Voice Analog" has a real price ($0.95 per Account) —

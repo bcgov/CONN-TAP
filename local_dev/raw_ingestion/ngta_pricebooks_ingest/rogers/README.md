@@ -9,7 +9,7 @@ Catalogue's title row).
 Services is masked to zero.** Every `Monthly Fixed Fee` / `Price` cell reads
 `0`, formatted with a currency number format (`\$0.00` / `\$ #,##0.00`) — so
 it renders as text `"$0.00"` on ingestion, not a blank — same situation as
-several of the Telus v2 books (see `telus_v2/README.md`, Professional
+several of the Telus v2 books (see `telus/README.md`, Professional
 Services section). Not a real business change, just sanitized source data.
 (`ECF Rate` is a genuine, non-masked percentage in Cellular Services, Data
 Services, and Voice Services — not a price.)
@@ -47,13 +47,13 @@ tables — same catalogues, Excel instead of PDF, no schema drift. The Voice
 Services book's two sheets ("Voice Services" = old table's `base_service`
 section, "Long Distance Rates" = old table's `long_distance` section) fan
 into the one new table exactly as the old table already combined them, with
-`voice_table_section` as a literal per sheet (same technique telus_v2 used
+`voice_table_section` as a literal per sheet (same technique telus used
 for its 8-sheet Time Limited Services book).
 
 Percentage-formatted `ECF Rate` cells (`0%`, e.g. `0.25` -> `"25%"`, seen in
 Data Services and Voice Services) and plain-text `ECF Rate` cells (`"n/a"`,
-seen in Cellular Services) are both handled by `rogers_v2/excel.py`'s
-`as_text`, same currency-or-percentage number-format handling telus_v2 uses.
+seen in Cellular Services) are both handled by `rogers/excel.py`'s
+`as_text`, same currency-or-percentage number-format handling telus uses.
 
 ## Item-level diff (old book vs new file, by service ID)
 

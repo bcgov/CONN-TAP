@@ -1,7 +1,7 @@
 """Parse Rogers pricebook v2 Excel workbooks into per-table row dicts.
 
 Both v2 books are plain header-row-plus-data-rows sheets, so this is the
-header-canonicalization + row-extraction half of telus_v2/excel.py with the
+header-canonicalization + row-extraction half of telus/excel.py with the
 merged-cell fill-down and multi-block/split-by-value machinery dropped —
 neither book needs it (see catalogues.py).
 """
@@ -16,7 +16,7 @@ from typing import Any, Optional
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from rogers_v2.catalogues import BookSpec, SimpleSheetSpec, resolve_sheet
+from rogers.catalogues import BookSpec, SimpleSheetSpec, resolve_sheet
 
 
 def canonical_header(value: Any) -> str:
@@ -38,7 +38,7 @@ def as_text(value: Any, number_format: Optional[str] = None) -> Optional[str]:
     way rather than as the bare underlying number (0, 0.25) — a masked price
     still reads as "$0.00" text and a rate as "25%" text, consistent with
     the old PDF-parsed rogers/ tables (which read the rendered text
-    directly) and with how telus_v2 handles the same situation."""
+    directly) and with how telus handles the same situation."""
     if value is None:
         return None
     if isinstance(value, (int, float)) and not isinstance(value, bool) and number_format:
