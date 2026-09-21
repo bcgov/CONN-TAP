@@ -19,14 +19,6 @@ from common import fq
 from telus_v2.catalogues import SplitByValueSheetSpec, resolve_book
 from telus_v2.excel import parse_workbook
 
-# New v2 tables live in their own schema, separate from raw_data (where
-# pricebook_ingestion_run and the original raw_telus_* tables stay).
-_PG_SCHEMA_V2 = "raw_data_v2"
-
-
-def _fq_v2(table_name: str) -> str:
-    return f"{_PG_SCHEMA_V2}.{table_name}"
-
 
 def _insert_columns(spec_columns: tuple[str, ...]) -> list[str]:
     return ["pricebook_ingestion_run_id", "excel_row_number", *spec_columns, "extras"]
@@ -76,7 +68,7 @@ def process_file(
             for table_name, rows in rows_by_table.items():
                 columns = _insert_columns(table_columns[table_name])
                 sql = (
-                    f"INSERT INTO {_fq_v2(table_name)} ("
+                    f"INSERT INTO {fq(table_name)} ("
                     + ", ".join(columns)
                     + ") VALUES ("
                     + ", ".join(["%s"] * len(columns))

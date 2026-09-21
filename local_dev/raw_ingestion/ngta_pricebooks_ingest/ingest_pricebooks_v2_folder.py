@@ -18,7 +18,7 @@ BOOKS list, never across both.
 
 Prereqs:
   pip install -r local_dev/raw_ingestion/ngta_pricebooks_ingest/requirements.txt
-  cd app/backend && alembic upgrade head   # creates the raw_data_v2 schema and its
+  cd app/backend && alembic upgrade head   # creates the raw_data v2 tables, i.e. its
                                             # raw_telus_v2_* / raw_rogers_v2_* tables
                                             # (see alembic/raw_data/ngta_pricebooks_v2.sql)
 

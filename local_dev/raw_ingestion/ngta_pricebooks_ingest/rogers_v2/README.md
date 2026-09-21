@@ -33,7 +33,7 @@ validation report, not pricebook data, and are not ingested; see
 `catalogues.py` for the reasoning. Only the "Professional Services" sheet
 feeds `raw_rogers_v2_professional_services_pricebook`.
 
-## Old tables (`raw_data`) → New tables (`raw_data_v2`)
+## Old tables (`raw_data`) → New v2 tables (also `raw_data`, `*_v2_*` names)
 
 | Old table | Old fields | New table | New fields |
 |---|---|---|---|

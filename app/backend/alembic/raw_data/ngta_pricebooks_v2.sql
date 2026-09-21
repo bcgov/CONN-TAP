@@ -5,12 +5,9 @@
 -- "TCI NGTA Price Book Cellular Services v2.0.xlsx" (one sheet per catalogue
 -- below), replacing the old one-file-per-catalogue u_ngta_*.xlsx layout.
 --
--- Lives in its own raw_data_v2 schema, separate from raw_data, so the new
--- tables never collide with (or get mixed up with) the original raw_telus_*
--- tables in ngta_pricebooks.sql. pricebook_ingestion_run bookkeeping is
--- shared and stays in raw_data (referenced cross-schema below).
-
-CREATE SCHEMA IF NOT EXISTS raw_data_v2;
+-- Lives in the raw_data schema next to pricebook_ingestion_run. The *_v2_*
+-- table names keep these distinct from the original raw_telus_*/raw_rogers_*
+-- tables created by ngta_pricebooks.sql.
 
 -- Mirrors the old raw_telus_cellular_services_pricebook: the old
 -- u_ngta_cellular_services_catalogue.xlsx was itself a single file covering
@@ -20,7 +17,7 @@ CREATE SCHEMA IF NOT EXISTS raw_data_v2;
 -- Features, Advanced Fee-Based features); this table recombines them the
 -- same way the old table did, with type_of_service holding the sheet name
 -- each row came from.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -33,7 +30,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_services_pricebook 
 -- the real old source files) — hardcoded back in here as a literal per
 -- sheet, same as raw_telus_v2_cellular_services_pricebook above, since the
 -- new sheets don't carry that column themselves.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_additional_fee_based_features_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_additional_fee_based_features_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -42,7 +39,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_additional_fee_base
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_roaming_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_roaming_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -51,7 +48,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_roaming_pricebook (
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_long_distance_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_long_distance_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -60,7 +57,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_long_distance_price
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_mms_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_mms_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -69,7 +66,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_mms_pricebook (
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_gms_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_gms_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -78,7 +75,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_gms_pricebook (
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_gms_usage_rate_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_gms_usage_rate_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -90,7 +87,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_gms_usage_rate_pricebook (
 -- Multi-section sheet: Stadium / Pooled rate plans, Fee-Based Optional
 -- Features (APN, Static IP), and SIM pricing all live on one sheet with
 -- repeating header rows. `section` captures which block a row came from.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_control_center_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_control_center_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -102,7 +99,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_control_center_pricebook (
 
 -- Multi-section sheet: Monthly Rate Plans, Fee-Based Optional Features,
 -- Hardware, and Professional Services blocks with repeating headers.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_fleet_complete_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_fleet_complete_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -113,7 +110,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_fleet_complete_pricebook (
 
 -- Multi-section sheet: Monthly Rate Plans and Fee-Based Optional Features
 -- blocks with repeating headers.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_connected_worker_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -123,7 +120,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_pricebook (
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_usage_rate_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_connected_worker_usage_rate_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -135,7 +132,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_usage_rate_
 -- Cellular Devices Catalogue book. Mirrors the old
 -- raw_telus_cellular_device_pricebook exactly; type_of_service was a
 -- constant 'Device Catalogue' in the old file, hardcoded back in here.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_device_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_cellular_device_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -146,7 +143,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_cellular_device_pricebook (
 
 -- New catalogue, no old precedent: wearable/satellite hardware and
 -- accessories supporting the Connected Worker Solution sheet.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_hardware_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_connected_worker_hardware_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -159,7 +156,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_hardware_pr
 -- Category column ('Data'/'Voice'); split into these two tables to mirror
 -- the old raw_telus_data_services_pricebook / raw_telus_voice_services_pricebook
 -- boundary (those were two separate old files, identical column shape).
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_data_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_data_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -171,7 +168,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_data_services_pricebook (
   extras jsonb
 );
 
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_voice_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -184,7 +181,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_services_pricebook (
 );
 
 -- Mirrors the old raw_telus_voice_long_distance_fees_pricebook exactly.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_long_distance_fees_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_voice_long_distance_fees_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -198,7 +195,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_long_distance_fees_pri
 -- of the old voice_services catalogue (they're usage-based, not flat
 -- monthly fees). id_type/rate_type record which of the sheet's six
 -- repeating header variants a row's block used.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_data_usage_rates_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_voice_data_usage_rates_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -221,7 +218,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_voice_data_usage_rates_price
 -- id_type: 'base' | 'monthly_top_up'. The top-up row's monthly_fee is left
 -- NULL (this sheet has no distinct price for it); overage_charges carries
 -- over unchanged since that rate applies to the add-on either way.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_tls_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_tls_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -237,7 +234,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_tls_pricebook (
 -- not a genuine data/voice split (confirmed against the real old files).
 -- The new workbook consolidates them into one sheet, so this merges into
 -- one new table too.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_professional_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_professional_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -250,7 +247,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_professional_services_priceb
 -- New catalogue, no old precedent: one-time setup/activation fees
 -- supporting the Connected Worker family from the Cellular Services v2.0
 -- book (Connected Worker Solution / Hardware / Usage Rate).
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_professional_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_telus_v2_connected_worker_professional_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -265,7 +262,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_telus_v2_connected_worker_professiona
 -- Excel workbook instead. Monthly Fixed Fee / RLH overage fees are all
 -- zeroed in the source file (RCCI masked pricing before sending it), same
 -- situation as several of the Telus v2 books above.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_v2_cellular_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -280,7 +277,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_pricebook (
 -- New catalogue, no old table precedent — Rogers pricebook ingestion never
 -- had a device catalogue feed before this. Price is zeroed on every row,
 -- same masking as raw_rogers_v2_cellular_pricebook above.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_device_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_v2_cellular_device_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -294,7 +291,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_cellular_device_pricebook (
 -- fields) — the old table was built from data.pdf, this is the same
 -- catalogue sent as an Excel workbook instead. Monthly Fixed Fee is zeroed
 -- in the source file, same masking as raw_rogers_v2_cellular_pricebook.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_data_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_v2_data_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -315,7 +312,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_data_pricebook (
 -- AV_P_A ("Advantage Voice Analog") carries a real price ($0.95 per
 -- Account) — every other row across both sheets is $0.00 / "No Charge" /
 -- blank.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_voice_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_v2_voice_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),
@@ -334,7 +331,7 @@ CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_voice_pricebook (
 -- masked (real rates). Source workbook's other tabs (TO Change Log, S&U
 -- Price Book, S&U Gap Analysis) are a QC comparison report, not pricebook
 -- data, and are not ingested.
-CREATE TABLE IF NOT EXISTS raw_data_v2.raw_rogers_v2_professional_services_pricebook (
+CREATE TABLE IF NOT EXISTS raw_data.raw_rogers_v2_professional_services_pricebook (
   raw_id bigserial PRIMARY KEY,
   pricebook_ingestion_run_id bigint NOT NULL
     REFERENCES raw_data.pricebook_ingestion_run (pricebook_ingestion_run_id),

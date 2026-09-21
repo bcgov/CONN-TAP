@@ -1,6 +1,6 @@
 # Telus NGTA Pricebook v2 — Raw Table Mapping
 
-## Old tables (`raw_data`) → New tables (`raw_data_v2`)
+## Old tables (`raw_data`) → New v2 tables (also `raw_data`, `*_v2_*` names)
 
 | Old table | Old fields | New table | New fields |
 |---|---|---|---|
@@ -72,7 +72,7 @@ that column's value — preserving the old table boundary (`data_services` /
 shape), the same principle as the `type_of_service` merge above, just
 applied in the opposite direction.
 
-## Old tables (`raw_data`) → New tables (`raw_data_v2`)
+## Old tables (`raw_data`) → New v2 tables (also `raw_data`, `*_v2_*` names)
 
 | Old table | Old fields | New table | New fields |
 |---|---|---|---|
@@ -239,7 +239,7 @@ independently-sanitized test copies with unrelated placeholder pricing —
 but it means rates are **not** safe to treat as continuous with the old
 data the way the service IDs are.
 
-## Old tables (`raw_data`) → New table (`raw_data_v2`)
+## Old tables (`raw_data`) → New v2 table (also `raw_data`, `*_v2_*` name)
 
 | Old table | Old fields | New table | New fields |
 |---|---|---|---|
