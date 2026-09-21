@@ -121,7 +121,7 @@ WITH data_id_fee AS (
   FROM (
     SELECT UPPER(TRIM(service_id)) AS sid, TRIM(service_id) AS service_id,
            {_fee_num('monthly_fee')} AS fee_num
-    FROM raw_data.raw_telus_data_services_pricebook
+    FROM raw_data.raw_telus_v2_data_services_pricebook
     WHERE NULLIF(TRIM(service_id), '') IS NOT NULL
   ) d GROUP BY sid HAVING COUNT(fee_num) > 0
 ),
@@ -131,7 +131,7 @@ voice_id_fee AS (
   FROM (
     SELECT UPPER(TRIM(service_id)) AS sid, TRIM(service_id) AS service_id,
            {_fee_num('monthly_fee')} AS fee_num
-    FROM raw_data.raw_telus_voice_services_pricebook
+    FROM raw_data.raw_telus_v2_voice_services_pricebook
     WHERE NULLIF(TRIM(service_id), '') IS NOT NULL
   ) v GROUP BY sid HAVING COUNT(fee_num) > 0
 ),
@@ -140,10 +140,10 @@ data_name_fee AS (
          ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
   FROM (
     SELECT {_norm_pb('service_name')} AS name_norm, TRIM(service_id) AS service_id,
-           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_data_services_pricebook
+           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_data_services_pricebook
     UNION ALL
     SELECT {_norm_pb('short_service_description')}, TRIM(service_id),
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_data_services_pricebook
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_data_services_pricebook
   ) x WHERE name_norm IS NOT NULL AND name_norm <> ''
   GROUP BY name_norm HAVING COUNT(fee_num) > 0
 ),
@@ -152,10 +152,10 @@ voice_name_fee AS (
          ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
   FROM (
     SELECT {_norm_pb('service_name')} AS name_norm, TRIM(service_id) AS service_id,
-           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_voice_services_pricebook
+           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_voice_services_pricebook
     UNION ALL
     SELECT {_norm_pb('short_service_description')}, TRIM(service_id),
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_voice_services_pricebook
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_voice_services_pricebook
   ) x WHERE name_norm IS NOT NULL AND name_norm <> ''
   GROUP BY name_norm HAVING COUNT(fee_num) > 0
 ),
@@ -164,18 +164,49 @@ cell_id_fee AS (
          ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
   FROM (
     SELECT TRIM(service_id) AS sid, TRIM(service_id) AS service_id, 'cellular_services' AS pb,
-           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_cellular_services_pricebook
+           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_cellular_services_pricebook
     UNION ALL
-    SELECT TRIM(service_id), TRIM(service_id), 'cellular_catalog',
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_cellular_catalog_and_price_list_pricebook
+    SELECT TRIM(service_id), TRIM(service_id), 'cellular_additional_fee_based_features',
+           {_fee_num('fee')} FROM raw_data.raw_telus_v2_cellular_additional_fee_based_features_pricebook
     UNION ALL
     SELECT TRIM(service_id), TRIM(service_id), 'control_center',
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_control_center_services_pricebook
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_control_center_pricebook
     UNION ALL
     SELECT TRIM(service_id), TRIM(service_id), 'cellular_mms',
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_cellular_mms_pricebook
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_cellular_mms_pricebook
   ) x WHERE sid IS NOT NULL AND sid <> ''
   GROUP BY sid HAVING COUNT(fee_num) > 0
+),
+-- v2 catalogues with a monthly fee and no old-schema equivalent. Matched on NG
+-- code / exact text only (no plan-name mapping). Usage-rate, hourly-rate and
+-- hardware-price tables are deliberately excluded: their rates are not monthly
+-- fees, so comparing them to a billed amount would only produce false positives.
+other_id_fee AS (
+  SELECT sid, MIN(pb) AS pb, MIN(service_id) AS service_id,
+         ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
+  FROM (
+    SELECT UPPER(TRIM(service_id)) AS sid, TRIM(service_id) AS service_id, 'tls' AS pb,
+           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION ALL
+    SELECT UPPER(TRIM(service_id)), TRIM(service_id), 'gms',
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_gms_pricebook
+    UNION ALL
+    SELECT UPPER(TRIM(service_id)), TRIM(service_id), 'connected_worker',
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_connected_worker_pricebook
+  ) x WHERE sid IS NOT NULL AND sid <> ''
+  GROUP BY sid HAVING COUNT(fee_num) > 0
+),
+tls_name_fee AS (
+  SELECT name_norm, MIN(service_id) AS service_id,
+         ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
+  FROM (
+    SELECT {_norm_pb('service_name')} AS name_norm, TRIM(service_id) AS service_id,
+           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION ALL
+    SELECT {_norm_pb('short_service_description')}, TRIM(service_id),
+           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_tls_pricebook
+  ) x WHERE name_norm IS NOT NULL AND name_norm <> ''
+  GROUP BY name_norm HAVING COUNT(fee_num) > 0
 ),
 spend AS (
   SELECT
@@ -211,13 +242,14 @@ spend AS (
 matched AS (
   SELECT
     s.*,
-    -- Chosen match by precedence: data-ng, voice-ng, data-text, voice-text, cellular.
+    -- Chosen match by precedence: data-ng, voice-ng, data-text, voice-text, cellular, other v2 catalogues.
     CASE
       WHEN dng.sid IS NOT NULL OR dng2.sid IS NOT NULL THEN 'data'
       WHEN vng.sid IS NOT NULL THEN 'voice'
       WHEN dnm.name_norm IS NOT NULL THEN 'data'
       WHEN vnm.name_norm IS NOT NULL THEN 'voice'
       WHEN cel.sid IS NOT NULL THEN 'cellular'
+      WHEN xng.sid IS NOT NULL OR xng2.sid IS NOT NULL OR tnm.name_norm IS NOT NULL THEN 'other'
     END AS match_type,
     CASE
       WHEN dng.sid IS NOT NULL OR dng2.sid IS NOT NULL THEN 'data_services'
@@ -225,6 +257,9 @@ matched AS (
       WHEN dnm.name_norm IS NOT NULL THEN 'data_services'
       WHEN vnm.name_norm IS NOT NULL THEN 'voice_services'
       WHEN cel.sid IS NOT NULL THEN cel.pb
+      WHEN xng.sid IS NOT NULL THEN xng.pb
+      WHEN xng2.sid IS NOT NULL THEN xng2.pb
+      WHEN tnm.name_norm IS NOT NULL THEN 'tls'
     END AS pb,
     CASE
       WHEN dng.sid IS NOT NULL THEN dng.service_id
@@ -233,6 +268,9 @@ matched AS (
       WHEN dnm.name_norm IS NOT NULL THEN dnm.service_id
       WHEN vnm.name_norm IS NOT NULL THEN vnm.service_id
       WHEN cel.sid IS NOT NULL THEN cel.service_id
+      WHEN xng.sid IS NOT NULL THEN xng.service_id
+      WHEN xng2.sid IS NOT NULL THEN xng2.service_id
+      WHEN tnm.name_norm IS NOT NULL THEN tnm.service_id
     END AS ref,
     CASE
       WHEN dng.sid IS NOT NULL THEN dng.fees
@@ -241,6 +279,9 @@ matched AS (
       WHEN dnm.name_norm IS NOT NULL THEN dnm.fees
       WHEN vnm.name_norm IS NOT NULL THEN vnm.fees
       WHEN cel.sid IS NOT NULL THEN cel.fees
+      WHEN xng.sid IS NOT NULL THEN xng.fees
+      WHEN xng2.sid IS NOT NULL THEN xng2.fees
+      WHEN tnm.name_norm IS NOT NULL THEN tnm.fees
     END AS fees
   FROM spend s
   LEFT JOIN data_id_fee   dng  ON dng.sid  = s.ng_data
@@ -249,6 +290,9 @@ matched AS (
   LEFT JOIN data_name_fee dnm  ON s.norm_detail <> '' AND dnm.name_norm = s.norm_detail
   LEFT JOIN voice_name_fee vnm ON s.norm_detail <> '' AND vnm.name_norm = s.norm_detail
   LEFT JOIN cell_id_fee   cel  ON s.mapped_cell_id IS NOT NULL AND cel.sid = s.mapped_cell_id
+  LEFT JOIN other_id_fee  xng  ON xng.sid  = s.ng_data
+  LEFT JOIN other_id_fee  xng2 ON xng2.sid = s.ng_any
+  LEFT JOIN tls_name_fee  tnm  ON s.norm_detail <> '' AND tnm.name_norm = s.norm_detail
 )
 SELECT
   month_start,
