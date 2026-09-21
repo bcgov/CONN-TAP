@@ -87,7 +87,7 @@ left join {{ source('reference_data', 'service_code') }} sc
 left join {{ source('reference_data', 'provider') }} p on p.code = u.vendor
 -- organization_name / sub_organization_name arrive already alias-resolved from the
 -- staging models, so here we only resolve the canonical code to its reference id.
-left join {{ source('reference_data', 'bge') }} b on {{ norm_key('b.code') }} = {{ norm_key('u.organization_name') }}
-left join {{ source('reference_data', 'sub_bge') }} sb on {{ norm_key('sb.code') }} = {{ norm_key('u.sub_organization_name') }}
+left join {{ source('reference_data', 'bge') }} b on reference_data.norm_key(b.code) = reference_data.norm_key(u.organization_name)
+left join {{ source('reference_data', 'sub_bge') }} sb on reference_data.norm_key(sb.code) = reference_data.norm_key(u.sub_organization_name)
 where u.month_start is not null
     and u.spend_amount <> 0
