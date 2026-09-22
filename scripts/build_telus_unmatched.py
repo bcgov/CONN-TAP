@@ -30,6 +30,11 @@ Usage
   python3 scripts/build_telus_unmatched.py --dsn postgresql://user:pw@host/db
 
 Requires ``DATABASE_URL`` (or ``--dsn``), ``psycopg`` and ``xlsxwriter``.
+
+The query calls ``raw_data.fn_telus_is_hardware_detail`` to drop hardware rows. It is
+defined in scripts/validation/telus/helpers/telus_hardware_detail.sql and created by a
+run of scripts/validation/telus/run_validations.py; apply that one file by hand if you
+are running this against a database where it has never been applied.
 Output: scripts/telus_unmatched_spend.xlsx (override with --output).
 """
 
@@ -152,12 +157,8 @@ spend AS (
     {_CELL_MAP} AS mapped_cell_id
   FROM raw_data.raw_telus_spend AS r
   WHERE COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
-    AND LOWER(TRIM(COALESCE(r.detail_description, ''))) NOT IN (
-      'hardware purchase charge', 'device discount repayment',
-      'monthly telus easy payment', 'device discount repay. canc.',
-      'device discount repay. - cr', 'monthly easy payment',
-      'telus easy payment balance', 'equipment adjustment'
-    )
+    -- Hardware rows are not pricebook services.
+    AND NOT raw_data.fn_telus_is_hardware_detail(r.detail_description)
     AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill', 'usage'
     )

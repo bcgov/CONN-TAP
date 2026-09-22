@@ -16,12 +16,7 @@ WITH spend AS (
     ))) AS norm_detail
   FROM raw_data.raw_telus_spend
   WHERE COALESCE(LOWER(TRIM(statement_section)), '') <> 'balance forward'
-    AND LOWER(TRIM(COALESCE(detail_description, ''))) NOT IN (
-      'hardware purchase charge', 'device discount repayment',
-      'monthly telus easy payment', 'device discount repay. canc.',
-      'device discount repay. - cr', 'monthly easy payment',
-      'telus easy payment balance', 'equipment adjustment'
-    )
+    AND NOT raw_data.fn_telus_is_hardware_detail(detail_description)
     AND COALESCE(LOWER(TRIM(statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill'
     )

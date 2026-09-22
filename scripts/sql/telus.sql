@@ -1,13 +1,28 @@
+-- Telus spend by entity/month, bucketed into cellular hardware / cellular plans /
+-- data / voice / other. See scripts/sql/telus_classification.md for the confirmed
+-- source_id and detail_description rulings behind these buckets.
+
+-- Hardware detail descriptions, reduced to their word signature: Telus varies the
+-- amounts, terms, expiry dates and date ranges inside these labels, so we compare on
+-- the words alone. See norm_detail below for the normalization, and
+-- scripts/sql/telus_classification.md for the confirmed rulings behind these buckets.
 WITH hw_detail AS (
   SELECT unnest(ARRAY[
     'hardware purchase charge',
     'device discount repayment',
     'monthly telus easy payment',
-    'device discount repay. canc.',
-    'device discount repay. - cr',
+    'device discount repay canc',      -- 'Device discount repay. canc.'
+    'device discount repay cr',        -- 'Device discount repay. - CR'
     'monthly easy payment',
-	'telus easy payment balance',
-	'equipment adjustment'
+    'telus easy payment balance',
+    'equipment adjustment',
+    -- Confirmed as cellular hardware by Telus in the March 2026 report validation.
+    'gobc mos easy payment fee',       -- 'GoBC 36 Mos Easy Payment Fee (exp. XXX)'
+    'gobc data device pom',            -- 'GoBC Data Device PoM'
+    'office phone device down payment',-- 'Office Phone - device down payment'
+    'smb hardware purchase',           -- 'SMB Hardware Purchase'
+    'easy payment yrs',                -- 'Easy Payment $XX.XX - Xyrs (exp. XXX)'
+    'device care complete'             -- 'Device Care Complete' / 'Device Care Complete (XX to XX)'
   ]::text[]) AS detail_d
 ),
 excl_category AS (
@@ -43,6 +58,22 @@ excl_detail AS (
     'pst-qc'
   ]::text[]) AS detail_d
 ),
+-- Word signature of detail_description: drop anything in parentheses, then every
+-- character that is not a letter (digits, $ amounts, dashes, periods, %), collapsing
+-- what is left to single-spaced words. 'Easy Payment $27.50 - 2yrs (exp. Mar 2027)'
+-- and 'Easy Payment $40.00 - 3 yrs (exp. Jan 2028)' both become 'easy payment yrs'.
+-- Only used for the hardware comparison; the tax exclusion below still matches the
+-- literal text, where the punctuation is part of the name ('pst-bc', 'gst/hst').
+normalized AS (
+  SELECT
+    r.*,
+    BTRIM(regexp_replace(
+      regexp_replace(
+        regexp_replace(LOWER(COALESCE(r.detail_description, '')), '\(.*?\)', ' ', 'g'),
+        '\(.*$', ' '),
+      '[^a-z]+', ' ', 'g')) AS norm_detail
+  FROM raw_data.raw_telus_spend AS r
+),
 src AS (
   SELECT
     r.sheet_name,
@@ -51,9 +82,9 @@ src AS (
     LOWER(TRIM(r.detail_description)) AS detail_d,
     LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = LOWER(TRIM(r.detail_description))) AS is_hw,
+    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = r.norm_detail) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
-  FROM raw_data.raw_telus_spend AS r
+  FROM normalized AS r
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
      OR r.detail_description IS NULL)
     AND COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'

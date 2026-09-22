@@ -125,10 +125,12 @@ not falsely flagged.
 **Pre-filter (applied before matching):**
 
 - Drop `statement_section = 'balance forward'`.
-- Drop hardware detail lines: `hardware purchase charge`,
-  `device discount repayment`, `monthly telus easy payment`,
-  `device discount repay. canc.`, `device discount repay. - cr`,
-  `monthly easy payment`, `telus easy payment balance`, `equipment adjustment`.
+- Drop hardware detail lines, via `raw_data.fn_telus_is_hardware_detail` (defined in
+  [validation/telus/helpers/telus_hardware_detail.sql](validation/telus/helpers/telus_hardware_detail.sql)).
+  It matches on the description's word signature, so Telus's variable amounts, terms and
+  expiry dates -- `Easy Payment $27.50 - 2yrs (exp. Mar 2027)` -- are covered by one entry.
+  A run of `validation/telus/run_validations.py` creates the function; apply that one
+  file by hand before running this script standalone against a fresh database.
 - Drop categories: `taxes`, `payment`, `payments`,
   `amount due from last bill`, `usage`.
 - Drop rows with a `NULL` `amount` (nothing to compare).
