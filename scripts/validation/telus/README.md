@@ -24,9 +24,13 @@ The project is designed to be:
 scripts/validation/telus/
 │
 ├── run_validations.py          # Entry point (applies SQL, runs all checks, writes Excel)
-├── telus_validation.sql        # Core validation functions
-├── spend_comparison.sql        # Month-over-month spend comparison function
 ├── README.md
+│
+├── checks/                     # One validation function per file, applied in filename order
+│   ├── 00_bge_alias_matches.sql
+│   ├── 01_unlisted_tax_like_detail_descriptions.sql
+│   ├── ...
+│   └── 13_spend_comparison.sql
 │
 └── helpers/
     ├── get_duplicates.sql                  # Drill-down: rows behind duplicate check
