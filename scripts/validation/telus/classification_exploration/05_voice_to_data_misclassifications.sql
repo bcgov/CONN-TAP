@@ -11,7 +11,8 @@ WITH classified AS (
     TRIM(detail_description) AS detail_d,
     UPPER(SUBSTRING(TRIM(detail_description) FROM '^(NG[A-Z0-9]{2,6})')) AS ng_id,
     CASE
-      WHEN TRIM(source) = 'Wireless' OR TRIM(source_id) IN ('164', '130') THEN 'cellular_plans'
+      WHEN TRIM(source_id) = '164' THEN 'cellular_hardware'
+      WHEN TRIM(source) = 'Wireless' OR TRIM(source_id) = '130' THEN 'cellular_plans'
       WHEN TRIM(source_id) IN ('1001', '103') THEN 'data'
       WHEN TRIM(source_id) IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'
@@ -59,7 +60,8 @@ WITH classified AS (
     TRIM(detail_description) AS detail_d,
     UPPER(SUBSTRING(TRIM(detail_description) FROM '^(NG[A-Z0-9]{2,6})')) AS ng_id,
     CASE
-      WHEN TRIM(source) = 'Wireless' OR TRIM(source_id) IN ('164', '130') THEN 'cellular_plans'
+      WHEN TRIM(source_id) = '164' THEN 'cellular_hardware'
+      WHEN TRIM(source) = 'Wireless' OR TRIM(source_id) = '130' THEN 'cellular_plans'
       WHEN TRIM(source_id) IN ('1001', '103') THEN 'data'
       WHEN TRIM(source_id) IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'

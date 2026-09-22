@@ -35,10 +35,7 @@ select
     case when ccyymm ~ '^\d{4}(0[1-9]|1[0-2])$' then to_date(ccyymm || '01', 'YYYYMMDD') end
         as month_start,
     'TSMA LITE SCHOOL DISTRICTS'::text as organization_name,
-    coalesce(
-        nullif(trim(regexp_replace(lcd_category, '[\x00-\x1f\x7f]', '', 'g')), ''),
-        nullif(trim(regexp_replace(lcd_cust_cd,  '[\x00-\x1f\x7f]', '', 'g')), '')
-    ) as sub_organization_name,
+    nullif(trim(regexp_replace(rcid_cust_nm, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'wireless'::text as source_service_family,
     lower(nullif(trim(regexp_replace(charge_type, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
     null::text as source_service_id,
@@ -154,5 +151,7 @@ select
     source_amount_name,
     spend_amount
 from cleaned
-left join {{ ref('bge_alias_map') }} bm on {{ norm_key('bm.raw_name') }} = {{ norm_key('cleaned.organization_name') }}
-left join {{ ref('sub_bge_alias_map') }} sbm on {{ norm_key('sbm.raw_name') }} = {{ norm_key('cleaned.sub_organization_name') }}
+left join {{ ref('bge_alias_map') }} bm
+    on reference_data.match_key(bm.raw_name) = reference_data.match_key(cleaned.organization_name)
+left join {{ ref('sub_bge_alias_map') }} sbm
+    on reference_data.match_key(sbm.raw_name) = reference_data.match_key(cleaned.sub_organization_name)

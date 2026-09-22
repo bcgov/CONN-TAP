@@ -68,6 +68,8 @@ $$;
 -- detail_description values that look device/hardware/equipment/Easy Payment related must match
 -- a known allowlist (after trim). Heuristic: hardware, equipment (incl. typo equipement), easy pay /
 -- easypay, or device (case-insensitive). Only rows whose source is NULL/blank or Wireless.
+-- Onetime (source_id 164, the cellular one-time equipment code, is tagged Onetime, not Wireless).
+-- Rows with amount NULL or 0 are excluded, as they carry no real spend to attribute.
 -- Optional month filter like other telus validators.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_unlisted_device_related_detail_descriptions (
@@ -99,7 +101,8 @@ AS $$
   WHERE (
       t.source IS NULL
       OR trim(both FROM t.source) = ''
-      OR trim(both FROM t.source) = 'Wireless'
+      OR lower(trim(both FROM t.source)) = 'wireless'
+      OR lower(trim(both FROM t.source)) = 'onetime'
     )
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
@@ -121,6 +124,8 @@ AS $$
       'TELUS Easy Payment Balance',
       'Equipment Adjustment'
     )
+    AND t.amount IS NOT NULL
+    AND t.amount <> 0
     AND (
       p_statement_month IS NULL
       OR (
@@ -144,8 +149,8 @@ AS $$
     detail_description;
 $$;
 
--- Expected: source_id 164 or 130 → source 'Wireless'; source_id 1001, 103, 104, 102, or 106
--- → source 'Wireline'. Any other source_id or any source other than those two is flagged.
+-- Expected: source_id 130 → source 'Wireless'; source_id 164 → source 'Onetime'; source_id
+-- 1001, 103, 104, 102, or 106 → source 'Wireline'. Any other pairing is flagged.
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_source_id_matches_expected_source (
   p_statement_month date DEFAULT NULL
@@ -171,11 +176,15 @@ AS $$
   FROM raw_data.raw_telus_spend AS t
   WHERE NOT (
       (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireless'
-        AND trim(both FROM COALESCE(t.source_id, '')) IN ('164', '130')
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireless'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '130'
       )
       OR (
-        trim(both FROM COALESCE(t.source, '')) = 'Wireline'
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'onetime'
+        AND trim(both FROM COALESCE(t.source_id, '')) = '164'
+      )
+      OR (
+        lower(trim(both FROM COALESCE(t.source, ''))) = 'wireline'
         AND trim(both FROM COALESCE(t.source_id, '')) IN ('1001', '103', '104', '102', '106')
       )
     )
@@ -285,25 +294,19 @@ AS $$
     v.blank_column;
 $$;
 
--- Case-insensitive "does this sheet name contain the alias as a whole token/phrase" test,
--- shared by every BGE validator below (all_bges / new_bges / still_missing).
+-- The case-insensitive "does this sheet name contain the alias as a whole
+-- token/phrase" test used by every BGE validator below (all_bges / new_bges /
+-- still_missing) now lives in the database as reference_data.alias_matches
+-- (app/backend/alembic/reference_data/functions.sql), shared with the dbt
+-- staging models. The local telus_bge_alias_matches copy it replaced was
+-- identical; drop it if an older run left it behind.
 DROP FUNCTION IF EXISTS telus_bge_alias_matches (text, text);
-CREATE OR REPLACE FUNCTION telus_bge_alias_matches (p_sheet text, p_alias text)
-RETURNS boolean
-LANGUAGE sql
-IMMUTABLE
-AS $$
-  SELECT strpos(
-    ' ' || lower(regexp_replace(p_sheet, '[^[:alnum:]]+', ' ', 'g')) || ' ',
-    ' ' || lower(regexp_replace(p_alias, '[^[:alnum:]]+', ' ', 'g')) || ' '
-  ) > 0;
-$$;
 
 -- Requires p_statement_month (one month only). Pass any date in that month (e.g. date '2026-03-15').
 -- Fails when no sheet_name (for rows in that month) matches any alias for an expected BGE.
 -- BGEs and aliases are sourced from reference_data.bge joined to seeds.bge_alias_map, so the
 -- list stays in sync with reference data automatically. Alias matching goes through
--- telus_bge_alias_matches (whole-token match). NOTE: '…→ECC' aliases (MOE, etc.) do not join to
+-- reference_data.alias_matches (whole-token match). NOTE: '…→ECC' aliases (MOE, etc.) do not join to
 -- any BGE because ECC is not a reference_data.bge code, so a month whose only government sheet is
 -- bare 'MOE' can flag Gov BC as missing.
 
@@ -337,11 +340,15 @@ BEGIN
     EXTRACT(MONTH FROM date_trunc('month', p_statement_month))::int AS contradiction_month,
     b.code AS missing_bge
   FROM reference_data.bge AS b
-  WHERE NOT EXISTS (
+  WHERE b.code <> 'School Districts'
+    -- 'School Districts' is a made-up rollup BGE, not a real billed org (see the comment
+    -- on that row in reference_data/bge.sql) -- excluded so a quiet month for it isn't
+    -- reported as a validation gap.
+    AND NOT EXISTS (
     SELECT 1
     FROM base AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
-    WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
+    WHERE reference_data.alias_matches(sh.sheet_name, bam.raw_name)
   )
   ORDER BY b.code;
 END;
@@ -722,7 +729,7 @@ BEGIN
     SELECT DISTINCT cs.sheet_name
     FROM current_sheets AS cs
     JOIN seeds.bge_alias_map AS bam
-      ON telus_bge_alias_matches(cs.sheet_name, bam.raw_name)
+      ON reference_data.alias_matches(cs.sheet_name, bam.raw_name)
     WHERE bam.bge_alias = 'ECC'
        OR EXISTS (SELECT 1 FROM reference_data.bge AS b WHERE b.code = bam.bge_alias)
   )
@@ -913,7 +920,7 @@ BEGIN
              SELECT 1
              FROM prior_sheets AS sh
              JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
-             WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
+             WHERE reference_data.alias_matches(sh.sheet_name, bam.raw_name)
            )
         THEN 'Still Missing'
       ELSE 'Newly Missing'
@@ -924,7 +931,7 @@ BEGIN
     SELECT 1
     FROM current_sheets AS sh
     JOIN seeds.bge_alias_map AS bam ON bam.bge_alias = b.code
-    WHERE telus_bge_alias_matches(sh.sheet_name, bam.raw_name)
+    WHERE reference_data.alias_matches(sh.sheet_name, bam.raw_name)
   )
   ORDER BY status, b.code;
 END;

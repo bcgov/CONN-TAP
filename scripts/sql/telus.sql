@@ -85,8 +85,8 @@ bucketed AS (
     month_start,
     amount,
     CASE
-      WHEN is_hw THEN 'cellular_hardware'
-      WHEN sid_n IN ('164','130') OR is_wireless THEN 'cellular_plans'
+      WHEN is_hw OR sid_n = '164' THEN 'cellular_hardware'
+      WHEN sid_n = '130' OR is_wireless THEN 'cellular_plans'
       WHEN sid_n IN ('1001', '103') THEN 'data'
       WHEN sid_n IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'
@@ -94,7 +94,10 @@ bucketed AS (
   FROM flagged
   WHERE is_included
     AND month_start IS NOT NULL
-    AND (NOT is_hw OR is_wireless)
+    -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
+    -- charges too); a hardware-detail-text row is only trusted as cellular
+    -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
+    AND (NOT is_hw OR is_wireless OR sid_n = '164')
 )
 SELECT
   'telus'::text AS provider,
