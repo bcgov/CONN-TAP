@@ -25,5 +25,15 @@ def execute_reference_data_sql_files() -> None:
     execute_sql_files(REFERENCE_DATA_SQL_DIR, REFERENCE_DATA_SCHEMA_FILES)
 
 
+def execute_reference_data_functions() -> None:
+    """Re-apply functions.sql on its own.
+
+    Every statement in that file is CREATE OR REPLACE or DROP IF EXISTS, so a
+    later migration can pick up an edited or added function by re-running it,
+    rather than restating the body in the migration.
+    """
+    execute_sql_files(REFERENCE_DATA_SQL_DIR, ("functions.sql",))
+
+
 def drop_reference_data_schema() -> None:
     op.execute("DROP SCHEMA IF EXISTS reference_data CASCADE")

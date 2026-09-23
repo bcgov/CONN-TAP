@@ -47,7 +47,16 @@ both.
   `raw_data.fn_telus_is_hardware_detail`, used by the validation report and the
   pricebook scripts.
 - `scripts/sql/telus.sql` keeps its own inline copy so it stays pasteable into any
-  session. **Change both together.**
+  session.
+- `app/backend/dbt/seeds/telus_hardware_details.csv` is the pipeline's copy, seeded
+  into the warehouse and read by `int_telus_ngta_spend`.
+
+**Change all three together.**
+
+The normalization itself is `reference_data.telus_detail_signature` (defined in
+`app/backend/alembic/reference_data/functions.sql`), which both the pipeline and the
+validation scripts call; `scripts/sql/telus.sql` inlines it for the same reason it
+inlines the list.
 
 ### Effect of the March 2026 additions
 

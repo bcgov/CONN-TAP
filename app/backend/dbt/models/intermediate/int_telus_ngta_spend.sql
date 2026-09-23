@@ -3,7 +3,11 @@
 -- Applies Telus NGTA-specific exclusion rules so int_service_spend_line_items stays vendor-agnostic.
 
 with source as (
-    select * from {{ ref('stg_telus_ngta_spend') }}
+    select
+        *,
+        -- Hardware is matched on the description's word signature, not its literal
+        reference_data.telus_detail_signature(source_service_description) as detail_signature
+    from {{ ref('stg_telus_ngta_spend') }}
 ),
 
 telus_excluded_categories as (
@@ -22,9 +26,16 @@ telus_excluded_sections as (
     select statement_section from {{ ref('telus_excluded_sections') }}
 ),
 
+flagged_hardware_in_detailed_description as (
+    select
+        *,
+        detail_signature in (select detail_description from telus_hardware_details) as is_hardware
+    from source
+),
+
 filtered as (
     select *
-    from source
+    from flagged_hardware_in_detailed_description
     where
         -- Drop excluded sections (eg: carry-forward balance)
         coalesce(statement_section, '') not in (
@@ -42,7 +53,7 @@ filtered as (
         -- categories. 'onetime' isn't a safe signal by itself -- it covers non-cellular
         -- one-time charges too, so it isn't accepted here on its own.
         and case
-            when source_service_description in (select detail_description from telus_hardware_details)
+            when is_hardware
                 then source_service_family = 'wireless' or source_service_id = '164'
             else coalesce(statement_category, '') not in (
                 select statement_category from telus_excluded_categories
@@ -58,6 +69,10 @@ select
     month_start,
     organization_name,
     sub_organization_name,
-    coalesce(source_service_id, source_service_family) as lookup_code,
+    -- setting 164 as the lookup code for hardware rows
+    case
+        when is_hardware then '164'
+        else coalesce(source_service_id, source_service_family)
+    end as lookup_code,
     spend_amount
 from filtered

@@ -13,21 +13,11 @@
 -- reduce each description to its word signature and match on that, so one entry
 -- covers every amount, term and date.
 
--- Word signature of a detail_description: drop anything in parentheses, then every
--- character that is not a letter (digits, $ amounts, dashes, periods, %), leaving
--- single-spaced words. Returns '' for NULL, never NULL, so callers can use the result
--- in a boolean context without NULL handling.
-CREATE OR REPLACE FUNCTION raw_data.fn_telus_detail_signature(p_detail text)
-RETURNS text
-LANGUAGE sql
-IMMUTABLE
-AS $$
-  SELECT btrim(regexp_replace(
-    regexp_replace(
-      regexp_replace(lower(COALESCE(p_detail, '')), '\(.*?\)', ' ', 'g'),
-      '\(.*$', ' '),
-    '[^a-z]+', ' ', 'g'));
-$$;
+-- The signature is reference_data.telus_detail_signature (alembic, see
+-- app/backend/alembic/reference_data/functions.sql), so these scripts and the dbt
+-- models normalize identically: anything in parentheses is dropped, then every
+-- character that is not a letter, leaving single-spaced words. It returns '' for
+-- NULL, never NULL, so no NULL handling is needed below.
 
 -- TRUE when a detail_description is a Telus cellular hardware charge, whatever the
 -- service id or statement category. Note this is only half the rule: the callers still
@@ -38,7 +28,7 @@ RETURNS boolean
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT raw_data.fn_telus_detail_signature(p_detail) = ANY (ARRAY[
+  SELECT reference_data.telus_detail_signature(p_detail) = ANY (ARRAY[
     'hardware purchase charge',
     'device discount repayment',
     'monthly telus easy payment',

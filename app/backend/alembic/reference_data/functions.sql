@@ -188,3 +188,33 @@ RESET check_function_bodies;
 
 comment on function reference_data.resolve_bge_alias(text) is
     'Canonical BGE code for a raw organization name: longest whole-token alias match from seeds.bge_alias_map';
+
+-- ---------------------------------------------------------------------------
+-- Telus detail-description normalization
+-- ---------------------------------------------------------------------------
+
+-- Word signature of a Telus detail_description: anything in parentheses is
+-- dropped, then every character that is not a letter, leaving single-spaced
+-- words. Telus writes the financed amount, the term and the expiry date into
+-- the label itself, so 'Easy Payment $27.50 - 2yrs (exp. Mar 2027)' and
+-- 'Easy Payment $40.00 - 3 yrs (exp. Jan 2028)' both reduce to
+-- 'easy payment yrs' and one seed entry covers every spelling of the charge.
+--
+-- Hardware matching only. The tax exclusions still compare literal text, where
+-- the punctuation is part of the name ('pst-bc', 'gst/hst').
+--
+-- Returns '' for NULL, never NULL, so callers need no NULL handling.
+CREATE OR REPLACE FUNCTION reference_data.telus_detail_signature(col text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT btrim(regexp_replace(
+        regexp_replace(
+            regexp_replace(lower(coalesce(col, '')), '\(.*?\)', ' ', 'g'),
+            '\(.*$', ' '),
+        '[^a-z]+', ' ', 'g'))
+$$;
+
+comment on function reference_data.telus_detail_signature(text) is
+    'Word signature of a Telus detail_description -- parentheses and non-letters dropped';
