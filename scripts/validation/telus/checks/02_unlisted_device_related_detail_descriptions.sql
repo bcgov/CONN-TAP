@@ -55,7 +55,7 @@ AS $$
          OR trim(both FROM t.detail_description) ILIKE '%easy%pay%'
          OR trim(both FROM t.detail_description) ILIKE '%device%'
         )
-    AND NOT raw_data.fn_telus_is_hardware_detail(t.detail_description)
+    AND NOT reference_data.telus_is_hardware_detail(t.detail_description)
     AND t.amount IS NOT NULL
     AND t.amount <> 0
     AND (

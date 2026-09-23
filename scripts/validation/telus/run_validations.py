@@ -51,12 +51,13 @@ HERE = Path(__file__).resolve().parent
 SCRIPTS_DIR = HERE.parent.parent
 
 # SQL files that contain CREATE [OR REPLACE] FUNCTION definitions to (re)load.
-# helpers/telus_hardware_detail.sql is listed first: checks 02 and 13 call the hardware
-# functions it defines. checks/*.sql then load in filename order -- 00_bge_alias_matches.sql
-# defines telus_bge_alias_matches, which several later checks call, so it must come before
-# them. checks/13_spend_comparison.sql defines the month-over-month comparison function.
+# checks/*.sql load in filename order -- 00_bge_alias_matches.sql defines
+# telus_bge_alias_matches, which several later checks call, so it must come before them.
+# checks/13_spend_comparison.sql defines the month-over-month comparison function.
+# The hardware predicate checks 02 and 13 call, reference_data.telus_is_hardware_detail,
+# is alembic-managed (app/backend/alembic/reference_data/telus_functions.sql) and reads
+# the dbt seed, so nothing here has to create it.
 DDL_FILES = [
-    HERE / "helpers" / "telus_hardware_detail.sql",
     *sorted(HERE.glob("checks/*.sql")),
     HERE / "helpers" / "get_duplicates.sql",
 ]

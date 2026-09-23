@@ -16,7 +16,7 @@ WITH spend AS (
     ))) AS norm_detail
   FROM raw_data.raw_telus_spend
   WHERE COALESCE(LOWER(TRIM(statement_section)), '') <> 'balance forward'
-    AND NOT raw_data.fn_telus_is_hardware_detail(detail_description)
+    AND NOT reference_data.telus_is_hardware_detail(detail_description)
     AND COALESCE(LOWER(TRIM(statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill'
     )

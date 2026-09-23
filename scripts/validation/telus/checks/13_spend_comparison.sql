@@ -98,7 +98,7 @@ src AS (
     LOWER(TRIM(r.detail_description)) AS detail_d,
     LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    raw_data.fn_telus_is_hardware_detail(r.detail_description) AS is_hw,
+    reference_data.telus_is_hardware_detail(r.detail_description) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
   FROM raw_data.raw_telus_spend AS r
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)

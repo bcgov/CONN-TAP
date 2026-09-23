@@ -33,7 +33,6 @@ scripts/validation/telus/
 │   └── 13_spend_comparison.sql
 │
 └── helpers/
-    ├── telus_hardware_detail.sql           # Shared hardware-detail functions (applied first)
     ├── get_duplicates.sql                  # Drill-down: rows behind duplicate check
     ├── get_month_non_date_telus.sql        # Ad-hoc: non-date `month` values
     └── telus_tax_names_with_appearance.sql # Ad-hoc: tax-like descriptions outside Taxes
@@ -57,8 +56,8 @@ Rows outside the `Taxes` category whose `detail_description` looks tax-like
 ### 2. Device-like Detail
 `Wireless`/blank-source rows whose `detail_description` looks device/hardware/equipment/
 Easy-Payment related but is not known hardware. Hardware is decided by
-`raw_data.fn_telus_is_hardware_detail` in
-[helpers/telus_hardware_detail.sql](./helpers/telus_hardware_detail.sql), which matches on the
+`reference_data.telus_is_hardware_detail` (alembic-managed, reading the dbt seed
+`telus_hardware_details`), which matches on the
 description's word signature so Telus's variable amounts, terms and expiry dates
 (`Easy Payment $27.50 - 2yrs (exp. Mar 2027)`) need no allowlist entry of their own.
 

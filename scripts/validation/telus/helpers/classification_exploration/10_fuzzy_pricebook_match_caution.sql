@@ -57,7 +57,7 @@ spend AS (
     LOWER(TRIM(service_description)) AS service_d
   FROM raw_data.raw_telus_spend
   WHERE COALESCE(LOWER(TRIM(statement_section)), '') <> 'balance forward'
-    AND NOT raw_data.fn_telus_is_hardware_detail(detail_description)
+    AND NOT reference_data.telus_is_hardware_detail(detail_description)
     AND LOWER(TRIM(COALESCE(detail_description, ''))) NOT IN (
       'gst', 'pst', 'pst-bc', 'gst/hst', 'bc pst', 'bus. services gst'
     )

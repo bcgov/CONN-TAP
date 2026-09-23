@@ -40,10 +40,10 @@ Usage
 
 Requires ``DATABASE_URL`` (or ``--dsn``), ``psycopg`` and ``xlsxwriter``.
 
-The query calls ``raw_data.fn_telus_is_hardware_detail`` to drop hardware rows. It is
-defined in scripts/validation/telus/helpers/telus_hardware_detail.sql and created by a
-run of scripts/validation/telus/run_validations.py; apply that one file by hand if you
-are running this against a database where it has never been applied.
+The query calls ``reference_data.telus_is_hardware_detail`` to drop hardware rows. It
+is alembic-managed (app/backend/alembic/reference_data/telus_functions.sql) and reads the
+hardware list straight from the dbt seed, so `alembic upgrade head` and `dbt seed` are all
+it needs -- there is no per-script setup step.
 Output: scripts/telus_cost_validation.xlsx (override with --output).
 """
 
@@ -202,7 +202,7 @@ spend AS (
   FROM raw_data.raw_telus_spend AS r
   WHERE COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
     -- Hardware rows are not pricebook services.
-    AND NOT raw_data.fn_telus_is_hardware_detail(r.detail_description)
+    AND NOT reference_data.telus_is_hardware_detail(r.detail_description)
     AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill', 'usage'
     )
