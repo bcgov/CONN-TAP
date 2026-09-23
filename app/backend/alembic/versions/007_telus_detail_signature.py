@@ -11,9 +11,11 @@ detail_description itself, so the same charge arrives under many spellings
 every month, so int_telus_ngta_spend matches the seeded hardware list on the
 description's word signature instead. This adds the function that produces it.
 
-The body lives in reference_data/functions.sql -- every statement there is
-CREATE OR REPLACE or DROP IF EXISTS, so re-running the file is the whole
-migration and the definition stays in one place.
+The body lives in reference_data/telus_functions.sql, a file of its own so
+this migration can replay it and nothing else. functions.sql cannot be
+replayed on a live database -- it ends with a DROP of raw_data.norm_key,
+which Postgres refuses once the Rogers cellular validation view depends on
+it -- so the Telus function is kept apart from it.
 """
 import importlib.util
 from pathlib import Path
@@ -34,7 +36,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    _loader.execute_reference_data_functions()
+    _loader.execute_reference_data_files("telus_functions.sql")
 
 
 def downgrade() -> None:
