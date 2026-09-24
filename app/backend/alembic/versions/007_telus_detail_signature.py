@@ -40,7 +40,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # int_telus_ngta_spend calls this, and Postgres refuses to drop a function a
-    # view depends on, so the marts have to be rebuilt off it first -- check out
-    # the matching model revision and `dbt run` before downgrading.
+    # Both functions upgrade() installs, predicate first: its body calls the
+    # signature, so dropping the signature first would leave it briefly broken.
+    op.execute("DROP FUNCTION IF EXISTS reference_data.telus_is_hardware_detail(text)")
+    # int_telus_ngta_spend calls the signature, and Postgres refuses to drop a
+    # function a view depends on, so the marts have to be rebuilt off it first --
+    # check out the matching model revision and `dbt run` before downgrading.
     op.execute("DROP FUNCTION IF EXISTS reference_data.telus_detail_signature(text)")

@@ -9,10 +9,12 @@ from migration_utils import execute_sql_files
 
 REFERENCE_DATA_SQL_DIR = Path(__file__).resolve().parent / "reference_data"
 
+# The 004 bootstrap snapshot, unchanged since it was published. Files added later are
+# applied by their own revision (telus_functions.sql by 007), so each revision owns what
+# it creates and a downgrade removes exactly what its upgrade installed.
 REFERENCE_DATA_SCHEMA_FILES = (
     "schema.sql",
     "functions.sql",
-    "telus_functions.sql",
     "sector.sql",
     "provider.sql",
     "bge.sql",
