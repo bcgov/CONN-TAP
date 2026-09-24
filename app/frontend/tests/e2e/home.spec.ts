@@ -6,5 +6,5 @@ test("home page renders welcome content for unauthenticated visitors", async ({ 
   await expect(
     page.getByRole("heading", { name: /welcome to the telecom access point/i }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /login with idir/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /log in with idir/i })).toBeVisible();
 });
