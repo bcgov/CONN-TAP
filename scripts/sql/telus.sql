@@ -79,7 +79,6 @@ src AS (
     r.sheet_name,
     r.amount,
     date_trunc('month', r.statement_date)::date AS month_start,
-    LOWER(TRIM(r.detail_description)) AS detail_d,
     LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
     EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = r.norm_detail) AS is_hw,

@@ -2,15 +2,7 @@
 
 -- Applies Telus NGTA-specific exclusion rules so int_service_spend_line_items stays vendor-agnostic.
 
-with source as (
-    select
-        *,
-        -- Hardware is matched on the description's word signature, not its literal
-        reference_data.telus_detail_signature(source_service_description) as detail_signature
-    from {{ ref('stg_telus_ngta_spend') }}
-),
-
-telus_excluded_categories as (
+with telus_excluded_categories as (
     select statement_category from {{ ref('telus_excluded_categories') }}
 ),
 
@@ -26,16 +18,20 @@ telus_excluded_sections as (
     select statement_section from {{ ref('telus_excluded_sections') }}
 ),
 
-flagged_hardware_in_detailed_description as (
+source as (
     select
         *,
-        detail_signature in (select detail_description from telus_hardware_details) as is_hardware
-    from source
+        -- Hardware is matched on the description's word signature, not its literal text:
+        -- Telus writes the amount and expiry into the label. See
+        -- scripts/sql/telus_classification.md.
+        reference_data.telus_detail_signature(source_service_description)
+            in (select detail_description from telus_hardware_details) as is_hardware
+    from {{ ref('stg_telus_ngta_spend') }}
 ),
 
 filtered as (
     select *
-    from flagged_hardware_in_detailed_description
+    from source
     where
         -- Drop excluded sections (eg: carry-forward balance)
         coalesce(statement_section, '') not in (
@@ -69,7 +65,9 @@ select
     month_start,
     organization_name,
     sub_organization_name,
-    -- setting 164 as the lookup code for hardware rows
+    -- Hardware resolves through service code 164, which reference_data maps to the
+    -- Cellular Hardware category. The filter above has already confirmed such a row
+    -- is wireless-sourced or 164 itself.
     case
         when is_hardware then '164'
         else coalesce(source_service_id, source_service_family)

@@ -41,7 +41,7 @@ Usage
 Requires ``DATABASE_URL`` (or ``--dsn``), ``psycopg`` and ``xlsxwriter``.
 
 The query calls ``reference_data.telus_is_hardware_detail`` to drop hardware rows. It
-is alembic-managed (app/backend/alembic/reference_data/telus_functions.sql) and reads the
+is alembic-managed (migration 007) and reads the
 hardware list straight from the dbt seed, so `alembic upgrade head` and `dbt seed` are all
 it needs -- there is no per-script setup step.
 Output: scripts/telus_cost_validation.xlsx (override with --output).

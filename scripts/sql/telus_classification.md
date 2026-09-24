@@ -45,23 +45,19 @@ both.
 
 - `app/backend/dbt/seeds/telus_hardware_details.csv` **is the list**. Adding a confirmed
   hardware family is a one-line edit here.
-- `app/backend/alembic/reference_data/telus_functions.sql` defines
-  `reference_data.telus_is_hardware_detail`, which reads that seeded table. The
-  validation report and the pricebook scripts call it, so they follow the seed.
+- `app/backend/alembic/versions/007_telus_detail_signature.py` defines
+  `telus_detail_signature` (the normalization) and `telus_is_hardware_detail`, which
+  reads that seeded table. The validation report and the pricebook scripts call it, so
+  they follow the seed.
 - `int_telus_ngta_spend` joins the same seed through dbt's `ref()`, which keeps the
   lineage edge that forces `dbt seed` to run before the model.
-- `scripts/sql/telus.sql` is the one exception: it keeps an inline copy so it stays
-  pasteable into any psql session. **Change it alongside the seed.**
-
-The normalization itself is `reference_data.telus_detail_signature` (defined in
-`app/backend/alembic/reference_data/telus_functions.sql`), which both the pipeline and the
-validation scripts call; `scripts/sql/telus.sql` inlines it for the same reason it
-inlines the list.
+- `scripts/sql/telus.sql` is the one exception: it is run by hand against the database,
+  so it inlines both the list and the normalization and stays self-contained.
+  **Change it alongside the seed.**
 
 ### Effect of the March 2026 additions
 
-Verified with `scripts/sql/telus_hardware_normalization_check.sql` before the change
-shipped:
+Verified against `raw_data.raw_telus_spend` before the change shipped:
 
 - Moving from literal matching to word signatures reclassified **nothing** — no
   description in the table changed its hardware flag.

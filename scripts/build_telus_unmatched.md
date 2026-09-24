@@ -83,7 +83,7 @@ dropped every row because some pricebook sets contained `NULL` values (in SQL,
 
 - Drop `statement_section = 'balance forward'`.
 - Drop hardware detail lines, via `reference_data.telus_is_hardware_detail` (defined in
-  [app/backend/alembic/reference_data/telus_functions.sql](../app/backend/alembic/reference_data/telus_functions.sql)).
+  [alembic migration 007](../app/backend/alembic/versions/007_telus_detail_signature.py)).
   It matches on the description's word signature, so Telus's variable amounts, terms and
   expiry dates -- `Easy Payment $27.50 - 2yrs (exp. Mar 2027)` -- are covered by one entry.
   The signatures come from the dbt seed `telus_hardware_details`, so the function needs

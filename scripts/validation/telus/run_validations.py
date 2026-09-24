@@ -55,8 +55,7 @@ SCRIPTS_DIR = HERE.parent.parent
 # telus_bge_alias_matches, which several later checks call, so it must come before them.
 # checks/13_spend_comparison.sql defines the month-over-month comparison function.
 # The hardware predicate checks 02 and 13 call, reference_data.telus_is_hardware_detail,
-# is alembic-managed (app/backend/alembic/reference_data/telus_functions.sql) and reads
-# the dbt seed, so nothing here has to create it.
+# is alembic-managed (migration 007) and reads the dbt seed, so nothing here creates it.
 DDL_FILES = [
     *sorted(HERE.glob("checks/*.sql")),
     HERE / "helpers" / "get_duplicates.sql",
