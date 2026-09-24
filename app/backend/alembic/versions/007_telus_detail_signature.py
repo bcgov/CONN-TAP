@@ -42,8 +42,12 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Both functions upgrade() installs, predicate first: its body calls the
     # signature, so dropping the signature first would leave it briefly broken.
-    op.execute("DROP FUNCTION IF EXISTS reference_data.telus_is_hardware_detail(text)")
-    # int_telus_ngta_spend calls the signature, and Postgres refuses to drop a
-    # function a view depends on, so the marts have to be rebuilt off it first --
-    # check out the matching model revision and `dbt run` before downgrading.
-    op.execute("DROP FUNCTION IF EXISTS reference_data.telus_detail_signature(text)")
+    #
+    # CASCADE because intermediate.int_telus_ngta_spend is a view whose definition
+    # calls the signature, and Postgres refuses to drop a function a view depends on.
+    # Without it this downgrade fails by default on any database where dbt has run.
+    # What CASCADE takes is only dbt-built views -- nothing else references these --
+    # and `dbt run` rebuilds them, which a downgrade needs anyway because the models
+    # at the matching revision no longer call the function.
+    op.execute("DROP FUNCTION IF EXISTS reference_data.telus_is_hardware_detail(text) CASCADE")
+    op.execute("DROP FUNCTION IF EXISTS reference_data.telus_detail_signature(text) CASCADE")
