@@ -55,15 +55,10 @@ AS $$
          OR trim(both FROM t.detail_description) ILIKE '%easy%pay%'
          OR trim(both FROM t.detail_description) ILIKE '%device%'
         )
-    AND trim(both FROM t.detail_description) NOT IN (
-      'Hardware Purchase Charge',
-      'Device Discount Repayment',
-      'Monthly TELUS Easy Payment',
-      'Device discount repay. canc.',
-      'Device discount repay. - CR',
-      'Monthly Easy Payment',
-      'TELUS Easy Payment Balance',
-      'Equipment Adjustment'
+    -- Allowlist lives in the dbt seed; entries are LIKE patterns ('%' = variable suffix).
+    AND NOT EXISTS (
+      SELECT 1 FROM seeds.telus_hardware_details h
+      WHERE lower(trim(both FROM t.detail_description)) LIKE h.detail_description
     )
     AND t.amount IS NOT NULL
     AND t.amount <> 0
