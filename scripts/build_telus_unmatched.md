@@ -82,10 +82,12 @@ dropped every row because some pricebook sets contained `NULL` values (in SQL,
 **Pre-filter (applied before matching):**
 
 - Drop `statement_section = 'balance forward'`.
-- Drop hardware detail lines: `hardware purchase charge`,
-  `device discount repayment`, `monthly telus easy payment`,
-  `device discount repay. canc.`, `device discount repay. - cr`,
-  `monthly easy payment`, `telus easy payment balance`, `equipment adjustment`.
+- Drop hardware detail lines, via `reference_data.telus_is_hardware_detail` (defined in
+  [alembic migration 007](../app/backend/alembic/versions/007_telus_detail_signature.py)).
+  It matches on the description's word signature, so Telus's variable amounts, terms and
+  expiry dates -- `Easy Payment $27.50 - 2yrs (exp. Mar 2027)` -- are covered by one entry.
+  The signatures come from the dbt seed `telus_hardware_details`, so the function needs
+  no setup beyond `alembic upgrade head` and `dbt seed`.
 - Drop categories: `taxes`, `payment`, `payments`,
   `amount due from last bill`, `usage`.
 - Optionally drop `recurring service charges` and/or

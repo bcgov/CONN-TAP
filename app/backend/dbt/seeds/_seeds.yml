@@ -25,3 +25,10 @@ seeds:
       # data, so an alias for a not-yet-loaded / retired entity is allowed.
       - name: sub_bge_alias
         description: Canonical sub_bge code this raw spelling resolves to.
+
+  - name: telus_hardware_details
+    description: >
+      Telus cellular hardware charges, matched on the detail_description's word
+      signature — parentheses and every non-letter character dropped — so entries
+      carry no punctuation or digits. `reference_data.telus_is_hardware_detail` reads
+      this table. Rulings in scripts/sql/telus_classification.md.

@@ -55,16 +55,7 @@ AS $$
          OR trim(both FROM t.detail_description) ILIKE '%easy%pay%'
          OR trim(both FROM t.detail_description) ILIKE '%device%'
         )
-    AND trim(both FROM t.detail_description) NOT IN (
-      'Hardware Purchase Charge',
-      'Device Discount Repayment',
-      'Monthly TELUS Easy Payment',
-      'Device discount repay. canc.',
-      'Device discount repay. - CR',
-      'Monthly Easy Payment',
-      'TELUS Easy Payment Balance',
-      'Equipment Adjustment'
-    )
+    AND NOT reference_data.telus_is_hardware_detail(t.detail_description)
     AND t.amount IS NOT NULL
     AND t.amount <> 0
     AND (

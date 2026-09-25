@@ -55,7 +55,11 @@ Rows outside the `Taxes` category whose `detail_description` looks tax-like
 
 ### 2. Device-like Detail
 `Wireless`/blank-source rows whose `detail_description` looks device/hardware/equipment/
-Easy-Payment related but is not on the known hardware allowlist.
+Easy-Payment related but is not known hardware. Hardware is decided by
+`reference_data.telus_is_hardware_detail` (alembic-managed, reading the dbt seed
+`telus_hardware_details`), which matches on the
+description's word signature so Telus's variable amounts, terms and expiry dates
+(`Easy Payment $27.50 - 2yrs (exp. Mar 2027)`) need no allowlist entry of their own.
 
 ### 3. Source ID vs Source
 Enforces the `source_id` ↔ `source` mapping

@@ -57,11 +57,8 @@ spend AS (
     LOWER(TRIM(service_description)) AS service_d
   FROM raw_data.raw_telus_spend
   WHERE COALESCE(LOWER(TRIM(statement_section)), '') <> 'balance forward'
+    AND NOT reference_data.telus_is_hardware_detail(detail_description)
     AND LOWER(TRIM(COALESCE(detail_description, ''))) NOT IN (
-      'hardware purchase charge', 'device discount repayment',
-      'monthly telus easy payment', 'device discount repay. canc.',
-      'device discount repay. - cr', 'monthly easy payment',
-      'telus easy payment balance', 'equipment adjustment',
       'gst', 'pst', 'pst-bc', 'gst/hst', 'bc pst', 'bus. services gst'
     )
     AND COALESCE(LOWER(TRIM(statement_category)), '') NOT IN (

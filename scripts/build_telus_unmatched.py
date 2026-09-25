@@ -30,6 +30,11 @@ Usage
   python3 scripts/build_telus_unmatched.py --dsn postgresql://user:pw@host/db
 
 Requires ``DATABASE_URL`` (or ``--dsn``), ``psycopg`` and ``xlsxwriter``.
+
+The query calls ``reference_data.telus_is_hardware_detail`` to drop hardware rows. It
+is alembic-managed (migration 007) and reads the
+hardware list straight from the dbt seed, so `alembic upgrade head` and `dbt seed` are all
+it needs -- there is no per-script setup step.
 Output: scripts/telus_unmatched_spend.xlsx (override with --output).
 """
 
@@ -152,12 +157,8 @@ spend AS (
     {_CELL_MAP} AS mapped_cell_id
   FROM raw_data.raw_telus_spend AS r
   WHERE COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
-    AND LOWER(TRIM(COALESCE(r.detail_description, ''))) NOT IN (
-      'hardware purchase charge', 'device discount repayment',
-      'monthly telus easy payment', 'device discount repay. canc.',
-      'device discount repay. - cr', 'monthly easy payment',
-      'telus easy payment balance', 'equipment adjustment'
-    )
+    -- Hardware rows are not pricebook services.
+    AND NOT reference_data.telus_is_hardware_detail(r.detail_description)
     AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill', 'usage'
     )
