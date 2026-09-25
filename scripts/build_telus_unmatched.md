@@ -82,10 +82,10 @@ dropped every row because some pricebook sets contained `NULL` values (in SQL,
 **Pre-filter (applied before matching):**
 
 - Drop `statement_section = 'balance forward'`.
-- Drop hardware detail lines: `hardware purchase charge`,
-  `device discount repayment`, `monthly telus easy payment`,
-  `device discount repay. canc.`, `device discount repay. - cr`,
-  `monthly easy payment`, `telus easy payment balance`, `equipment adjustment`.
+- Drop hardware detail lines listed in the dbt seed
+  `seeds.telus_hardware_details`
+  (`app/backend/dbt/seeds/telus_hardware_details.csv`; entries are `LIKE`
+  patterns, `%` = variable suffix).
 - Drop categories: `taxes`, `payment`, `payments`,
   `amount due from last bill`, `usage`.
 - Optionally drop `recurring service charges` and/or

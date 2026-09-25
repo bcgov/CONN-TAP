@@ -42,7 +42,11 @@ filtered as (
         -- categories. 'onetime' isn't a safe signal by itself -- it covers non-cellular
         -- one-time charges too, so it isn't accepted here on its own.
         and case
-            when source_service_description in (select detail_description from telus_hardware_details)
+            -- telus_hardware_details entries are LIKE patterns ('%' = variable suffix)
+            when exists (
+                select 1 from telus_hardware_details h
+                where source_service_description like h.detail_description
+            )
                 then source_service_family = 'wireless' or source_service_id = '164'
             else coalesce(statement_category, '') not in (
                 select statement_category from telus_excluded_categories

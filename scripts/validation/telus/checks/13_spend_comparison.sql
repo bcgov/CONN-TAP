@@ -57,17 +57,11 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 AS $$
+-- hw_detail comes from the dbt seed (single source of truth); entries are LIKE
+-- patterns, '%' marking a variable suffix.
 WITH hw_detail AS (
-  SELECT unnest(ARRAY[
-    'hardware purchase charge',
-    'device discount repayment',
-    'monthly telus easy payment',
-    'device discount repay. canc.',
-    'device discount repay. - cr',
-    'monthly easy payment',
-    'telus easy payment balance',
-    'equipment adjustment'
-  ]::text[]) AS detail_d
+  SELECT LOWER(TRIM(detail_description)) AS detail_d
+  FROM seeds.telus_hardware_details
 ),
 excl_category AS (
   SELECT unnest(ARRAY[
@@ -110,7 +104,7 @@ src AS (
     LOWER(TRIM(r.detail_description)) AS detail_d,
     LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = LOWER(TRIM(r.detail_description))) AS is_hw,
+    EXISTS (SELECT 1 FROM hw_detail h WHERE LOWER(TRIM(r.detail_description)) LIKE h.detail_d) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
   FROM raw_data.raw_telus_spend AS r
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
