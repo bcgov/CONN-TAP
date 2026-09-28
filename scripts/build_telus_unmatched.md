@@ -34,6 +34,8 @@ python3 scripts/build_telus_unmatched.py --dsn postgresql://user:pw@host/db --ou
 | `--exclude-other-charges` | Also drop rows with `statement_category = 'Other Charges and Credits'`. |
 
 Requires `DATABASE_URL` (or `--dsn`), `psycopg`, and `xlsxwriter`.
+Also requires the current `seeds.telus_hardware_details` table; see the
+[seed refresh commands](sql/telus_classification.md#hardware-patterns-and-refresh).
 
 Reference logic lives in
 `scripts/validation/telus/classification_exploration` (scripts 03/04/05/07),

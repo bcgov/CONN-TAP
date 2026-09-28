@@ -101,8 +101,6 @@ src AS (
     r.sheet_name,
     r.amount,
     date_trunc('month', r.statement_date)::date AS month_start,
-    LOWER(TRIM(r.detail_description)) AS detail_d,
-    LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
     EXISTS (SELECT 1 FROM hw_detail h WHERE LOWER(TRIM(r.detail_description)) LIKE h.detail_d) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
@@ -110,20 +108,19 @@ src AS (
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
      OR r.detail_description IS NULL)
     AND COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
+    -- Exclusions apply before classification, including to hardware and source_id 164.
+    AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
+      SELECT x.stmt_cat FROM excl_category x
+    )
+    AND r.statement_date IS NOT NULL
 ),
-flagged AS (
+normalized AS (
   SELECT
     sheet_name,
     month_start,
     amount,
     is_hw,
     is_wireless,
-    CASE
-      WHEN is_hw
-        OR stmt_cat NOT IN (SELECT x.stmt_cat FROM excl_category x)
-      THEN TRUE
-      ELSE FALSE
-    END AS is_included,
     CASE
       WHEN sid_raw ~ '^-?[0-9]+(\.[0-9]+)?$'
         THEN (sid_raw::numeric)::bigint::text
@@ -144,13 +141,11 @@ bucketed AS (
       WHEN sid_n IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'
     END AS bucket
-  FROM flagged
-  WHERE is_included
-    AND month_start IS NOT NULL
-    -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
-    -- charges too); a hardware-detail-text row is only trusted as cellular
-    -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
-    AND (NOT is_hw OR is_wireless OR sid_n = '164')
+  FROM normalized
+  -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
+  -- charges too); a hardware-detail-text row is only trusted as cellular
+  -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
+  WHERE NOT is_hw OR is_wireless OR sid_n = '164'
 ),
 -- One row per entity / month with a column per spend category.
 monthly AS (

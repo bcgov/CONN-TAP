@@ -9,7 +9,9 @@ telus easy payment balance,device financing balance
 equipment adjustment,equipment charge adjustment
 gobc 36 mos easy payment fee%,device financing fee
 gobc data device pom,data device purchase
+gobc data device pom (%),prorated data device purchase
 office phone - device down payment,device down payment
 smb hardware purchase,device hardware purchase
 easy payment%,device financing
-device care complete%,device care
+device care complete,device care
+device care complete (%),prorated device care

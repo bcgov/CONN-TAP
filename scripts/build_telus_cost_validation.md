@@ -39,6 +39,8 @@ python3 scripts/build_telus_cost_validation.py --dsn ******host/db --output /tmp
 | `--exclude-other-charges` | Drop rows with `statement_category = 'Other Charges and Credits'`. |
 
 Requires `DATABASE_URL` (or `--dsn`), `psycopg`, and `xlsxwriter`.
+Also requires the current `seeds.telus_hardware_details` table; see the
+[seed refresh commands](sql/telus_classification.md#hardware-patterns-and-refresh).
 
 > **Note on the exclude flags.** In practice every cost discrepancy falls into
 > exactly two categories: **Recurring Service Charges** and **Other Charges and
