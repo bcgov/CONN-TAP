@@ -40,5 +40,9 @@ select
 from normalized
 left join {{ ref('bge_alias_map') }} bm
     on reference_data.match_key(bm.raw_name) = reference_data.match_key(normalized.organization_name)
-left join {{ ref('sub_bge_alias_map') }} sbm
-    on reference_data.match_key(sbm.raw_name) = reference_data.match_key(normalized.sub_organization_name)
+left join (
+    select distinct on (reference_data.match_key(raw_name))
+           reference_data.match_key(raw_name) as mk, sub_bge_alias
+    from {{ ref('sub_bge_alias_map') }}
+) sbm
+    on sbm.mk = reference_data.match_key(normalized.sub_organization_name)
