@@ -54,12 +54,12 @@ Rows outside the `Taxes` category whose `detail_description` looks tax-like
 (gst/pst/hst/qst) but is not on the known allowlist.
 
 ### 2. Device-like Detail
-`Wireless`/blank-source rows whose `detail_description` looks device/hardware/equipment/
+`Wireless`/`Onetime`/blank-source rows whose `detail_description` looks device/hardware/equipment/
 Easy-Payment related but is not on the known hardware allowlist.
 
 ### 3. Source ID vs Source
 Enforces the `source_id` ↔ `source` mapping
-(`164`/`130` → Wireless; `1001`/`103`/`104`/`102`/`106` → Wireline).
+(`164` → Onetime; `130` → Wireless; `1001`/`103`/`104`/`102`/`106` → Wireline).
 
 ### 4. Blanks by Sheet
 Required columns that contain a NULL or whitespace-only value within a (sheet, month).
@@ -143,6 +143,11 @@ export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
 ```
 
 ### Run the pipeline
+
+The device, spend-comparison, cost, and unmatched checks require the current
+`seeds.telus_hardware_details` table. Refresh the seed after editing its CSV;
+see [classification rules and refresh commands](../../sql/telus_classification.md).
+
 ```
 # scoped to one statement month (any date within the month)
 python scripts/validation/telus/run_validations.py --month 2026-06-15
