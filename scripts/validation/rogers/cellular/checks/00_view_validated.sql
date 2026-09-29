@@ -3,13 +3,15 @@
 -- Load this file before the numbered checks: they are declared RETURNS SETOF
 -- raw_data.v_rogers_cellular_validated or select from it, so it must exist first.
 -- Mappings come from the DB seeds/reference data: seeds.bge_alias_map, seeds.sub_bge_alias_map,
--- reference_data.bge/sub_bge. Name matching uses raw_data.norm_key(text) from
--- helpers/_shared.sql (applied first by the runner).
+-- reference_data.bge/sub_bge. Name matching uses reference_data.match_key(text), as in dbt.
+-- reference_data.norm_key(text) is only used to keep report labels readable.
 
 CREATE OR REPLACE VIEW raw_data.v_rogers_cellular_validated AS
+-- Collapse equivalent aliases to the same target before joining, so each spend row
+-- appears once even when filler words or school-district spellings differ.
 WITH bge_map AS (
 
-    SELECT raw_data.norm_key(bam.raw_name) AS raw_bge,
+    SELECT DISTINCT reference_data.match_key(bam.raw_name) AS raw_bge,
            bam.bge_alias             AS mapped_bge
     FROM seeds.bge_alias_map AS bam
 
@@ -17,7 +19,7 @@ WITH bge_map AS (
 
 sub_bge_map AS (
 
-    SELECT raw_data.norm_key(sbam.raw_name) AS sub_bge,
+    SELECT DISTINCT reference_data.match_key(sbam.raw_name) AS sub_bge,
            b.code                     AS expected_bge
     FROM seeds.sub_bge_alias_map AS sbam
     JOIN reference_data.sub_bge  AS sb ON sb.code  = sbam.sub_bge_alias
@@ -29,8 +31,8 @@ normalized AS (
 
     SELECT
         r.*,
-        raw_data.norm_key(r.bge) AS bge_norm,
-        raw_data.norm_key(r.sub_bge) AS sub_bge_norm
+        reference_data.norm_key(r.bge) AS bge_norm,
+        reference_data.norm_key(r.sub_bge) AS sub_bge_norm
 
     FROM raw_data.raw_rogers_spend_cellular r
 
@@ -47,7 +49,7 @@ bge_mapped AS (
     FROM normalized n
 
     LEFT JOIN bge_map bm
-        ON n.bge_norm = bm.raw_bge
+        ON reference_data.match_key(n.bge) = bm.raw_bge
 
 ),
 
@@ -64,7 +66,7 @@ final_mapping AS (
     FROM bge_mapped b
 
     LEFT JOIN sub_bge_map sm
-        ON b.sub_bge_norm = sm.sub_bge
+        ON reference_data.match_key(b.sub_bge) = sm.sub_bge
 
 ),
 
