@@ -1,7 +1,7 @@
 # main_wireline.py
 # Entry point for the DB-sourced Rogers wireline price validation export.
 # Runs reporting.validate_rogers_wireline_prices() (defined in
-# rogers_wireline_function.sql) and writes the result to Excel.
+# rogers_wireline_validation_function.sql) and writes the result to Excel.
 
 import argparse
 import os
@@ -31,7 +31,7 @@ OUTPUT_FILE = (
 
 FUNCTION_SQL_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "rogers_wireline_function.sql",
+    "rogers_wireline_validation_function.sql",
 )
 
 
