@@ -153,17 +153,14 @@ Optional: `--source-period 2025-06-01`, `--dry-run` (no database writes).
 
 #### 2) NGTA pricebooks (`ngta_pricebooks_ingest`)
 
-Place Rogers PDFs under a root such as `local_dev/raw_ingestion/ngta_pricebooks_ingest/price_books/` (or any folder outside the repo):
-
-- `rogers/professional_services.pdf`, `rogers/data.pdf`, `rogers/cellular.pdf`, `rogers/voice.pdf`
-- `telus/u_ngta_*.xlsx` catalogues (13 files; see `telus/catalogues.py`)
+Place the v2 price book workbooks in one folder (outside the repo), named with the provider prefix — `TCI ...` (Telus) or `RCCI ...` (Rogers), e.g. `TCI NGTA Price Book Cellular Services v2.0.xlsx`, `RCCI NGTA Price Book Cellular Services v1.2.xlsx`. The book is inferred from the rest of the filename (see `telus/catalogues.py` and `rogers/catalogues.py`).
 
 ```bash
 python local_dev/raw_ingestion/ngta_pricebooks_ingest/ingest_pricebooks_folder.py \
-  local_dev/raw_ingestion/ngta_pricebooks_ingest/price_books
+  ~/Documents/ngta-local-excels/price_books_v2
 ```
 
-Optional: `--source-period 2025-06-01`, `--dry-run`.
+Optional: `--source-period 2025-06-01`, `--dry-run`. Rows land in the `raw_telus_v2_*` / `raw_rogers_v2_*` tables in `raw_data` (created by `alembic upgrade head`). The original (pre-v2) pricebook tables live in the `historic_data` schema and are no longer ingested.
 
 #### 3) TSMA core / lite (`tsma_postgres_ingest`)
 

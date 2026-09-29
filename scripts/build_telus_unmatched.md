@@ -51,12 +51,24 @@ with the normalization made case-robust here.
 **Pricebooks:**
 
 - `service_id`, `service_name`, `short_service_description` — data + voice
-  (`raw_telus_data_services_pricebook`, `raw_telus_voice_services_pricebook`).
+  (`raw_telus_v2_data_services_pricebook`, `raw_telus_v2_voice_services_pricebook`).
 - `service_id` only — the 4 cellular tables
-  (`raw_telus_cellular_services_pricebook`,
-  `raw_telus_cellular_catalog_and_price_list_pricebook`,
-  `raw_telus_control_center_services_pricebook`,
-  `raw_telus_cellular_mms_pricebook`).
+  (`raw_telus_v2_cellular_services_pricebook`,
+  `raw_telus_v2_cellular_additional_fee_based_features_pricebook`,
+  `raw_telus_v2_control_center_pricebook`,
+  `raw_telus_v2_cellular_mms_pricebook`). The old
+  `cellular_catalog_and_price_list` and `control_center_services` tables were
+  merged into `control_center` in v2; `additional_fee_based_features` is new as a
+  match source (it now carries a `service_id`).
+- New v2 catalogues with no old equivalent, matched on NG code / exact text only
+  (`other_ids` / `other_names` in the query): `service_id` from
+  `voice_data_usage_rates`, `tls`, `professional_services`,
+  `connected_worker_professional_services`, `gms`, `connected_worker`,
+  `connected_worker_usage_rate`, `connected_worker_hardware`, and `code` from
+  `fleet_complete`; names from `tls` (`service_name`, `short_service_description`)
+  and `voice_data_usage_rates` (`service`, `description`). Voice/data usage rates
+  matter because 10 services that used to sit in the voice services table moved
+  there in v2.
 
 ## Matching — a row matches if ANY of these succeed
 

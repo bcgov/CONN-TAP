@@ -131,44 +131,32 @@ data "archive_file" "function" {
     filename = "rogers/__init__.py"
   }
   source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/catalogues.py")
+    filename = "rogers/catalogues.py"
+  }
+  source {
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/excel.py")
+    filename = "rogers/excel.py"
+  }
+  source {
     content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/ingest.py")
     filename = "rogers/ingest.py"
-  }
-  source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/__init__.py")
-    filename = "rogers/parsers/__init__.py"
-  }
-  source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/cellular.py")
-    filename = "rogers/parsers/cellular.py"
-  }
-  source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/data.py")
-    filename = "rogers/parsers/data.py"
-  }
-  source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/professional_services.py")
-    filename = "rogers/parsers/professional_services.py"
-  }
-  source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/rogers/parsers/voice.py")
-    filename = "rogers/parsers/voice.py"
   }
   source {
     content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/__init__.py")
     filename = "telus/__init__.py"
   }
   source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/ingest.py")
-    filename = "telus/ingest.py"
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/catalogues.py")
+    filename = "telus/catalogues.py"
   }
   source {
     content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/excel.py")
     filename = "telus/excel.py"
   }
   source {
-    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/catalogues.py")
-    filename = "telus/catalogues.py"
+    content  = file("${var.repo_root}/local_dev/raw_ingestion/ngta_pricebooks_ingest/telus/ingest.py")
+    filename = "telus/ingest.py"
   }
 }
 
@@ -289,19 +277,12 @@ resource "aws_s3_bucket_notification" "triggers" {
     filter_suffix       = ".xlsx"
   }
 
+  # v2 pricebook workbooks (Excel): "TCI ..." = Telus, "RCCI ..." = Rogers.
   lambda_function {
-    id                  = "pricebook-rogers-ingest"
+    id                  = "pricebook-ingest"
     lambda_function_arn = aws_lambda_function.this.arn
     events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "pricebooks/rogers/"
-    filter_suffix       = ".pdf"
-  }
-
-  lambda_function {
-    id                  = "pricebook-telus-ingest"
-    lambda_function_arn = aws_lambda_function.this.arn
-    events              = ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-    filter_prefix       = "pricebooks/telus/"
+    filter_prefix       = "pricebooks/"
     filter_suffix       = ".xlsx"
   }
 

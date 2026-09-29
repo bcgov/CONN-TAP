@@ -1,16 +1,22 @@
-"""Load Telus pricebook Excel catalogues into Postgres raw tables."""
+"""Load Telus pricebook v2 Excel workbooks into Postgres raw tables.
+
+Unlike the old telus/ingest.py (one file -> one table), a v2 workbook fans
+out into several tables (one per sheet), all recorded under a single
+pricebook_ingestion_run row keyed by the book code (e.g.
+"cellular_services_v2"), with row_counts_raw capturing per-table counts.
+"""
 
 from __future__ import annotations
 
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import psycopg
 
 from common import fq
-from telus.catalogues import resolve_catalogue
+from telus.catalogues import SplitByValueSheetSpec, resolve_book
 from telus.excel import parse_workbook
 
 
@@ -25,26 +31,26 @@ def process_file(
     source_period: Optional[date],
     dry_run: bool,
 ) -> tuple[int, str]:
-    spec = resolve_catalogue(path.stem)
-    parsed = parse_workbook(path, spec)
-    if not parsed:
-        raise ValueError(f"No data rows extracted from {path}")
+    book = resolve_book(path.stem)
+    rows_by_table = parse_workbook(path, book)
+    for table_name, rows in rows_by_table.items():
+        if not rows:
+            raise ValueError(f"No data rows extracted from {path} for {table_name}")
 
-    columns = _insert_columns(spec.columns)
-    batches = [tuple(row.get(c) for c in columns) for row in parsed]
-    row_total = len(batches)
+    table_columns: dict[str, tuple[str, ...]] = {}
+    for spec in book.sheets:
+        if isinstance(spec, SplitByValueSheetSpec):
+            for table_name in spec.table_by_value.values():
+                table_columns[table_name] = spec.columns
+        else:
+            table_columns[spec.table_name] = spec.columns
+    row_total = sum(len(rows) for rows in rows_by_table.values())
+
     if dry_run:
-        return row_total, spec.table_name
+        return row_total, book.book_code
     if conn is None:
         raise ValueError("Postgres connection required unless --dry-run")
 
-    sql = (
-        f"INSERT INTO {fq(spec.table_name)} ("
-        + ", ".join(columns)
-        + ") VALUES ("
-        + ", ".join(["%s"] * len(columns))
-        + ")"
-    )
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -54,15 +60,28 @@ def process_file(
                 VALUES (%s, %s, %s, %s, 'running')
                 RETURNING pricebook_ingestion_run_id
                 """,
-                ("telus", spec.feed_code, path.resolve().as_uri(), source_period),
+                ("telus", book.book_code, path.resolve().as_uri(), source_period),
             )
             run_id = cur.fetchone()[0]
-            final_rows = []
-            for tup in batches:
-                lst = list(tup)
-                lst[0] = run_id
-                final_rows.append(tuple(lst))
-            cur.executemany(sql, final_rows)
+
+            row_counts: dict[str, int] = {}
+            for table_name, rows in rows_by_table.items():
+                columns = _insert_columns(table_columns[table_name])
+                sql = (
+                    f"INSERT INTO {fq(table_name)} ("
+                    + ", ".join(columns)
+                    + ") VALUES ("
+                    + ", ".join(["%s"] * len(columns))
+                    + ")"
+                )
+                batches = []
+                for row in rows:
+                    row = dict(row)
+                    row["pricebook_ingestion_run_id"] = run_id
+                    batches.append(tuple(row.get(c) for c in columns))
+                cur.executemany(sql, batches)
+                row_counts[table_name] = len(rows)
+
             cur.execute(
                 f"""
                 UPDATE {fq('pricebook_ingestion_run')}
@@ -70,10 +89,10 @@ def process_file(
                     row_counts_raw = %s::jsonb
                 WHERE pricebook_ingestion_run_id = %s
                 """,
-                (json.dumps({spec.table_name: row_total}), run_id),
+                (json.dumps(row_counts), run_id),
             )
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return row_total, spec.table_name
+    return row_total, book.book_code

@@ -4,7 +4,7 @@
 --
 -- Source tables:
 --   raw_data.raw_rogers_spend_cellular
---   raw_data.raw_rogers_cellular_pricebook
+--   raw_data.raw_rogers_v2_cellular_pricebook
 --
 -- Main function:
 --   reporting.validate_rogers_cellular_prices()
@@ -171,7 +171,7 @@ WITH price_clean AS (
         p.service_id AS price_book_service_id,
         reporting.normalize_service_id(p.service_id) AS normalized_service_id,
         reporting.parse_money(p.monthly_fixed_fee) AS monthly_fixed_fee_numeric
-    FROM raw_data.raw_rogers_cellular_pricebook p
+    FROM raw_data.raw_rogers_v2_cellular_pricebook p
     WHERE reporting.normalize_service_id(p.service_id) <> ''
     ORDER BY
         reporting.normalize_service_id(p.service_id),
