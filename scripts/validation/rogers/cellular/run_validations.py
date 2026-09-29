@@ -37,6 +37,7 @@ Notes
     pip install "psycopg[binary]" pandas openpyxl
 * Prerequisite tables must already be loaded: raw_data.raw_rogers_spend_cellular,
   seeds.bge_alias_map, seeds.sub_bge_alias_map, reference_data.bge, reference_data.sub_bge.
+* Requires the reference-data helper functions reference_data.match_key and norm_key.
 """
 
 from __future__ import annotations
@@ -64,7 +65,6 @@ SCRIPTS_DIR = HERE.parents[2]
 # checks/*.sql are applied in filename order -- 00_view_validated.sql defines the view
 # every later check selects from, so it must load first.
 DDL_FILES = [
-    HERE.parent / "_shared.sql",
     *sorted(HERE.glob("checks/*.sql")),
     HERE.parent / "spend_comparison.sql",
 ]
@@ -110,8 +110,8 @@ VALIDATIONS = [
      "Rows where PRE-TAX plus GST/PST/HST does not reconcile to POST-TAX (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_cellular_post_tax_issues(%s)"),
     ("New-Removed BGEs",
-     "Month-over-month BGE / SUB-BGE changes: Newly Appeared, Unrecognized, "
-     "New + Unrecognized, Removed, Still Removed.",
+     "Month-over-month BGE / SUB-BGE changes: Unmapped, Persisting Unmapped, "
+     "New Match, Disappeared, Still Disappeared.",
      "SELECT * FROM raw_data.rogers_cellular_new_removed_detection(%s)"),
 ]
 

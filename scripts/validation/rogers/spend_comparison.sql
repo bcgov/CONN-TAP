@@ -19,8 +19,8 @@
 --   'cellular'    -> cellular feed only (data/voice/other categories come back 0)
 --   'data_voice'  -> voice/data feed only (cellular categories come back 0)
 -- =====================================================================
--- Entity resolution below uses reference_data.norm_key(text) -- created by the per-check validation
--- SQL, which run_validations.py applies before this file. No need to redefine it here.
+-- Entity resolution uses reference_data.match_key(text), shared with dbt and installed
+-- by the reference-data migrations. norm_key is only used for readable fallback labels.
 DROP FUNCTION IF EXISTS raw_data.fn_rogers_spend_comparison(integer, integer);
 
 CREATE OR REPLACE FUNCTION raw_data.fn_rogers_spend_comparison(
@@ -68,15 +68,15 @@ LANGUAGE sql
 STABLE
 AS $$
 WITH bge_map AS (
-  -- Raw BGE name -> canonical BGE code, from the seed alias map (matched on norm_key).
-  SELECT reference_data.norm_key(bam.raw_name) AS raw_key,
+  -- Raw BGE name -> canonical BGE code, from the seed alias map (matched on match_key).
+  SELECT DISTINCT reference_data.match_key(bam.raw_name) AS raw_key,
          bam.bge_alias                    AS mapped_bge
   FROM seeds.bge_alias_map AS bam
 ),
 sub_bge_map AS (
   -- Raw SUB-BGE name -> its parent BGE code, via the seed alias map + reference data.
   -- This is what routes school districts to 'School Districts' and ministry ECC to 'Gov BC'.
-  SELECT reference_data.norm_key(sbam.raw_name) AS sub_key,
+  SELECT DISTINCT reference_data.match_key(sbam.raw_name) AS sub_key,
          b.code                            AS expected_bge
   FROM seeds.sub_bge_alias_map AS sbam
   JOIN reference_data.sub_bge  AS sb ON sb.code = sbam.sub_bge_alias
@@ -132,8 +132,8 @@ normalized AS (
     s.month_start,
     s.amount,
     s.bucket,
-    reference_data.norm_key(s.bge)     AS bge_key,
-    reference_data.norm_key(s.sub_bge) AS sub_bge_key
+    reference_data.match_key(s.bge)     AS bge_key,
+    reference_data.match_key(s.sub_bge) AS sub_bge_key
   FROM src s
 ),
 bucketed AS (
@@ -143,7 +143,7 @@ bucketed AS (
   SELECT
     COALESCE(
       sm.expected_bge,
-      COALESCE(bm.mapped_bge, n.bge_key)
+      COALESCE(bm.mapped_bge, reference_data.norm_key(n.bge))
     ) AS entity_key,
     n.month_start,
     n.amount,
