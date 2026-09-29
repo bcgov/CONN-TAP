@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 334 186">
+  <path
+    d="M30 152 L77 116 L121 128 L169 78 L216 96 L263 50 L304 68 L304 160 L30 160 Z"
+    fill="#dce8f4"
+  />
+  <polyline
+    points="30,152 77,116 121,128 169,78 216,96 263,50 304,68"
+    fill="none"
+    stroke="#b7cde6"
+    stroke-width="3"
+  />
+  <g fill="#8fb0d6">
+    <circle cx="30" cy="152" r="5" />
+    <circle cx="77" cy="116" r="5" />
+    <circle cx="121" cy="128" r="5" />
+    <circle cx="169" cy="78" r="5" />
+    <circle cx="216" cy="96" r="5" />
+    <circle cx="263" cy="50" r="5" />
+    <circle cx="304" cy="68" r="5" />
+  </g>
+</svg>

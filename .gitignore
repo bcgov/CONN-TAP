@@ -55,6 +55,13 @@ check_and_generate_fix_commands.py
 
 # spend sheet source data (contributor CSV files — not committed)
 source/
+source_original/
+
+# pricebook source workbooks (contributor Excel files — not committed)
+scripts/new P Books/
+scripts/New P Books/
+scripts/old price books/
+scripts/validation/personal/
 
 # generated spend tracking workbooks and Excel lock files
 scripts/spend_tracking.xlsx

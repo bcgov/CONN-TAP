@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Header,
@@ -24,55 +25,62 @@ export function HomeClient() {
       />
 
       <main id="main-content" className="telecom-main">
-        <Heading level={1}>Welcome to the Telecom Access Point</Heading>
+        <section className="dashboard-card telecom-main__card">
+          <Heading level={1}>
+            Welcome to the
+            <br />
+            Telecom Access Point
+          </Heading>
+          <hr className="telecom-main__rule" />
 
-        <p className="telecom-main__intro">
-          Explore dashboards, reports, contract information, spend and savings analytics, and key
-          performance metrics for telecom services on the Telecom Access Point.
-        </p>
-
-        <div className="telecom-main__login-block">
-          <BcLink
-            href="/auth/login?returnTo=/dashboard"
-            isButton
-            buttonVariant="primary"
-            size="large"
-          >
-            Login with IDIR
-          </BcLink>
-          <p className="telecom-main__login-hint">
-            Use your IDIR credentials to securely access the system.
+          <p>Access telecom information for your organization.</p>
+          <p>
+            The Telecom Access Point (TAP) provides access to telecom dashboards, reports, and
+            spend insights.
           </p>
-        </div>
 
-        <div className="telecom-main__access">
-          <strong>Need access?</strong>
-          <br />
-          Contact your Telecom Office administrator or{" "}
-          <BcLink href="mailto:example@gov.bc.ca">email us</BcLink> to request access to the Telecom Access Point.
-        </div>
+          <div>
+            <p className="telecom-main__login-label">Sign in to get started</p>
+            <BcLink
+              href="/auth/login?returnTo=/dashboard"
+              isButton
+              buttonVariant="primary"
+              size="large"
+            >
+              Log in with IDIR
+            </BcLink>
+          </div>
+
+          <div className="telecom-main__access">
+            <strong>Need access?</strong>
+            <p>
+              Contact the{" "}
+              <BcLink href="mailto:LCTZ.CIOAdminReports@gov.bc.ca">Telecom Office</BcLink> to
+              request access and provide feedback.
+            </p>
+          </div>
+        </section>
 
         <Heading className="telecom-main__features-title" level={2}>
-          What you can do in Telecom Access Point
+          What you can do in the Telecom Access Point
         </Heading>
+        <p>
+          View reports and analyze telecom data to better understand telecom spending within your
+          organization.
+        </p>
 
-        <ul className="telecom-main__list">
-          <li>
-            <strong>View Reports</strong>
-            <br />
-            Access ready-made reports that summarize key telecom data, trends, and performance
-            insights.
+        <ul className="telecom-main__features">
+          <li className="dashboard-card telecom-feature">
+            <Image src="/assets/dashboards.svg" alt="" width={334} height={186} />
+            <strong>Dashboards</strong>
           </li>
-          <li>
-            <strong>Analyze Data</strong>
-            <br />
-            Explore interactive dashboards to filter, compare, and understand telecom metrics
-            across services and organizations.
+          <li className="dashboard-card telecom-feature">
+            <Image src="/assets/reports.svg" alt="" width={334} height={186} />
+            <strong>Reports</strong>
           </li>
-          <li>
-            <strong>Customize dashboards</strong>
-            <br />
-            Customize dashboards to visualize the data that matters most to your team.
+          <li className="dashboard-card telecom-feature">
+            <Image src="/assets/spend-insights.svg" alt="" width={334} height={186} />
+            <strong>Spend Insights</strong>
           </li>
         </ul>
       </main>
