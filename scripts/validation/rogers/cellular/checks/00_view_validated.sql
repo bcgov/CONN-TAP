@@ -75,7 +75,8 @@ validated AS (
 
         COALESCE(gst, 0) AS gst_value,
         COALESCE(pst, 0) AS pst_value,
-        COALESCE(hst, 0) AS hst_value
+        COALESCE(hst, 0) AS hst_value,
+        COALESCE(qst, 0) AS qst_value
 
     FROM final_mapping f
 
