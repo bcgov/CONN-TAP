@@ -34,29 +34,19 @@ MIN_WIDTH = 10
 MAX_WIDTH = 60
 WIDTH_SAMPLE_ROWS = 200
 
-# Status legend written to the side of the New-Removed detection sheet. Rogers and TELUS emit
-# different (disjoint) status vocabularies, so the statuses are grouped per provider. The sheet
-# gets the FULL set for whichever provider it belongs to (every possible status, not just the
-# ones in this month's data), detected from the statuses present. Descriptions come from the
-# detection functions, not assumptions.
+# Rogers and TELUS share these statuses. Rogers also checks entities absent for two months.
+# Use the result columns to identify Rogers, even when the check returns no rows.
 NEW_REMOVED_TAB = "New-Removed BGEs"
-STATUS_GROUPS = [
-    # Rogers detection (rogers_*_new_removed_detection).
-    [
-        ("Newly Appeared", "In the current month, not in the prior month; recognized in the seeds."),
-        ("Unrecognized", "In the current month but not recognized in the seeds (regardless of the prior month)."),
-        ("New + Unrecognized", "In the current month, not in the prior month, and not recognized in the seeds."),
-        ("Removed", "In the prior month but not in the current month."),
-        ("Still Removed", "Absent in both the prior and current month (was removed last month)."),
-    ],
-    # TELUS detection (telus_raw_validate_new_bges_in_sheets).
-    [
-        ("Unmapped", "New this month (absent last month) and not a recognized BGE/sheet."),
-        ("Persisting Unmapped", "Present last month but still not a recognized BGE/sheet."),
-        ("New Match", "New this month and a recognized BGE/sheet."),
-        ("Disappeared", "Present last month, gone this month."),
-    ],
+STATUS_LEGEND = [
+    ("Unmapped", "Name appears this month, was absent last month, and is not recognized by the alias mapping."),
+    ("Persisting Unmapped", "Name appears in both months and is not recognized by the current alias mapping."),
+    ("New Match", "Recognized BGE or SUB-BGE appears this month and was absent last month."),
+    ("Disappeared", "Recognized BGE or SUB-BGE was present last month and is absent this month."),
 ]
+ROGERS_STILL_DISAPPEARED = (
+    "Still Disappeared",
+    "Recognized BGE or SUB-BGE was present two months ago and is absent in both the prior and current month.",
+)
 
 
 def _best_width(col_cells) -> int:
@@ -70,8 +60,7 @@ def _best_width(col_cells) -> int:
 def _add_status_legend(ws, header_font, header_align) -> None:
     """Write a styled Status/Description legend as a separate card to the right of the data.
 
-    Shows the full status set for whichever provider(s) the sheet belongs to (detected from the
-    statuses present), so every possible status is documented -- not just this month's.
+    Shows every possible status for the provider, including when the result is empty.
     """
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -80,15 +69,9 @@ def _add_status_legend(ws, header_font, header_align) -> None:
     status_col = headers.get("status")
     if not status_col:
         return
-    present = set()
-    for row in range(2, ws.max_row + 1):
-        value = ws.cell(row=row, column=status_col).value
-        if value is not None:
-            present.add(str(value).strip())
-    groups = [g for g in STATUS_GROUPS if any(status in present for status, _ in g)]
-    if not groups:
-        groups = STATUS_GROUPS
-    entries = [entry for group in groups for entry in group]
+    entries = list(STATUS_LEGEND)
+    if "entity_type" in headers and "entity" in headers:
+        entries.append(ROGERS_STILL_DISAPPEARED)
 
     header_fill = PatternFill("solid", fgColor=LEGEND_HEADER_FILL)
     body_fill = PatternFill("solid", fgColor=LEGEND_BODY_FILL)
