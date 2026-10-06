@@ -1,18 +1,17 @@
 -- Rogers NGTA Cellular Validation -- one check per file, applied in filename order by
 -- cellular/run_validations.py, each into its own worksheet tab.
 --
--- Reads raw_data.raw_rogers_spend_cellular directly; name matching uses raw_data.norm_key(text)
--- from helpers/_shared.sql. p_month := NULL scans every month; pass any date within a month
--- to restrict to that month.
+-- Reads raw_data.raw_rogers_spend_cellular directly; name matching uses reference_data.match_key(text).
+-- p_month selects the current month; NULL uses the newest invoice month.
 
 -- 12) New/Removed BGE and SUB-BGE detection (month-over-month).
 --
 -- Two independent questions, deliberately answered on two different bases:
 --
---   RECOGNITION is about a raw SPELLING, so it compares raw text. The whole point is to catch
---   spellings the seeds do not have yet, and resolving first would silently discard exactly
---   those. A spelling is "recognized" when seeds.bge_alias_map / seeds.sub_bge_alias_map has a
---   row for it -- alias MEMBERSHIP only, not whether that alias resolves to reference_data,
+--   RECOGNITION compares the raw name to aliases using reference_data.match_key, just as
+--   the dbt pipeline does. Filler words and school-district formatting do not require new
+--   seed rows. A name is recognized when seeds.bge_alias_map / seeds.sub_bge_alias_map has
+--   a matching key -- alias MEMBERSHIP only, not whether it resolves to reference_data,
 --   because the maps intentionally carry aliases for retired / not-yet-loaded entities and
 --   those are still known. Same rule as telus_raw_validate_new_sub_bges_in_accounts.
 --
@@ -38,7 +37,7 @@
 -- raw spelling for the first two -- an unrecognized spelling has no canonical code by
 -- definition. It replaces the old `raw_value`, which is no longer accurate for every row.
 --
--- A new unseeded spelling for an organization already in the report yields TWO rows:
+-- A new name whose matching key has no alias yields TWO rows if it replaces a known entity:
 -- 'Unmapped' for the spelling, and 'Disappeared' for the entity it used to resolve under.
 -- That is intended -- the entity's spend genuinely stopped resolving.
 
@@ -46,16 +45,16 @@ DROP FUNCTION IF EXISTS raw_data.rogers_cellular_new_removed_detection(date);
 CREATE OR REPLACE FUNCTION raw_data.rogers_cellular_new_removed_detection(p_month date DEFAULT NULL)
 RETURNS TABLE (current_month date, entity_type text, entity text, status text)
 LANGUAGE sql AS $$
-    -- Raw spelling -> canonical entity code. Doubles as the recognition set: a spelling is
-    -- recognized exactly when it has a row here.
+    -- Matching key -> canonical entity code. DISTINCT collapses equivalent aliases.
+    -- A raw name is recognized when its matching key has a row here.
     WITH bge_resolve AS (
-        SELECT DISTINCT raw_data.norm_key(bam.raw_name) AS raw_name,
+        SELECT DISTINCT reference_data.match_key(bam.raw_name) AS raw_name,
                bam.bge_alias                            AS code
         FROM seeds.bge_alias_map AS bam
     ),
     -- Recognition set for SUB-BGEs: alias MEMBERSHIP, whatever the alias targets.
     sub_bge_known AS (
-        SELECT DISTINCT raw_data.norm_key(sbam.raw_name) AS raw_name
+        SELECT DISTINCT reference_data.match_key(sbam.raw_name) AS raw_name
         FROM seeds.sub_bge_alias_map AS sbam
     ),
     -- Resolution set for SUB-BGEs: only aliases that land on a real reference_data.sub_bge.
@@ -64,7 +63,7 @@ LANGUAGE sql AS $$
     -- RECOGNIZED above, but they are not sub-BGE entities, so they must not appear as a
     -- SUB-BGE appearing or disappearing.
     sub_bge_resolve AS (
-        SELECT DISTINCT raw_data.norm_key(sbam.raw_name) AS raw_name,
+        SELECT DISTINCT reference_data.match_key(sbam.raw_name) AS raw_name,
                sb.code                                   AS code
         FROM seeds.sub_bge_alias_map AS sbam
         JOIN reference_data.sub_bge AS sb ON sb.code = sbam.sub_bge_alias
@@ -83,13 +82,13 @@ LANGUAGE sql AS $$
     -- Raw spellings per month (recognition side).
     bge_raw_by_month AS (
         SELECT DISTINCT date_trunc('month', r.invoice_date::date) AS month,
-               raw_data.norm_key(r.bge)                        AS value
+               reference_data.norm_key(r.bge)                        AS value
         FROM raw_data.raw_rogers_spend_cellular r
         WHERE r.invoice_date IS NOT NULL AND r.bge IS NOT NULL AND TRIM(r.bge) <> ''
     ),
     sub_bge_raw_by_month AS (
         SELECT DISTINCT date_trunc('month', r.invoice_date::date) AS month,
-               raw_data.norm_key(r.sub_bge)                    AS value
+               reference_data.norm_key(r.sub_bge)                    AS value
         FROM raw_data.raw_rogers_spend_cellular r
         WHERE r.invoice_date IS NOT NULL AND r.sub_bge IS NOT NULL AND TRIM(r.sub_bge) <> ''
     ),
@@ -100,14 +99,14 @@ LANGUAGE sql AS $$
         SELECT DISTINCT date_trunc('month', r.invoice_date::date) AS month,
                br.code                                         AS value
         FROM raw_data.raw_rogers_spend_cellular r
-        JOIN bge_resolve br ON br.raw_name = raw_data.norm_key(r.bge)
+        JOIN bge_resolve br ON br.raw_name = reference_data.match_key(r.bge)
         WHERE r.invoice_date IS NOT NULL AND r.bge IS NOT NULL AND TRIM(r.bge) <> ''
     ),
     sub_bge_by_month AS (
         SELECT DISTINCT date_trunc('month', r.invoice_date::date) AS month,
                sbr.code                                        AS value
         FROM raw_data.raw_rogers_spend_cellular r
-        JOIN sub_bge_resolve sbr ON sbr.raw_name = raw_data.norm_key(r.sub_bge)
+        JOIN sub_bge_resolve sbr ON sbr.raw_name = reference_data.match_key(r.sub_bge)
         WHERE r.invoice_date IS NOT NULL AND r.sub_bge IS NOT NULL AND TRIM(r.sub_bge) <> ''
     )
 
@@ -118,7 +117,7 @@ LANGUAGE sql AS $$
              THEN 'Persisting Unmapped' ELSE 'Unmapped' END::text
     FROM invoice_months m
     JOIN bge_raw_by_month cur ON cur.month = m.current_month
-    WHERE NOT EXISTS (SELECT 1 FROM bge_resolve br WHERE br.raw_name = cur.value)
+    WHERE NOT EXISTS (SELECT 1 FROM bge_resolve br WHERE br.raw_name = reference_data.match_key(cur.value))
 
     UNION ALL
 
@@ -129,7 +128,7 @@ LANGUAGE sql AS $$
              THEN 'Persisting Unmapped' ELSE 'Unmapped' END::text
     FROM invoice_months m
     JOIN sub_bge_raw_by_month cur ON cur.month = m.current_month
-    WHERE NOT EXISTS (SELECT 1 FROM sub_bge_known sbk WHERE sbk.raw_name = cur.value)
+    WHERE NOT EXISTS (SELECT 1 FROM sub_bge_known sbk WHERE sbk.raw_name = reference_data.match_key(cur.value))
 
     UNION ALL
 
