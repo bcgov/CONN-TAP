@@ -2,7 +2,7 @@
 -- cellular/run_validations.py, each into its own worksheet tab.
 --
 -- Reads raw_data.v_rogers_cellular_validated (00_view_validated.sql, created first); name
--- matching uses raw_data.norm_key(text) from helpers/_shared.sql. p_month := NULL scans
+-- matching uses reference_data.match_key(text) from the reference-data helpers. p_month := NULL scans
 -- every month; pass any date within a month to restrict to that month.
 
 -- 10) Total_Amount_Pre-Tax_Issues: POST-TAX minus taxes does not reconcile to PRE-TAX.
@@ -12,7 +12,7 @@ LANGUAGE sql AS $$
     SELECT *
     FROM raw_data.v_rogers_cellular_validated
     WHERE ABS(
-            (billed_amount_post_tax - gst_value - pst_value - hst_value)
+            (billed_amount_post_tax - gst_value - pst_value - hst_value - qst_value)
             - billed_amount_pre_tax
           ) > 0.01
       AND (p_month IS NULL OR date_trunc('month', invoice_date::date) = date_trunc('month', p_month))

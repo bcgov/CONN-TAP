@@ -2,7 +2,7 @@
 -- cellular/run_validations.py, each into its own worksheet tab.
 --
 -- Reads raw_data.v_rogers_cellular_validated (00_view_validated.sql, created first); name
--- matching uses raw_data.norm_key(text) from helpers/_shared.sql. p_month := NULL scans
+-- matching uses reference_data.match_key(text) from the reference-data helpers. p_month := NULL scans
 -- every month; pass any date within a month to restrict to that month.
 
 -- 2) Null_BGE: rows whose raw BGE is null/blank.
