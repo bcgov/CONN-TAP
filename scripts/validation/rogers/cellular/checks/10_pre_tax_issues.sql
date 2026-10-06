@@ -12,7 +12,7 @@ LANGUAGE sql AS $$
     SELECT *
     FROM raw_data.v_rogers_cellular_validated
     WHERE ABS(
-            (billed_amount_post_tax - gst_value - pst_value - hst_value)
+            (billed_amount_post_tax - gst_value - pst_value - hst_value - qst_value)
             - billed_amount_pre_tax
           ) > 0.01
       AND (p_month IS NULL OR date_trunc('month', invoice_date::date) = date_trunc('month', p_month))
