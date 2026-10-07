@@ -17,7 +17,7 @@ from ingest_tsma_other_excel_folder import insert_workbook as insert_tsma_other_
 
 # Pricebook ingestion package (ngta_pricebooks_ingest) — packaged at the zip
 # root, so its root-relative imports (common, rogers, telus) resolve normally.
-from rogers import process_pdf as process_rogers_pricebook
+from rogers import process_file as process_rogers_pricebook
 from telus import process_file as process_telus_pricebook
 
 logger = logging.getLogger()
@@ -74,8 +74,9 @@ def _download(bucket: str, key: str) -> Path:
 #   tsma_other/managed_security/ → tsma_other_managed_security
 #   tsma_other/managed_router/   → tsma_other_managed_router
 #
-#   pricebooks/rogers/      → NGTA Rogers pricebooks (PDF; feed inferred from filename)
-#   pricebooks/telus/       → NGTA Telus pricebooks (Excel; catalogue inferred from filename)
+#   pricebooks/             → NGTA v2 pricebook workbooks (Excel). Provider is inferred
+#                             from the filename prefix: "TCI ..." = Telus, "RCCI ..." = Rogers;
+#                             the book is inferred from the rest of the filename.
 # ---------------------------------------------------------------------------
 
 def _handle_tsma(bucket: str, key: str) -> None:
@@ -171,26 +172,23 @@ def _handle_tsma_other(bucket: str, key: str) -> None:
 # Router — maps S3 key prefix to handler
 # ---------------------------------------------------------------------------
 
-def _handle_pricebook_rogers(bucket: str, key: str) -> None:
+def _handle_pricebook(bucket: str, key: str) -> None:
+    stem = Path(key).stem.casefold()
+    if "rcci" in stem:
+        process, provider = process_rogers_pricebook, "Rogers"
+    elif "tci" in stem:
+        process, provider = process_telus_pricebook, "Telus"
+    else:
+        logger.info("Can't tell pricebook provider (expected TCI/RCCI filename), skipping: %s", key)
+        return
+
     tmp_path = _download(bucket, key)
     try:
         with psycopg.connect(_get_dsn()) as conn:
-            n, table = process_rogers_pricebook(
+            n, book = process(
                 conn=conn, path=tmp_path, source_period=None, dry_run=False,
             )
-        logger.info("Ingested %s rows from %s (Pricebook Rogers -> %s)", n, key, table)
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-
-def _handle_pricebook_telus(bucket: str, key: str) -> None:
-    tmp_path = _download(bucket, key)
-    try:
-        with psycopg.connect(_get_dsn()) as conn:
-            n, table = process_telus_pricebook(
-                conn=conn, path=tmp_path, source_period=None, dry_run=False,
-            )
-        logger.info("Ingested %s rows from %s (Pricebook Telus -> %s)", n, key, table)
+        logger.info("Ingested %s rows from %s (Pricebook %s -> %s)", n, key, provider, book)
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -201,8 +199,7 @@ _ROUTES = [
     ("tsma_other/",             _handle_tsma_other),
     ("ngta/telus/",             _handle_ngta_telus),
     ("ngta/rogers/",            _handle_ngta_rogers),
-    ("pricebooks/rogers/",      _handle_pricebook_rogers),
-    ("pricebooks/telus/",       _handle_pricebook_telus),
+    ("pricebooks/",            _handle_pricebook),
 ]
 
 

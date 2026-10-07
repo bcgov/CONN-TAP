@@ -307,13 +307,13 @@ WITH price_source AS
 (
     SELECT
         to_jsonb(p) AS row_json
-    FROM raw_data.raw_rogers_data_pricebook p
+    FROM raw_data.raw_rogers_v2_data_pricebook p
 
     UNION ALL
 
     SELECT
         to_jsonb(v) AS row_json
-    FROM raw_data.raw_rogers_voice_pricebook v
+    FROM raw_data.raw_rogers_v2_voice_pricebook v
 ),
 
 

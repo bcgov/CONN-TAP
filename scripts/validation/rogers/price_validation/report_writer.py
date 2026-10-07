@@ -291,7 +291,7 @@ def write_wireline_price_validation_workbook(
     """
     Same visual style/structure as write_price_validation_workbook(), adapted
     for the wireline comparison shape (column names + status values produced
-    by reporting.validate_rogers_wireline_prices(), see rogers_wireline_function.sql).
+    by reporting.validate_rogers_wireline_prices(), see rogers_wireline_validation_function.sql).
 
     comparison: DataFrame with columns "Billing Date", "Price Book Service ID",
         "Monthly Report Service ID", "Product Line", "Match Status (Service ID)",
