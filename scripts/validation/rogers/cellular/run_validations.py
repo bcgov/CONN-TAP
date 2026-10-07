@@ -104,10 +104,10 @@ VALIDATIONS = [
      "Standardized BGEs in the report that are not a known canonical BGE.",
      "SELECT * FROM raw_data.rogers_cellular_new_bges(%s)"),
     ("Pre-Tax Issues",
-     "Rows where POST-TAX minus GST/PST/HST does not reconcile to PRE-TAX (0.01 tolerance).",
+     "Rows where POST-TAX minus GST/PST/HST/QST does not reconcile to PRE-TAX (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_cellular_pre_tax_issues(%s)"),
     ("Post-Tax Issues",
-     "Rows where PRE-TAX plus GST/PST/HST does not reconcile to POST-TAX (0.01 tolerance).",
+     "Rows where PRE-TAX plus GST/PST/HST/QST does not reconcile to POST-TAX (0.01 tolerance).",
      "SELECT * FROM raw_data.rogers_cellular_post_tax_issues(%s)"),
     ("New-Removed BGEs",
      "Month-over-month BGE / SUB-BGE changes: Unmapped, Persisting Unmapped, "
@@ -243,11 +243,14 @@ def main() -> int:
         # Month-over-month spend comparison (Rogers-wide: cellular + voice/data). It needs a
         # target month and (year, month) args, so it's only included when --month is given.
         if month is not None:
-            # 'cellular' scopes the shared Rogers function to the cellular feed only.
+            # --month is the statement (invoice) month, but the function buckets cellular rows
+            # by service month (invoice month - 1, same as stg_rogers_spend), so pass the month
+            # before. 'cellular' scopes the shared Rogers function to the cellular feed only.
+            service_month = month.replace(day=1) - dt.timedelta(days=1)
             df = run_query(
                 conn,
                 "SELECT * FROM raw_data.fn_rogers_spend_comparison(%s, %s, %s)",
-                (month.year, month.month, "cellular"),
+                (service_month.year, service_month.month, "cellular"),
             )
             print(f"  - Spend Comparison: {len(df)} row(s)")
             results.append((

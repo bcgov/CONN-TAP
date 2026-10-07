@@ -6,7 +6,12 @@
 -- reference_data.bge/sub_bge. Name matching uses reference_data.match_key(text), as in dbt.
 -- reference_data.norm_key(text) is only used to keep report labels readable.
 
-CREATE OR REPLACE VIEW raw_data.v_rogers_cellular_validated AS
+-- Drop first: CREATE OR REPLACE VIEW can't insert a column (qst_value) mid-list on an
+-- existing view. CASCADE drops the dependent check functions, which the later
+-- checks/*.sql files recreate.
+DROP VIEW IF EXISTS raw_data.v_rogers_cellular_validated CASCADE;
+
+CREATE VIEW raw_data.v_rogers_cellular_validated AS
 -- Collapse equivalent aliases to the same target before joining, so each spend row
 -- appears once even when filler words or school-district spellings differ.
 WITH bge_map AS (
