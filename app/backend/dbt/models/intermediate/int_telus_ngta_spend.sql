@@ -26,8 +26,10 @@ filtered as (
     select *
     from source
     where
+        month_start is not null
+
         -- Drop excluded sections (eg: carry-forward balance)
-        coalesce(statement_section, '') not in (
+        and coalesce(statement_section, '') not in (
             select statement_section from telus_excluded_sections
         )
 
@@ -37,17 +39,21 @@ filtered as (
             or source_service_description not in (select detail_description from telus_excluded_details)
         )
 
-        -- Hardware rows: keep only if wireless-plan-sourced or explicitly source_id 164
-        -- (the confirmed cellular one-time equipment code); all other rows: drop excluded
-        -- categories. 'onetime' isn't a safe signal by itself -- it covers non-cellular
-        -- one-time charges too, so it isn't accepted here on its own.
-        and case
-            when source_service_description in (select detail_description from telus_hardware_details)
-                then source_service_family = 'wireless' or source_service_id = '164'
-            else coalesce(statement_category, '') not in (
-                select statement_category from telus_excluded_categories
-            )
-        end
+        -- Category exclusions apply even to hardware descriptions and source_id 164.
+        and coalesce(statement_category, '') not in (
+            select statement_category from telus_excluded_categories
+        )
+),
+
+flagged as (
+    select
+        s.*,
+        -- telus_hardware_details entries are LIKE patterns ('%' = variable suffix)
+        exists (
+            select 1 from telus_hardware_details h
+            where s.source_service_description like h.detail_description
+        ) as is_hw
+    from filtered s
 )
 
 select
@@ -58,6 +64,14 @@ select
     month_start,
     organization_name,
     sub_organization_name,
-    coalesce(source_service_id, source_service_family) as lookup_code,
+    -- Hardware rows resolve through 164 (Cellular Hardware) whatever their own
+    -- source_id, matching the cellular_hardware bucket in scripts/sql/telus.sql.
+    case
+        when is_hw then '164'
+        else coalesce(source_service_id, source_service_family)
+    end as lookup_code,
     spend_amount
-from filtered
+from flagged
+-- 'onetime' alone also covers non-cellular charges. Hardware descriptions
+-- require Wireless or the confirmed cellular equipment source_id 164.
+where not is_hw or source_service_family = 'wireless' or source_service_id = '164'

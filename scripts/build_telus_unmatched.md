@@ -34,6 +34,8 @@ python3 scripts/build_telus_unmatched.py --dsn postgresql://user:pw@host/db --ou
 | `--exclude-other-charges` | Also drop rows with `statement_category = 'Other Charges and Credits'`. |
 
 Requires `DATABASE_URL` (or `--dsn`), `psycopg`, and `xlsxwriter`.
+Also requires the current `seeds.telus_hardware_details` table; see the
+[seed refresh commands](sql/telus_classification.md#hardware-patterns-and-refresh).
 
 Reference logic lives in
 `scripts/validation/telus/classification_exploration` (scripts 03/04/05/07),
@@ -94,10 +96,10 @@ dropped every row because some pricebook sets contained `NULL` values (in SQL,
 **Pre-filter (applied before matching):**
 
 - Drop `statement_section = 'balance forward'`.
-- Drop hardware detail lines: `hardware purchase charge`,
-  `device discount repayment`, `monthly telus easy payment`,
-  `device discount repay. canc.`, `device discount repay. - cr`,
-  `monthly easy payment`, `telus easy payment balance`, `equipment adjustment`.
+- Drop hardware detail lines listed in the dbt seed
+  `seeds.telus_hardware_details`
+  (`app/backend/dbt/seeds/telus_hardware_details.csv`; entries are `LIKE`
+  patterns, `%` = variable suffix).
 - Drop categories: `taxes`, `payment`, `payments`,
   `amount due from last bill`, `usage`.
 - Optionally drop `recurring service charges` and/or

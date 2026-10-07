@@ -1,14 +1,7 @@
+-- Requires the current dbt seed; hardware patterns are shared with the validators.
 WITH hw_detail AS (
-  SELECT unnest(ARRAY[
-    'hardware purchase charge',
-    'device discount repayment',
-    'monthly telus easy payment',
-    'device discount repay. canc.',
-    'device discount repay. - cr',
-    'monthly easy payment',
-	'telus easy payment balance',
-	'equipment adjustment'
-  ]::text[]) AS detail_d
+  SELECT LOWER(TRIM(detail_description)) AS detail_d
+  FROM seeds.telus_hardware_details
 ),
 excl_category AS (
   SELECT unnest(ARRAY[
@@ -48,29 +41,26 @@ src AS (
     r.sheet_name,
     r.amount,
     date_trunc('month', r.statement_date)::date AS month_start,
-    LOWER(TRIM(r.detail_description)) AS detail_d,
-    LOWER(TRIM(COALESCE(r.statement_category, ''))) AS stmt_cat,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    EXISTS (SELECT 1 FROM hw_detail h WHERE h.detail_d = LOWER(TRIM(r.detail_description))) AS is_hw,
+    EXISTS (SELECT 1 FROM hw_detail h WHERE LOWER(TRIM(r.detail_description)) LIKE h.detail_d) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
   FROM raw_data.raw_telus_spend AS r
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
      OR r.detail_description IS NULL)
     AND COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
+    -- Exclusions apply before classification, including to hardware and source_id 164.
+    AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
+      SELECT x.stmt_cat FROM excl_category x
+    )
+    AND r.statement_date IS NOT NULL
 ),
-flagged AS (
+normalized AS (
   SELECT
     sheet_name,
     month_start,
     amount,
     is_hw,
     is_wireless,
-    CASE
-      WHEN is_hw
-        OR stmt_cat NOT IN (SELECT x.stmt_cat FROM excl_category x)
-      THEN TRUE
-      ELSE FALSE
-    END AS is_included,
     CASE
       WHEN sid_raw ~ '^-?[0-9]+(\.[0-9]+)?$'
         THEN (sid_raw::numeric)::bigint::text
@@ -91,13 +81,11 @@ bucketed AS (
       WHEN sid_n IN ('104', '102', '106') THEN 'voice'
       ELSE 'other'
     END AS bucket
-  FROM flagged
-  WHERE is_included
-    AND month_start IS NOT NULL
-    -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
-    -- charges too); a hardware-detail-text row is only trusted as cellular
-    -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
-    AND (NOT is_hw OR is_wireless OR sid_n = '164')
+  FROM normalized
+  -- 'Onetime' isn't a safe signal on its own (it covers non-cellular one-time
+  -- charges too); a hardware-detail-text row is only trusted as cellular
+  -- hardware if it's wireless-plan-sourced or explicitly source_id 164.
+  WHERE NOT is_hw OR is_wireless OR sid_n = '164'
 )
 SELECT
   'telus'::text AS provider,

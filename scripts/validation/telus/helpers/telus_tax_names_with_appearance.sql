@@ -4,10 +4,7 @@ SELECT
     array_agg(DISTINCT month ORDER BY month)                                         AS months,
     array_agg(DISTINCT month || ' [' || COALESCE(sheet_name, 'N/A') || ']')         AS month_sheet_names
 FROM raw_telus_spend
-WHERE (
-        TRIM(detail_description) ILIKE '%GST%'
-     OR TRIM(detail_description) ILIKE '%PST%'
-    )
+WHERE TRIM(detail_description) ~* '\m(gst|pst)\M'  -- whole word, so PSTN / NGSTAT don't match
   AND TRIM(statement_category) NOT LIKE '%Taxes%'
 GROUP BY TRIM(detail_description), statement_category
 ORDER BY 1, 2;

@@ -39,6 +39,8 @@ python3 scripts/build_telus_cost_validation.py --dsn ******host/db --output /tmp
 | `--exclude-other-charges` | Drop rows with `statement_category = 'Other Charges and Credits'`. |
 
 Requires `DATABASE_URL` (or `--dsn`), `psycopg`, and `xlsxwriter`.
+Also requires the current `seeds.telus_hardware_details` table; see the
+[seed refresh commands](sql/telus_classification.md#hardware-patterns-and-refresh).
 
 > **Note on the exclude flags.** In practice every cost discrepancy falls into
 > exactly two categories: **Recurring Service Charges** and **Other Charges and
@@ -136,10 +138,10 @@ not falsely flagged.
 **Pre-filter (applied before matching):**
 
 - Drop `statement_section = 'balance forward'`.
-- Drop hardware detail lines: `hardware purchase charge`,
-  `device discount repayment`, `monthly telus easy payment`,
-  `device discount repay. canc.`, `device discount repay. - cr`,
-  `monthly easy payment`, `telus easy payment balance`, `equipment adjustment`.
+- Drop hardware detail lines listed in the dbt seed
+  `seeds.telus_hardware_details`
+  (`app/backend/dbt/seeds/telus_hardware_details.csv`; entries are `LIKE`
+  patterns, `%` = variable suffix).
 - Drop categories: `taxes`, `payment`, `payments`,
   `amount due from last bill`, `usage`.
 - Drop rows with a `NULL` `amount` (nothing to compare).
