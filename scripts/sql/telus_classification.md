@@ -39,8 +39,13 @@ Entries are lowercase `LIKE` patterns: `%` matches any suffix, including an empt
 suffix. The cost, unmatched-spend, and device-description validators also use this
 seed, so all consumers receive the same confirmed descriptions.
 
-- `easy payment%` covers all descriptions beginning with `Easy Payment`, including
-  `Easy Payment Amt for Tax Due`, subject to the exclusion and source rules above.
+- `easy payment%` covers all descriptions beginning with `Easy Payment`, subject to
+  the exclusion and source rules above.
+- `easy payment amt for tax due` and `starting easy payment bal.` are listed explicitly:
+  they are an offsetting pair (tax on the full financed device price, then the same
+  amount credited back as the starting balance), so both must sit in hardware
+  together. `Easy Payment Amt for Tax Due` is also matched by `easy payment%`; the
+  explicit row keeps it covered if that pattern is ever narrowed.
 - `gobc data device pom` and `gobc data device pom (%)` cover the plain and dated descriptions.
 - `device care complete` and `device care complete (%)` cover the plain and dated descriptions.
 
