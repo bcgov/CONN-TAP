@@ -107,7 +107,7 @@ def pricebook_check(module_name, fetch_name):
 VALIDATIONS = [
     ("Tax-like Detail",
      "Rows outside the Taxes category whose detail_description looks tax-like "
-     "(gst/pst/hst/qst) but is not on the known allowlist.",
+     "(gst/pst/hst/qst as a whole word) but is not on the known allowlist.",
      check("SELECT * FROM telus_raw_validate_unlisted_tax_like_detail_descriptions(%s)")),
     ("Device-like Detail",
      "Wireless/Onetime/blank-source rows whose detail_description looks device/hardware/"

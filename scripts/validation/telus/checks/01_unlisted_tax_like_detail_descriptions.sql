@@ -7,7 +7,9 @@
 -- contradiction_month.
 
 -- Rows outside the Taxes statement_category whose detail_description looks tax-like
--- (gst/pst/hst/qst, case-insensitive) but is not on the known allowlist below.
+-- (gst/pst/hst/qst as a whole word, case-insensitive) but is not on the known allowlist below.
+-- Whole-word matching (\m...\M) avoids false positives where the letters only appear inside a
+-- longer token, e.g. PSTN (IP TRUNKING PSTN CONNECTION, NG TCC PSTN GATEWAY) or NGSTAT (static IP).
 
 CREATE OR REPLACE FUNCTION telus_raw_validate_unlisted_tax_like_detail_descriptions (
   p_statement_month date DEFAULT NULL
@@ -32,12 +34,7 @@ AS $$
   WHERE trim(both FROM COALESCE(t.statement_category, '')) <> 'Taxes'
     AND t.detail_description IS NOT NULL
     AND trim(both FROM t.detail_description) <> ''
-    AND (
-            trim(both FROM t.detail_description) ILIKE '%gst%'
-         OR trim(both FROM t.detail_description) ILIKE '%pst%'
-         OR trim(both FROM t.detail_description) ILIKE '%hst%'
-         OR trim(both FROM t.detail_description) ILIKE '%qst%'
-        )
+    AND trim(both FROM t.detail_description) ~* '\m(gst|pst|hst|qst)\M'
     AND trim(both FROM t.detail_description) NOT IN (
       'B.C. PST Adjustment',
       'CPS GST 100652692',
@@ -46,10 +43,6 @@ AS $$
       'FP PST Credit',
       'GST adj',
       'GST Tax Adjustment',
-      'IP TRUNKING PSTN CONNECTION*',
-      'IP TRUNKING PSTN CONNECTION 3Y-BC*',
-      'NGSTAT5IP STATIC IP 5IP',
-      'PRI STARTER BUNDLE ADD''L PSTN LINK*',
       'PST-BC adj'
     )
     AND (

@@ -51,7 +51,7 @@ optional statement month; the month-required checks are skipped when `--month` i
 
 ### 1. Tax-like Detail
 Rows outside the `Taxes` category whose `detail_description` looks tax-like
-(gst/pst/hst/qst) but is not on the known allowlist.
+(gst/pst/hst/qst as a whole word) but is not on the known allowlist.
 
 ### 2. Device-like Detail
 `Wireless`/`Onetime`/blank-source rows whose `detail_description` looks device/hardware/equipment/
