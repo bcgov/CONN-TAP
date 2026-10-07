@@ -110,12 +110,12 @@ VALIDATIONS = [
      "(gst/pst/hst/qst as a whole word) but is not on the known allowlist.",
      check("SELECT * FROM telus_raw_validate_unlisted_tax_like_detail_descriptions(%s)")),
     ("Device-like Detail",
-     "Wireless/blank-source rows whose detail_description looks device/hardware/"
+     "Wireless/Onetime/blank-source rows whose detail_description looks device/hardware/"
      "equipment/Easy-Payment related but is not on the known hardware allowlist.",
      check("SELECT * FROM telus_raw_validate_unlisted_device_related_detail_descriptions(%s)")),
     ("Source ID vs Source",
      "Enforces the source_id to source mapping "
-     "(164/130 -> Wireless; 1001/103/104/102/106 -> Wireline).",
+     "(164 -> Onetime; 130 -> Wireless; 1001/103/104/102/106 -> Wireline).",
      check("SELECT * FROM telus_raw_validate_source_id_matches_expected_source(%s)")),
     ("Blanks by Sheet",
      "Required columns that contain a NULL or whitespace-only value within a (sheet, month).",

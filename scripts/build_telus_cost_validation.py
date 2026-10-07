@@ -196,11 +196,10 @@ spend AS (
     {_CELL_MAP} AS mapped_cell_id
   FROM raw_data.raw_telus_spend AS r
   WHERE COALESCE(LOWER(TRIM(r.statement_section)), '') <> 'balance forward'
-    AND LOWER(TRIM(COALESCE(r.detail_description, ''))) NOT IN (
-      'hardware purchase charge', 'device discount repayment',
-      'monthly telus easy payment', 'device discount repay. canc.',
-      'device discount repay. - cr', 'monthly easy payment',
-      'telus easy payment balance', 'equipment adjustment'
+    -- Hardware lines: dbt seed, entries are LIKE patterns ('%' = variable suffix).
+    AND NOT EXISTS (
+      SELECT 1 FROM seeds.telus_hardware_details h
+      WHERE LOWER(TRIM(COALESCE(r.detail_description, ''))) LIKE h.detail_description
     )
     AND COALESCE(LOWER(TRIM(r.statement_category)), '') NOT IN (
       'taxes', 'payment', 'payments', 'amount due from last bill', 'usage'
