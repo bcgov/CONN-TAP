@@ -27,7 +27,8 @@
 -- telus_raw_validate_new_sub_bges_in_accounts, which share this vocabulary):
 --   'Unmapped'            -- spelling in the current month, absent last month, no alias row
 --   'Persisting Unmapped' -- spelling in both months, still no alias row
---   'New Match'           -- resolved entity in the current month, absent last month
+--   'New Match'           -- resolved entity in the current month, never seen in any earlier
+--                            month. One that skipped a month and came back is not new.
 --   'Disappeared'         -- resolved entity last month, absent this month
 --   'Still Disappeared'   -- resolved entity two months ago, absent last month and this month.
 --                            Telus has no one-month equivalent; the 'Still' prefix follows
@@ -132,21 +133,21 @@ LANGUAGE sql AS $$
 
     UNION ALL
 
-    -- BGE: entity in the current month but not the prior month.
+    -- BGE: entity in the current month and in no earlier month.
     SELECT m.current_month::date, 'BGE'::text, cur.value::text, 'New Match'::text
     FROM invoice_months m
     JOIN bge_by_month cur ON cur.month = m.current_month
     WHERE NOT EXISTS (SELECT 1 FROM bge_by_month p
-                      WHERE p.month = m.prior_month AND p.value = cur.value)
+                      WHERE p.month < m.current_month AND p.value = cur.value)
 
     UNION ALL
 
-    -- SUB-BGE: entity in the current month but not the prior month.
+    -- SUB-BGE: entity in the current month and in no earlier month.
     SELECT m.current_month::date, 'Sub BGE'::text, cur.value::text, 'New Match'::text
     FROM invoice_months m
     JOIN sub_bge_by_month cur ON cur.month = m.current_month
     WHERE NOT EXISTS (SELECT 1 FROM sub_bge_by_month p
-                      WHERE p.month = m.prior_month AND p.value = cur.value)
+                      WHERE p.month < m.current_month AND p.value = cur.value)
 
     UNION ALL
 
