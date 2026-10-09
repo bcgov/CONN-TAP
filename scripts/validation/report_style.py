@@ -70,8 +70,8 @@ def _add_status_legend(ws, header_font, header_align) -> None:
     if not status_col:
         return
     entries = list(STATUS_LEGEND)
-    if "entity_type" in headers and "entity" in headers:
-        entries.append(ROGERS_STILL_DISAPPEARED)
+    # Rogers and Telus both report Still Disappeared with the same meaning.
+    entries.append(ROGERS_STILL_DISAPPEARED)
 
     header_fill = PatternFill("solid", fgColor=LEGEND_HEADER_FILL)
     body_fill = PatternFill("solid", fgColor=LEGEND_BODY_FILL)
