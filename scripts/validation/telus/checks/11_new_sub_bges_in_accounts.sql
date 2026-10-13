@@ -30,7 +30,7 @@
 --   'Still Disappeared'   -- resolved entity two months ago, absent last month and this month
 --                            (i.e. 'Disappeared' in last month's report and still missing)
 --
--- The `entity` column therefore carries a canonical sub_bge code for the last two statuses and
+-- The `entity` column therefore carries a canonical sub_bge code for the last three statuses and
 -- the raw account_description (norm_key-cleaned) for the first two -- an unrecognized spelling
 -- has no canonical code by definition. It replaces the old `account_description` column, which
 -- is no longer accurate for every row.
