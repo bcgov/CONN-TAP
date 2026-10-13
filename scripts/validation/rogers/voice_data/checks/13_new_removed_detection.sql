@@ -31,8 +31,7 @@
 --                            month. One that skipped a month and came back is not new.
 --   'Disappeared'         -- resolved entity last month, absent this month
 --   'Still Disappeared'   -- resolved entity two months ago, absent last month and this month.
---                            Telus has no one-month equivalent; the 'Still' prefix follows
---                            telus_raw_validate_still_missing_bges_in_sheets.
+--                            The 'Still' prefix follows telus_raw_validate_still_missing_bges_in_sheets.
 --
 -- The `entity` column therefore carries a canonical code for the last three statuses and the
 -- raw spelling for the first two -- an unrecognized spelling has no canonical code by

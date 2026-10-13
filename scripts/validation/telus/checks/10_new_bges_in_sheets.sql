@@ -45,21 +45,25 @@ BEGIN
       AND trim(both FROM t.sheet_name) IS NOT NULL
       AND trim(both FROM t.sheet_name) <> ''
   ),
+  -- Prior months: one row per case-insensitive name, so 'ABC' and 'abc' cannot produce
+  -- duplicate Disappeared / Still Disappeared rows.
   prior_sheets AS (
-    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    SELECT min(trim(both FROM t.sheet_name)) AS sheet_name
     FROM raw_data.raw_telus_spend AS t
     WHERE t.statement_date IS NOT NULL
       AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '1 month')
       AND trim(both FROM t.sheet_name) IS NOT NULL
       AND trim(both FROM t.sheet_name) <> ''
+    GROUP BY lower(trim(both FROM t.sheet_name))
   ),
   two_months_ago_sheets AS (
-    SELECT DISTINCT trim(both FROM t.sheet_name) AS sheet_name
+    SELECT min(trim(both FROM t.sheet_name)) AS sheet_name
     FROM raw_data.raw_telus_spend AS t
     WHERE t.statement_date IS NOT NULL
       AND date_trunc('month', t.statement_date) = date_trunc('month', p_statement_month - interval '2 months')
       AND trim(both FROM t.sheet_name) IS NOT NULL
       AND trim(both FROM t.sheet_name) <> ''
+    GROUP BY lower(trim(both FROM t.sheet_name))
   ),
   -- Every sheet seen in any earlier month ("previous reports").
   history_sheets AS (
