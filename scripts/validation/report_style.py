@@ -40,7 +40,7 @@ NEW_REMOVED_TABS = {"New-Removed BGEs", "New-Removed Sub-BGEs"}
 STATUS_LEGEND = [
     ("Unmapped", "Name appears this month, was absent last month, and is not recognized by the alias mapping."),
     ("Persisting Unmapped", "Name appears in both months and is not recognized by the current alias mapping."),
-    ("New Match", "Recognized BGE or SUB-BGE appears this month and was absent last month."),
+    ("New Match", "Recognized BGE or SUB-BGE appears this month and was never seen in any earlier month."),
     ("Disappeared", "Recognized BGE or SUB-BGE was present last month and is absent this month."),
 ]
 ROGERS_STILL_DISAPPEARED = (
