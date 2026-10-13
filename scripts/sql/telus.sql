@@ -42,7 +42,7 @@ src AS (
     r.amount,
     date_trunc('month', r.statement_date)::date AS month_start,
     TRIM(COALESCE(r.source_id::text, '')) AS sid_raw,
-    EXISTS (SELECT 1 FROM hw_detail h WHERE LOWER(TRIM(r.detail_description)) LIKE h.detail_d) AS is_hw,
+    COALESCE(LOWER(TRIM(r.detail_description)) LIKE ANY (ARRAY(SELECT h.detail_d FROM hw_detail h)), false) AS is_hw,
     TRIM(LOWER(COALESCE(r.source, ''))) = 'wireless' AS is_wireless
   FROM raw_data.raw_telus_spend AS r
   WHERE (LOWER(TRIM(r.detail_description)) NOT IN (SELECT ed.detail_d FROM excl_detail ed)
