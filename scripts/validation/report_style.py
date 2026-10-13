@@ -22,7 +22,7 @@ FAIL_FILL = "FFC7CE"     # red
 SKIP_FILL = "FFEB9C"     # amber
 SUMMARY_TAB = "305496"   # blue tab for the Summary sheet
 
-# Legend box on the New-Removed sheet -- deliberately different from the blue data table so it
+# Legend box on the New-Removed sheets -- deliberately different from the blue data table so it
 # reads as a separate reference card.
 LEGEND_HEADER_FILL = "44546A"   # slate
 LEGEND_BODY_FILL = "F2F2F2"     # light grey
@@ -34,13 +34,13 @@ MIN_WIDTH = 10
 MAX_WIDTH = 60
 WIDTH_SAMPLE_ROWS = 200
 
-# Rogers and TELUS share these statuses. Rogers also checks entities absent for two months.
-# Use the result columns to identify Rogers, even when the check returns no rows.
-NEW_REMOVED_TAB = "New-Removed BGEs"
+# Rogers and TELUS share these statuses, including Still Disappeared. TELUS has a second
+# new/removed tab for SUB-BGEs (account_description values) that gets the same legend.
+NEW_REMOVED_TABS = {"New-Removed BGEs", "New-Removed Sub-BGEs"}
 STATUS_LEGEND = [
     ("Unmapped", "Name appears this month, was absent last month, and is not recognized by the alias mapping."),
     ("Persisting Unmapped", "Name appears in both months and is not recognized by the current alias mapping."),
-    ("New Match", "Recognized BGE or SUB-BGE appears this month and was absent last month."),
+    ("New Match", "Recognized BGE or SUB-BGE appears this month and was never seen in any earlier month."),
     ("Disappeared", "Recognized BGE or SUB-BGE was present last month and is absent this month."),
 ]
 ROGERS_STILL_DISAPPEARED = (
@@ -70,8 +70,8 @@ def _add_status_legend(ws, header_font, header_align) -> None:
     if not status_col:
         return
     entries = list(STATUS_LEGEND)
-    if "entity_type" in headers and "entity" in headers:
-        entries.append(ROGERS_STILL_DISAPPEARED)
+    # Rogers and Telus both report Still Disappeared with the same meaning.
+    entries.append(ROGERS_STILL_DISAPPEARED)
 
     header_fill = PatternFill("solid", fgColor=LEGEND_HEADER_FILL)
     body_fill = PatternFill("solid", fgColor=LEGEND_BODY_FILL)
@@ -127,7 +127,7 @@ def _style_sheet(ws, header_fill, header_font, header_align, status_fills) -> No
 
     if ws.title == "Summary":
         _color_summary_status(ws, status_fills)
-    elif ws.title == NEW_REMOVED_TAB:
+    elif ws.title in NEW_REMOVED_TABS:
         _add_status_legend(ws, header_font, header_align)
 
 
