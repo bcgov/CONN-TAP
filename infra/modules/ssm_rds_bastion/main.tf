@@ -68,3 +68,75 @@ resource "aws_instance" "bastion" {
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-ssm-bastion" })
 }
+
+# Stop the bastion overnight and on weekends; start it on weekday mornings.
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role" "scheduler" {
+  name_prefix = "${var.name_prefix}-bastion-sched-"
+  description = "EventBridge Scheduler role to stop/start the SSM bastion (${var.name_prefix})."
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "scheduler.amazonaws.com" }
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+      }
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name = "stop-start-bastion"
+  role = aws_iam_role.scheduler.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ec2:StopInstances", "ec2:StartInstances"]
+      Resource = aws_instance.bastion.arn
+    }]
+  })
+}
+
+resource "aws_scheduler_schedule" "bastion_stop" {
+  count = var.stop_schedule == null ? 0 : 1
+
+  name                         = "${var.name_prefix}-bastion-stop"
+  schedule_expression          = var.stop_schedule
+  schedule_expression_timezone = var.schedule_timezone
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ InstanceIds = [aws_instance.bastion.id] })
+  }
+}
+
+resource "aws_scheduler_schedule" "bastion_start" {
+  count = var.start_schedule == null ? 0 : 1
+
+  name                         = "${var.name_prefix}-bastion-start"
+  schedule_expression          = var.start_schedule
+  schedule_expression_timezone = var.schedule_timezone
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ InstanceIds = [aws_instance.bastion.id] })
+  }
+}
