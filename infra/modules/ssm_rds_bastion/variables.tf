@@ -20,14 +20,14 @@ variable "instance_type" {
 
 variable "stop_schedule" {
   type        = string
-  default     = "cron(0 19 * * ? *)"
-  description = "EventBridge Scheduler expression to stop the bastion (daily 7 pm, so weekend manual starts are stopped too). Null disables."
+  default     = "cron(0 17 * * ? *)"
+  description = "EventBridge Scheduler expression to stop the bastion (daily 5 pm, so weekend manual starts are stopped too). Null disables."
 }
 
 variable "start_schedule" {
   type        = string
-  default     = "cron(0 8 ? * MON-FRI *)"
-  description = "EventBridge Scheduler expression to start the bastion (weekdays 8 am). Null leaves starting to manual."
+  default     = "cron(0 7 ? * MON-FRI *)"
+  description = "EventBridge Scheduler expression to start the bastion (weekdays 7 am). Null leaves starting to manual."
 }
 
 variable "schedule_timezone" {
