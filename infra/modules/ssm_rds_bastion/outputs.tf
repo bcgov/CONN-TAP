@@ -11,3 +11,8 @@ output "instance_id" {
 output "private_ip" {
   value = aws_instance.bastion.private_ip
 }
+
+output "schedule_names" {
+  description = "EventBridge Scheduler schedules that stop/start the bastion."
+  value       = concat(aws_scheduler_schedule.bastion_stop[*].name, aws_scheduler_schedule.bastion_start[*].name)
+}
