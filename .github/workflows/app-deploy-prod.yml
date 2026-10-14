@@ -326,7 +326,7 @@ jobs:
           fi
 
           ingress_host="tap.${LICENSE_PLATE}-${ENV_NAME}.stratus.cloud.gov.bc.ca"
-          app_base_url="https://${ingress_host}"
+          app_base_url="https://www.telecomaccesspoint.gov.bc.ca"
 
           {
             echo "AWS_ACCOUNT_ID=${aws_account_id}"
