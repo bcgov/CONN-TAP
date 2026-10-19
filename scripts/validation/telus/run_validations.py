@@ -142,6 +142,11 @@ VALIDATIONS = [
     ("Missing BGEs",
      "Expected BGEs (from reference data) that have no matching sheet in the target month.",
      monthly_check("SELECT * FROM telus_raw_validate_all_bges_in_sheets(%s)")),
+    ("Sheet Mapping Issues",
+     "Tabs that don't resolve to a BGE (Unmapped sheet), and accounts whose sub-BGE belongs to "
+     "a different BGE than their tab (Account BGE differs). Same match_key rules as dbt. "
+     "Must be empty.",
+     check("SELECT * FROM telus_raw_validate_sheet_mapping_issues(%s)")),
     ("New-Removed BGEs",
      "Sheet names added or removed compared to the prior month.",
      monthly_check("SELECT * FROM telus_raw_validate_new_bges_in_sheets(%s)")),

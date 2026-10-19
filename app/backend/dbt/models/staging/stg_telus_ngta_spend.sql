@@ -5,13 +5,13 @@ with normalized as (
         t.raw_id,
         t.ingestion_run_id,
         date_trunc('month', t.statement_date)::date as month_start,
-        nullif(trim(regexp_replace(t.sheet_name, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+        {{ clean_text('t.sheet_name') }} as organization_name,
         -- account_description is Telus's sub-organization (billing account); resolved to a sub_bge downstream.
-        nullif(trim(regexp_replace(t.account_description, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
-        lower(nullif(trim(regexp_replace(t.source, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_family,
-        lower(nullif(trim(regexp_replace(t.statement_category, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_category,
-        lower(nullif(trim(regexp_replace(t.statement_section, '[\x00-\x1f\x7f]', '', 'g')), '')) as statement_section,
-        lower(nullif(trim(regexp_replace(t.detail_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
+        {{ clean_text('t.account_description') }} as sub_organization_name,
+        lower({{ clean_text('t.source') }}) as source_service_family,
+        lower({{ clean_text('t.statement_category') }}) as statement_category,
+        lower({{ clean_text('t.statement_section') }}) as statement_section,
+        lower({{ clean_text('t.detail_description') }}) as source_service_description,
         case
             when nullif(trim(t.source_id::text), '') ~ '^-?[0-9]+(\.[0-9]+)?$'
                 then (trim(t.source_id::text)::numeric)::bigint::text
@@ -28,6 +28,8 @@ select
     raw_id,
     ingestion_run_id,
     month_start,
+    -- the cleaned tab name itself, for reports that work per tab (rpt_telus_ngta_monthly)
+    normalized.organization_name as sheet_name,
     bm.bge_alias as organization_name,
     sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
