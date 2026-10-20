@@ -19,8 +19,7 @@
 --   'cellular'    -> cellular feed only (data/voice/other categories come back 0)
 --   'data_voice'  -> voice/data feed only (cellular categories come back 0)
 -- =====================================================================
--- Entity resolution uses reference_data.match_key(text), shared with dbt and installed
--- by the reference-data migrations. norm_key is only used for readable fallback labels.
+-- Needs the dbt views to exist and be current (dbt run --select staging intermediate).
 DROP FUNCTION IF EXISTS raw_data.fn_rogers_spend_comparison(integer, integer);
 
 CREATE OR REPLACE FUNCTION raw_data.fn_rogers_spend_comparison(
@@ -67,106 +66,32 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 AS $$
-WITH bge_map AS (
-  -- Raw BGE name -> canonical BGE code, from the seed alias map (matched on match_key).
-  SELECT DISTINCT reference_data.match_key(bam.raw_name) AS raw_key,
-         bam.bge_alias                    AS mapped_bge
-  FROM seeds.bge_alias_map AS bam
-),
-sub_bge_map AS (
-  -- Raw SUB-BGE name -> its parent BGE code, via the seed alias map + reference data.
-  -- This is what routes school districts to 'School Districts' and ministry ECC to 'Gov BC'.
-  SELECT DISTINCT reference_data.match_key(sbam.raw_name) AS sub_key,
-         b.code                            AS expected_bge
-  FROM seeds.sub_bge_alias_map AS sbam
-  JOIN reference_data.sub_bge  AS sb ON sb.code = sbam.sub_bge_alias
-  JOIN reference_data.bge      AS b  ON b.id    = sb.bge_id
-),
-src AS (
+-- Monthly totals come from intermediate.rpt_rogers_ngta_monthly, the dbt view the spend
+-- report reads (scripts/sql/rogers.sql), so this check, the workbook and the dashboards
+-- share one set of rules (hardware split, product-line categories, BGE resolution, ECC row).
+-- Each feed fills its own columns: cellular -> hardware/plans, voice/data -> data/voice/other,
+-- so p_source keeps only that feed's columns. Entities with nothing in scope are left out.
+WITH scoped AS (
   SELECT
-    c.bge,
-    c.sub_bge,
-    (date_trunc('month', COALESCE(c.invoice_date, r.source_period)) - interval '1 month')::date AS month_start,
-    COALESCE(c.hardware, 0)::numeric AS amount,
-    'cellular_hardware'::text AS bucket
-  FROM raw_data.raw_rogers_spend_cellular c
-  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
-  WHERE r.provider = 'rogers'
-    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'cellular')
-
-  UNION ALL
-
-  SELECT
-    c.bge,
-    c.sub_bge,
-    (date_trunc('month', COALESCE(c.invoice_date, r.source_period)) - interval '1 month')::date AS month_start,
-    COALESCE(c.billed_amount_pre_tax, 0)::numeric
-      - COALESCE(c.hardware, 0)::numeric AS amount,
-    'cellular_plans'::text AS bucket
-  FROM raw_data.raw_rogers_spend_cellular c
-  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = c.ingestion_run_id
-  WHERE r.provider = 'rogers'
-    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'cellular')
-
-  UNION ALL
-
-  SELECT
-    v.bge,
-    v.sub_bge,
-    date_trunc('month', COALESCE(v.billingdate, r.source_period))::date AS month_start,
-    COALESCE(v.billed_amount_pre_tax, 0)::numeric AS amount,
-    CASE
-      WHEN upper(trim(COALESCE(v.productline, ''))) = 'DATA' THEN 'data'
-      WHEN upper(trim(COALESCE(v.productline, ''))) = 'VOICE' THEN 'voice'
-      ELSE 'other'
-    END AS bucket
-  FROM raw_data.raw_rogers_spend_data_voice v
-  JOIN raw_data.ingestion_run r ON r.ingestion_run_id = v.ingestion_run_id
-  WHERE r.provider = 'rogers'
-    AND (p_source IS NULL OR p_source = 'all' OR p_source = 'data_voice')
-),
-normalized AS (
-  SELECT
-    s.bge,
-    s.sub_bge,
-    s.month_start,
-    s.amount,
-    s.bucket,
-    reference_data.match_key(s.bge)     AS bge_key,
-    reference_data.match_key(s.sub_bge) AS sub_bge_key
-  FROM src s
-),
-bucketed AS (
-  -- Resolve each row to its final BGE (bge_actual), the same way the per-check validations do:
-  -- a SUB-BGE that maps to a BGE (incl. school-district and ECC routing via reference_data)
-  -- wins; otherwise the BGE column's canonical alias; otherwise the normalized raw value.
-  SELECT
-    COALESCE(
-      sm.expected_bge,
-      COALESCE(bm.mapped_bge, reference_data.norm_key(n.bge))
-    ) AS entity_key,
-    n.month_start,
-    n.amount,
-    n.bucket
-  FROM normalized n
-  LEFT JOIN bge_map     bm ON bm.raw_key = n.bge_key
-  LEFT JOIN sub_bge_map sm ON sm.sub_key = n.sub_bge_key
-  WHERE n.month_start IS NOT NULL
+    v.entity_key,
+    v.month_start,
+    CASE WHEN p_source = 'data_voice' THEN 0 ELSE v.cellular_hardware END AS cellular_hardware,
+    CASE WHEN p_source = 'data_voice' THEN 0 ELSE v.cellular_plans    END AS cellular_plans,
+    CASE WHEN p_source = 'cellular'   THEN 0 ELSE v.data_spend        END AS data_spend,
+    CASE WHEN p_source = 'cellular'   THEN 0 ELSE v.voice_spend       END AS voice_spend,
+    CASE WHEN p_source = 'cellular'   THEN 0 ELSE v.other_spend       END AS other_spend
+  FROM intermediate.rpt_rogers_ngta_monthly v
+  WHERE v.month_start IN (make_date(p_year, p_month, 1),
+                          (make_date(p_year, p_month, 1) - interval '1 month')::date)
 ),
 -- One row per entity / month with a column per spend category.
 monthly AS (
   SELECT
-    entity_key,
-    month_start,
-    COALESCE(SUM(amount) FILTER (WHERE bucket = 'cellular_hardware'), 0) AS cellular_hardware,
-    COALESCE(SUM(amount) FILTER (WHERE bucket = 'cellular_plans'), 0)    AS cellular_plans,
-    COALESCE(SUM(amount) FILTER (WHERE bucket = 'data'), 0)             AS data_spend,
-    COALESCE(SUM(amount) FILTER (WHERE bucket = 'voice'), 0)            AS voice_spend,
-    COALESCE(SUM(amount) FILTER (WHERE bucket = 'other'), 0)           AS other_spend,
-    COALESCE(SUM(amount), 0)                                            AS total_reported
-  FROM bucketed
-  WHERE entity_key IS NOT NULL
-  GROUP BY entity_key, month_start
+    s.*,
+    s.cellular_hardware + s.cellular_plans + s.data_spend + s.voice_spend + s.other_spend AS total_reported
+  FROM scoped s
+  WHERE (s.cellular_hardware, s.cellular_plans, s.data_spend, s.voice_spend, s.other_spend)
+        <> (0, 0, 0, 0, 0)
 ),
 -- The requested month and the month immediately before it.
 target AS (

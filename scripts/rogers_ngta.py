@@ -49,106 +49,26 @@ ROGERS_CSV  = os.path.join(SOURCE_DIR, "rogers_ngta_spend.csv")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "rogers_ngta_spend.xlsx")
 
 # ---------------------------------------------------------------------------
-# Entity-key mapping (case-insensitive, both short codes and full names)
+# BGE code -> workbook row
 # ---------------------------------------------------------------------------
-BGE_MAP = {
-    "BCH": "BC Hydro",
-    "BC HYDRO": "BC Hydro",
-    "BRITISH COLUMBIA HYDRO": "BC Hydro",
-    "BRITISH COLUMBIA HYDRO & POWER AUTHORITY": "BC Hydro",
+# rogers.sql reads the dbt view rpt_rogers_ngta_monthly, which has already resolved every
+# raw Rogers name to a BGE code (bge_alias_map / sub_bge_alias_map). Only the dbt codes
+# appear here; the workbook's VCHA block is keyed "VCHA".
+BGE_ROWS = {
+    "BC Hydro": "BC Hydro",
     "BCLC": "BCLC",
-    "BC LOTTERY": "BCLC",
-    "BC LOTTERY CORPORATION": "BCLC",
-    "BRITISH COLOMBIA LOTTERY CORPORATION": "BCLC",
-    "BRITISH COLUMBIA LOTTERY CORPORATION": "BCLC",
     "ECC": "ECC",
-    "MOE": "ECC",
-    "EDUCATION AND CHILD CARE": "ECC",
-    "MINISTRY OF EDUCATION": "ECC",
-    "MINISTRY OF EDUCATION AND CHILD CARE": "ECC",
     "FHA": "FHA",
-    "FRASER HEALTH": "FHA",
-    "FRASER HEALTH AUTHORITY": "FHA",
     "FNHA": "FNHA",
-    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
-    "GBC": "Gov BC",
-    "GOBC": "Gov BC",
-    "GOVBC": "Gov BC",
-    "GOV BC": "Gov BC",
-    "BC GOVERNMENT MINISTRIES": "Gov BC",
-    "GOVERNMENT OF BC": "Gov BC",
-    "GOVERNMENT OF BRITISH COLUMBIA": "Gov BC",
+    "Gov BC": "Gov BC",
     "ICBC": "ICBC",
-    "INSURANCE CORPORATION OF BRITISH COLUMB.": "ICBC",
-    "INSURANCE CORPORATION OF BRITISH COLUMBIA": "ICBC",
     "IHA": "IHA",
-    "INTERIOR HEALTH": "IHA",
-    "INTERIOR HEALTH AUTHORITY": "IHA",
-    "INTERIOR HEALTH AUTHORITY (BC INTERIOR HEALTH REGIONS)": "IHA",
     "NHA": "NHA",
-    "NORTHERN HEALTH": "NHA",
-    "NORTHERN HEALTH AUTHORITY": "NHA",
     "PHSA": "PHSA",
-    "PROVINCIAL HEALTH SERVICES": "PHSA",
-    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
-    "SD": "School Districts",
-    "SCHOOL DISTRICT": "School Districts",
-    "SCHOOL DISTRICTS": "School Districts",
-    "VCHA": "VCHA",
+    "School Districts": "School Districts",
     "VCHA (+PHC)": "VCHA",
-    "VCHA PHC": "VCHA",
-    "VANCOUVER COASTAL HEALTH": "VCHA",
-    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
-    "PROVIDENCE HEALTH CARE": "VCHA",
     "VIHA": "VIHA",
-    "VANCOUVER ISLAND HEALTH": "VIHA",
-    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
     "WSBC": "WSBC",
-    "WORKERS COMPENSATION BOARD": "WSBC",
-    "WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA": "WSBC",
-    "WORKSAFEBC": "WSBC",
-}
-
-SUB_BGE_TO_BGE = {
-    "BC MIN ATTORNEY GENERAL": "Gov BC",
-    "BC MIN CITIZENS' SERVICES": "Gov BC",
-    "BC MIN EDUCATION & CHILD CARE": "ECC",
-    "BC MIN EDUCATION AND CHILD CARE": "ECC",
-    "BC MIN EMERG MGMT & CLIMATE READINESS": "Gov BC",
-    "BC MIN ENERGY AND CLIMATE SOLUTIONS": "Gov BC",
-    "BC MIN ENVIRONMENT AND PARKS": "Gov BC",
-    "BC MIN FORESTS": "Gov BC",
-    "BC MIN HEALTH": "Gov BC",
-    "BC MIN HOUSING AND MUNICIPAL AFFAIRS": "Gov BC",
-    "BC MIN INDIGENOUS RELATIONS & RECONCIL.": "Gov BC",
-    "BC MIN JOBS AND ECONOMIC GROWTH": "Gov BC",
-    "BC MIN LABOUR": "Gov BC",
-    "BC MIN POST-SECONDARY ED & FUTURE SKILLS": "Gov BC",
-    "BC MIN SOCIAL DEV & POVERTY REDUCTION": "Gov BC",
-    "BC MIN TOURISM, ARTS, CULTURE, AND SPORT": "Gov BC",
-    "BC MIN TRANSPORTATION & TRANSIT": "Gov BC",
-    "INDIGENOUS RELATIONS AND RECONCILIATION": "Gov BC",
-    "JOB ECONOMIC DEVELOPMENT AND INNOVATION": "Gov BC",
-    "LAND AND WATER BC INC": "Gov BC",
-    "MIN OF FINANCE BC": "Gov BC",
-    "MIN OF JOBS TOURISM & INNOVATION": "Gov BC",
-    "MIN OF LABOUR": "Gov BC",
-    "MINISTRY OF CITIZENS SERVICES": "Gov BC",
-    "MINISTRY OF INFRASTRUCTURE": "Gov BC",
-    "MIN OF SOCIAL DEVELOPMENT": "Gov BC",
-    "OFFICE OF THE PREMIER": "Gov BC",
-    "TRANSPORTATION AND TRANSIT": "Gov BC",
-}
-
-ENTITY_LOOKUP = {
-    alias: bge
-    for key, bge in BGE_MAP.items()
-    for alias in (key, re.sub(r"[^A-Z0-9]+", "", key))
-}
-SUB_BGE_LOOKUP = {
-    alias: bge
-    for key, bge in SUB_BGE_TO_BGE.items()
-    for alias in (key, re.sub(r"[^A-Z0-9]+", "", key))
 }
 
 # Maps CSV column names → NGTA_BGE_ROWS row-type keys
@@ -168,50 +88,8 @@ def _header_key(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
 
 
-def _normalize_key(value: object) -> str:
-    return re.sub(r"\s+", " ", str(value).replace("\u00a0", " ").strip()).upper()
-
-
-def _entity_key(value: object) -> str:
-    raw = _normalize_key(value)
-    compact = re.sub(r"[^A-Z0-9]+", "", raw)
-    return ENTITY_LOOKUP.get(raw) or ENTITY_LOOKUP.get(compact, "")
-
-
-def _sub_bge_key(value: object) -> str:
-    raw = _normalize_key(value)
-    compact = re.sub(r"[^A-Z0-9]+", "", raw)
-    return SUB_BGE_LOOKUP.get(raw) or SUB_BGE_LOOKUP.get(compact, "")
-
-
 def _resolve_bge(row: dict[str, str]) -> str:
-    bge_raw = row.get("bge") or row.get("entity_key") or row.get("entity") or ""
-    sub_raw = row.get("sub_bge") or row.get("sub-bge") or row.get("subbge") or ""
-
-    bge = _normalize_key(bge_raw)
-    sub = _normalize_key(sub_raw)
-    sub_compact = re.sub(r"[^A-Z0-9]+", "", sub)
-
-    if sub.startswith("SCHOOL DISTRICT") or sub.startswith("DISTRICT"):
-        return "School Districts"
-    if bge.startswith("SCHOOL DISTRICT") or bge.startswith("DISTRICT"):
-        return "School Districts"
-    if "FAMILY MAINTENANCE AGENCY" in sub or "PUBLIC SERVICE AGENCY" in sub:
-        return "Gov BC"
-    if "EDUCATION" in sub and "CHILD" in sub:
-        return "ECC"
-
-    sub_mapped = _sub_bge_key(sub)
-    if sub_mapped:
-        return sub_mapped
-
-    bge_mapped = _entity_key(bge)
-    if bge_mapped:
-        return bge_mapped
-
-    if sub_compact:
-        return _entity_key(sub)
-    return ""
+    return BGE_ROWS.get(str(row.get("entity_key") or "").strip(), "")
 
 
 def _month_to_col(month_str: str):
@@ -276,73 +154,29 @@ def _add(
     data[key] = data.get(key, 0.0) + value
 
 
-def _load_summary_row(data: dict[tuple[str, str, int], float], row: dict[str, str]) -> bool:
-    bge = _resolve_bge(row)
-    col = _month_to_col(_first_value(
-        row, "month_start", "month", "billing_month", "invoice_date", "billingdate",
-    ))
-    if not bge or col is None:
-        return False
-
-    loaded = False
-    for csv_col, row_type in SPEND_COL_MAP.items():
-        val = _amount(row.get(csv_col, ""))
-        if val is None:
-            continue
-        _add(data, bge, row_type, col, val)
-        loaded = True
-    return loaded
-
-
-def _load_raw_row(data: dict[tuple[str, str, int], float], row: dict[str, str]) -> bool:
-    bge = _resolve_bge(row)
-    col = _month_to_col(_first_value(
-        row, "month_start", "month", "billing_month", "invoice_date", "billingdate",
-    ))
-    if not bge or col is None:
-        return False
-
-    billed = _amount(_first_value(
-        row, "billed_amount_pre_tax", "charges_subtotal", "billed", "amount",
-    ))
-    hardware = _amount(_first_value(row, "hardware", "cellular_hardware", "cell_hw"))
-    product_line = _normalize_key(row.get("productline", ""))
-
-    if product_line:
-        if billed is None:
-            return False
-        if product_line == "VOICE":
-            _add(data, bge, "voice", col, billed)
-        elif product_line == "DATA":
-            _add(data, bge, "data", col, billed)
-        else:
-            _add(data, bge, "other", col, billed)
-        return True
-
-    if hardware is None and billed is None:
-        return False
-
-    _add(data, bge, "cell_hw", col, hardware or 0.0)
-    if billed is not None:
-        _add(data, bge, "cell_plans", col, billed - (hardware or 0.0))
-    return True
-
-
 def load_rogers_ngta(path: str = ROGERS_CSV) -> dict[tuple[str, str, int], float]:
-    """Read rogers_ngta_spend.csv and return {(bge_key, row_type, col_idx): value}.
+    """Read rogers_ngta_spend.csv (the output of scripts/sql/rogers.sql) and return
+    {(bge_key, row_type, col_idx): value}.
 
-    The preferred format is a monthly summary CSV with one row per BGE/month.
-    The loader also accepts Rogers raw export rows when `month_start` is
-    present. Raw cellular rows split billed amount into Cellular H/W and
-    Cellular Plans, while raw PRODUCTLINE rows fill Voice, Data, or Other.
-
-    Unknown BGEs and dates outside 2024-2026 are skipped. Values for the same
-    (bge, row_type, col) are summed.
+    One CSV row per BGE and month. Months outside 2024-2026 are skipped. A BGE code
+    with no workbook row is skipped too, but listed on stdout so it can't go missing
+    unnoticed. Values for the same (bge, row_type, col) are summed.
     """
     data: dict[tuple[str, str, int], float] = {}
+    skipped: dict[str, float] = {}
     for row in _read_rows(path) or ():
-        if not _load_summary_row(data, row):
-            _load_raw_row(data, row)
+        col = _month_to_col(_first_value(row, "month_start", "month"))
+        if col is None:
+            continue
+        bge = _resolve_bge(row)
+        if not bge:
+            key = row.get("entity_key") or "<blank>"
+            skipped[key] = skipped.get(key, 0.0) + (_amount(row.get("total_reported", "")) or 0.0)
+            continue
+        for csv_col, row_type in SPEND_COL_MAP.items():
+            _add(data, bge, row_type, col, _amount(row.get(csv_col, "")))
+    for key, total in sorted(skipped.items()):
+        print(f"  ! Rogers: no workbook row for BGE {key!r}; skipped {total:,.2f}")
     return data
 
 

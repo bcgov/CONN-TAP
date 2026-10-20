@@ -78,7 +78,9 @@ unioned_ecc_fixed as (
 )
 
 select
-    md5(concat_ws('|', u.vendor, u.source_system, u.source_table, u.raw_id::text)) as spend_line_item_id,
+    -- lookup_code is part of the id because one raw row can give several lines
+    -- (a Rogers cellular bill splits into plans and hardware in int_rogers_ngta_spend).
+    md5(concat_ws('|', u.vendor, u.source_system, u.source_table, u.raw_id::text, u.lookup_code)) as spend_line_item_id,
     p.id        as provider_id,
     u.source_system,
     u.source_table,
