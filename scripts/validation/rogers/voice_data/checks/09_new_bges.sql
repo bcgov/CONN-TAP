@@ -16,7 +16,7 @@ LANGUAGE sql AS $$
       AND (p_month IS NULL OR date_trunc('month', r.billingdate::date) = date_trunc('month', p_month))
       AND NOT EXISTS (
           SELECT 1 FROM seeds.bge_alias_map bam
-          WHERE raw_data.norm_key(bam.raw_name) = raw_data.norm_key(r.bge)
+          WHERE reference_data.match_key(bam.raw_name) = reference_data.match_key(r.bge)
       )
     ORDER BY 1
 $$;
