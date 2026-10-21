@@ -73,6 +73,8 @@ AS $$
 -- so p_source keeps only that feed's columns. Entities with nothing in scope are left out.
 WITH scoped AS (
   SELECT
+    -- ECC is its own row here, as in the workbook (the dashboards keep it under Gov BC).
+    -- To match the dashboards instead: CASE WHEN v.entity_key = 'ECC' THEN 'Gov BC' ELSE v.entity_key END
     v.entity_key,
     v.month_start,
     CASE WHEN p_source = 'data_voice' THEN 0 ELSE v.cellular_hardware END AS cellular_hardware,

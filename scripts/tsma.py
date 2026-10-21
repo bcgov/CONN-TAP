@@ -3,7 +3,7 @@
 Reads TSMA monthly spend from component CSVs in scripts/source and returns the
 same data shapes as tsma.py, without opening a database connection.
 
-Main TSMA component CSVs:
+Main TSMA component CSVs (the queries in scripts/sql/tsma.sql):
   tsma_cellular_spend.csv      -> row type cellular
   tsma_mms_spend.csv           -> row type mms
   tsma_data_spend.csv          -> row type data
@@ -11,7 +11,7 @@ Main TSMA component CSVs:
   tsma_voice_ivr_spend.csv     -> row type voice_ivr
 
 Expected main TSMA CSV columns:
-  entity_key, month_start, amount
+  entity_key (dbt BGE code), month_start, amount
 
 TSMA Out of Scope is reused from tsma_other_spend.csv.
 
@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import csv
 import os
-import re
 from datetime import datetime
 
 from sheet_utils import FIRST_MONTH, LAST_MONTH, MONTH_COLS
@@ -34,59 +33,24 @@ from tsma_other import load_tsma_other
 
 SOURCE_DIR = os.path.join(os.path.dirname(__file__), "source")
 
-ENTITY_KEY_MAP = {
-    "BCH": "BC Hydro",
+# tsma.sql reads the dbt view rpt_tsma_monthly, which has already resolved every raw
+# organisation name to a BGE code (bge_alias_map). Only the dbt codes appear here;
+# the workbook's VCHA block is keyed "VCHA".
+BGE_ROWS = {
+    "BC Hydro": "BC Hydro",
     "BCLC": "BCLC",
-    "BC HYDRO": "BC Hydro",
-    "BC HYDRO POWER AUTHORITY": "BC Hydro",
-    "BC HYDRO & POWER AUTHORITY": "BC Hydro",
     "ECC": "ECC",
-    "MOE": "ECC",
-    "TMOE": "ECC",
-    "MINISTRY OF EDUCATION": "ECC",
-    "MINISTRY OF EDUCATION AND CHILD CARE": "ECC",
     "FHA": "FHA",
-    "FRASER HEALTH": "FHA",
-    "FRASER HEALTH AUTHORITY": "FHA",
     "FNHA": "FNHA",
-    "FIRST NATIONS HEALTH AUTHORITY": "FNHA",
-    "GBC": "Gov BC",
-    "GOBC": "Gov BC",
-    "GOVBC": "Gov BC",
-    "GOV BC": "Gov BC",
-    "GOVERNMENT OF BC": "Gov BC",
-    "GOVERNMENT OF BRITISH COLUMBIA": "Gov BC",
+    "Gov BC": "Gov BC",
     "ICBC": "ICBC",
-    "INSURANCE CORPORATION OF BRITISH COLUMBIA": "ICBC",
     "IHA": "IHA",
-    "INTERIOR HEALTH": "IHA",
-    "INTERIOR HEALTH AUTHORITY": "IHA",
     "NHA": "NHA",
-    "NORTHERN HEALTH": "NHA",
-    "NORTHERN HEALTH AUTHORITY": "NHA",
-    "PHC": "VCHA",
     "PHSA": "PHSA",
-    "PROVINCIAL HEALTH SERVICES": "PHSA",
-    "PROVINCIAL HEALTH SERVICES AUTHORITY": "PHSA",
-    "SD": "School Districts",
-    "SCHOOL DISTRICT": "School Districts",
-    "SCHOOL DISTRICTS": "School Districts",
-    "VCHA": "VCHA",
-    "VCHA PHC": "VCHA",
-    "VANCOUVER COASTAL HEALTH": "VCHA",
-    "VANCOUVER COASTAL HEALTH AUTHORITY": "VCHA",
-    "VANCOUVER ISLAND HEALTH": "VIHA",
-    "VANCOUVER ISLAND HEALTH AUTHORITY": "VIHA",
+    "School Districts": "School Districts",
+    "VCHA (+PHC)": "VCHA",
     "VIHA": "VIHA",
-    "WORKERS COMPENSATION BOARD": "WSBC",
-    "WORKERS COMPENSATION BOARD OF BRITISH COLUMBIA": "WSBC",
-    "WORKSAFEBC": "WSBC",
     "WSBC": "WSBC",
-}
-ENTITY_LOOKUP = {
-    alias: bge
-    for key, bge in ENTITY_KEY_MAP.items()
-    for alias in (key, re.sub(r"[^A-Z0-9]+", "", key))
 }
 
 TSMA_OTHER_ORG_MAP = {
@@ -129,14 +93,8 @@ TSMA_LITE_COL_MAP = {
 }
 
 
-def _normalize_key(value: object) -> str:
-    return re.sub(r"\s+", " ", str(value).replace("\u00a0", " ").strip()).upper()
-
-
 def _entity_key(value: object) -> str:
-    raw = _normalize_key(value)
-    compact = re.sub(r"[^A-Z0-9]+", "", raw)
-    return ENTITY_LOOKUP.get(raw) or ENTITY_LOOKUP.get(compact, "")
+    return BGE_ROWS.get(str(value or "").strip(), "")
 
 
 def _month_to_col(month_str: str):
@@ -179,19 +137,25 @@ def _component_path(source_dir: str, filename: str) -> str:
 def load_tsma_data(source_dir: str = SOURCE_DIR) -> dict[tuple[str, str, int], float]:
     """Read TSMA component CSVs and return {(bge_name, row_type, col_idx): value}."""
     data: dict[tuple[str, str, int], float] = {}
+    skipped: dict[tuple[str, str], float] = {}
     for row_type, filename in TSMA_COMPONENT_CSVS.items():
         for row in _read_rows(_component_path(source_dir, filename)) or ():
-            bge = _entity_key(row.get("entity_key", ""))
-            if not bge:
-                continue
             col = _month_to_col(row.get("month_start", ""))
             if col is None:
                 continue
             val = _amount(row.get("amount", ""))
             if val is None:
                 continue
+            bge = _entity_key(row.get("entity_key", ""))
+            if not bge:
+                # A BGE code with no workbook row: listed below so it can't go missing unnoticed.
+                name = (row.get("entity_key") or "").strip() or "<blank>"
+                skipped[(name, row_type)] = skipped.get((name, row_type), 0.0) + val
+                continue
             key = (bge, row_type, col)
             data[key] = data.get(key, 0.0) + val
+    for (name, row_type), total in sorted(skipped.items()):
+        print(f"  ! TSMA: no workbook row for {name!r} ({row_type}); skipped {total:,.2f}")
 
     for (_feed, org, col), amount in load_tsma_other(_component_path(source_dir, "tsma_other_spend.csv")).items():
         bge = TSMA_OTHER_ORG_MAP.get(org)
