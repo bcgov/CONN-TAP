@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "telecom_session"
     SESSION_SECRET: str = "change-me-change-me-change-me-change-me"
 
+    # CHEFS event-subscription callback (POST /hooks/chefs); disabled while the token is empty.
+    CHEFS_API_BASE: str = "https://submit.digital.gov.bc.ca/app/api/v1"
+    CHEFS_FORM_ID: str = ""
+    CHEFS_API_KEY: str = ""
+    CHEFS_WEBHOOK_TOKEN: str = ""
+
     @property
     def database_url(self) -> str:
         base = (
