@@ -7,7 +7,7 @@ standalone file (first_row=5, after four rows of month/quarter headers).
 Row layout relative to first_row
 ---------------------------------
   first_row + 0     : Rogers NGTA header
-  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Other)
+  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Unknown)
   first_row + 6     : Summary Total  ← returned by build_rogers_ngta_section()
   first_row + 7     : BGEs header (outline level 1)
   first_row + 8     : first BGE data row
@@ -180,7 +180,7 @@ _SPEND_TYPES = [
     ("Cellular H/W", "cell_hw"),
     ("Data",         "data"),
     ("Voice",        "voice"),
-    ("Other",        "other"),
+    ("Unknown",      "other"),
 ]
 
 
@@ -236,7 +236,7 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
         ("Cellular H/W",   tot_hw),
         ("Data",           tot_dat),
         ("Voice",          tot_voi),
-        ("Other",          tot_oth),
+        ("Unknown",        tot_oth),
     ]):
         r = sum_start + i
         set_row_props(ws, r, height=17, fmt=_frogh)
@@ -287,7 +287,7 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
         (tot_hw,    "TOTAL Cellular H/W",   hw_rows),
         (tot_dat,   "TOTAL Data",           dat_rows),
         (tot_voi,   "TOTAL Voice",          voi_rows),
-        (tot_oth,   "TOTAL Other",          oth_rows),
+        (tot_oth,   "TOTAL Unknown",        oth_rows),
     ]:
         set_row_props(ws, r, height=17, fmt=_frogh, opts=_collapsed)
         write(ws, r, COL_B, label, _frogh)

@@ -19,6 +19,26 @@ with normalized as (
         end as source_service_id,
         coalesce(t.amount, 0)::numeric(19, 4) as spend_amount
     from {{ source('raw_data', 'raw_telus_spend') }} as t
+),
+
+-- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
+-- made every query over this view take minutes. Same alias rows per name as a per-row join.
+org_map as (
+    select n.name, bm.bge_alias
+    from (select distinct organization_name as name from normalized) n
+    join {{ ref('bge_alias_map') }} bm
+        on reference_data.match_key(bm.raw_name) = reference_data.match_key(n.name)
+),
+
+sub_map as (
+    select n.name, sbm.sub_bge_alias
+    from (select distinct sub_organization_name as name from normalized) n
+    join (
+        select distinct on (reference_data.match_key(raw_name))
+               reference_data.match_key(raw_name) as mk, sub_bge_alias
+        from {{ ref('sub_bge_alias_map') }}
+    ) sbm
+        on sbm.mk = reference_data.match_key(n.name)
 )
 
 select
@@ -40,11 +60,5 @@ select
     'amount'::text as source_amount_name,
     spend_amount
 from normalized
-left join {{ ref('bge_alias_map') }} bm
-    on reference_data.match_key(bm.raw_name) = reference_data.match_key(normalized.organization_name)
-left join (
-    select distinct on (reference_data.match_key(raw_name))
-           reference_data.match_key(raw_name) as mk, sub_bge_alias
-    from {{ ref('sub_bge_alias_map') }}
-) sbm
-    on sbm.mk = reference_data.match_key(normalized.sub_organization_name)
+left join org_map bm on bm.name = normalized.organization_name
+left join sub_map sbm on sbm.name = normalized.sub_organization_name

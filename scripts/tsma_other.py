@@ -15,7 +15,7 @@ standalone file (first_row=5, after four rows of month/quarter headers).
 
 Row layout relative to first_row
 ---------------------------------
-  first_row + 0  : "Out of Scope" header
+  first_row + 0  : "Time Limited Services" header
   first_row + 1  : "Managed Router" sub-header
   first_row + 2  : first Managed Router org row
   first_row + 8  : last  Managed Router org row  (7 orgs)
@@ -161,7 +161,7 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
         ws:        xlsxwriter Worksheet.
         F:         _FmtCache instance bound to the workbook.
         oos_data:  dict returned by load_tsma_other().
-        first_row: Row number of the "Out of Scope" header (1-based).
+        first_row: Row number of the "Time Limited Services" header (1-based).
                    Use 355 in the full spend_tracking sheet,
                    use 5 in the standalone tsma_other_spend sheet.
     """
@@ -189,7 +189,7 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
 
     # ---- Section header row ----
     set_row_props(ws, first_row, height=16)
-    write(ws, first_row, COL_B, "Out of Scope", f_section)
+    write(ws, first_row, COL_B, "Time Limited Services", f_section)
     write(ws, first_row, COL_AO, 2024,      f_bold)
     write(ws, first_row, COL_AP, 2025,      f_bold)
     write(ws, first_row, COL_AQ, "Q1 2024", f_bold)

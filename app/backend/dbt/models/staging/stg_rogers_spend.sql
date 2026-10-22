@@ -66,6 +66,26 @@ inner join {{ source('raw_data', 'ingestion_run') }} as r
     on r.ingestion_run_id = v.ingestion_run_id
 where r.provider = 'rogers'
 
+),
+
+-- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
+-- made every query over this view take minutes. Same alias rows per name as a per-row join.
+org_map as (
+    select n.name, bm.bge_alias
+    from (select distinct organization_name as name from cleaned) n
+    join {{ ref('bge_alias_map') }} bm
+        on reference_data.match_key(bm.raw_name) = reference_data.match_key(n.name)
+),
+
+sub_map as (
+    select n.name, sbm.sub_bge_alias
+    from (select distinct sub_organization_name as name from cleaned) n
+    join (
+        select distinct on (reference_data.match_key(raw_name))
+               reference_data.match_key(raw_name) as mk, sub_bge_alias
+        from {{ ref('sub_bge_alias_map') }}
+    ) sbm
+        on sbm.mk = reference_data.match_key(n.name)
 )
 
 select
@@ -82,11 +102,5 @@ select
     source_amount_name,
     spend_amount
 from cleaned
-left join {{ ref('bge_alias_map') }} bm
-    on reference_data.match_key(bm.raw_name) = reference_data.match_key(cleaned.organization_name)
-left join (
-    select distinct on (reference_data.match_key(raw_name))
-           reference_data.match_key(raw_name) as mk, sub_bge_alias
-    from {{ ref('sub_bge_alias_map') }}
-) sbm
-    on sbm.mk = reference_data.match_key(cleaned.sub_organization_name)
+left join org_map bm on bm.name = cleaned.organization_name
+left join sub_map sbm on sbm.name = cleaned.sub_organization_name
