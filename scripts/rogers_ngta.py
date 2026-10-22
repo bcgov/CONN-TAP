@@ -1,4 +1,4 @@
-"""Rogers NGTA section - CSV ingestion and worksheet section writer.
+"""Rogers NGTA section - report-view ingestion and worksheet section writer.
 
 The section builder is parameterised by `first_row` so it can be embedded
 inside the full spend_tracking workbook (first_row=232) or written as a
@@ -24,10 +24,10 @@ Row layout relative to first_row
   first_row + 122   : cyan separator (omitted when include_separator=False)
 """
 
-import csv
 import os
-import re
 from datetime import datetime
+
+from report_source import view_rows
 
 from sheet_utils import (
     BG_ROGERS_HDR, BG_ROGERS_BGE, BG_SEPARATOR,
@@ -44,14 +44,12 @@ from sheet_utils import (
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-SOURCE_DIR  = os.path.join(os.path.dirname(__file__), "source")
-ROGERS_CSV  = os.path.join(SOURCE_DIR, "rogers_ngta_spend.csv")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "rogers_ngta_spend.xlsx")
 
 # ---------------------------------------------------------------------------
 # BGE code -> workbook row
 # ---------------------------------------------------------------------------
-# rogers.sql reads the dbt view rpt_rogers_ngta_monthly, which has already resolved every
+# The dbt view rpt_rogers_ngta_monthly has already resolved every
 # raw Rogers name to a BGE code (bge_alias_map / sub_bge_alias_map). Only the dbt codes
 # appear here; the workbook's VCHA block is keyed "VCHA".
 BGE_ROWS = {
@@ -71,7 +69,7 @@ BGE_ROWS = {
     "WSBC": "WSBC",
 }
 
-# Maps CSV column names → NGTA_BGE_ROWS row-type keys
+# Maps report view columns → NGTA_BGE_ROWS row-type keys
 SPEND_COL_MAP = {
     "cellular_plans":    "cell_plans",
     "cellular_hardware": "cell_hw",
@@ -81,11 +79,15 @@ SPEND_COL_MAP = {
 }
 
 # ---------------------------------------------------------------------------
-# CSV ingestion
+# Report view ingestion
 # ---------------------------------------------------------------------------
 
-def _header_key(value: object) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_")
+# One row per BGE and month (dbt view rpt_rogers_ngta_monthly); entity_key is the BGE code.
+ROGERS_QUERY = """
+    SELECT entity_key, month_start, cellular_hardware, cellular_plans,
+           data_spend, voice_spend, other_spend, total_reported
+    FROM intermediate.rpt_rogers_ngta_monthly
+"""
 
 
 def _resolve_bge(row: dict[str, str]) -> str:
@@ -131,16 +133,6 @@ def _first_value(row: dict[str, str], *names: str) -> str:
     return ""
 
 
-def _read_rows(path: str):
-    if not os.path.exists(path):
-        return
-
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        reader.fieldnames = [_header_key(h) for h in (reader.fieldnames or [])]
-        yield from reader
-
-
 def _add(
     data: dict[tuple[str, str, int], float],
     bge: str,
@@ -154,17 +146,16 @@ def _add(
     data[key] = data.get(key, 0.0) + value
 
 
-def load_rogers_ngta(path: str = ROGERS_CSV) -> dict[tuple[str, str, int], float]:
-    """Read rogers_ngta_spend.csv (the output of scripts/sql/rogers.sql) and return
-    {(bge_key, row_type, col_idx): value}.
+def load_rogers_ngta() -> dict[tuple[str, str, int], float]:
+    """Read rpt_rogers_ngta_monthly and return {(bge_key, row_type, col_idx): value}.
 
-    One CSV row per BGE and month. Months outside 2024-2026 are skipped. A BGE code
+    One row per BGE and month. Months outside 2024-2026 are skipped. A BGE code
     with no workbook row is skipped too, but listed on stdout so it can't go missing
     unnoticed. Values for the same (bge, row_type, col) are summed.
     """
     data: dict[tuple[str, str, int], float] = {}
     skipped: dict[str, float] = {}
-    for row in _read_rows(path) or ():
+    for row in view_rows(ROGERS_QUERY):
         col = _month_to_col(_first_value(row, "month_start", "month"))
         if col is None:
             continue
@@ -173,8 +164,8 @@ def load_rogers_ngta(path: str = ROGERS_CSV) -> dict[tuple[str, str, int], float
             key = row.get("entity_key") or "<blank>"
             skipped[key] = skipped.get(key, 0.0) + (_amount(row.get("total_reported", "")) or 0.0)
             continue
-        for csv_col, row_type in SPEND_COL_MAP.items():
-            _add(data, bge, row_type, col, _amount(row.get(csv_col, "")))
+        for col_name, row_type in SPEND_COL_MAP.items():
+            _add(data, bge, row_type, col, _amount(row.get(col_name, "")))
     for key, total in sorted(skipped.items()):
         print(f"  ! Rogers: no workbook row for BGE {key!r}; skipped {total:,.2f}")
     return data

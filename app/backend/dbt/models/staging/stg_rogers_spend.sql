@@ -3,7 +3,7 @@
 with cleaned as (
 
 -- Cellular plans: the billed amount minus device hardware, which is its own line below.
--- Same split as the spend report (scripts/sql/rogers.sql).
+-- Same split as the spend report has always used (plans = billed - hardware).
 select
     'rogers'::text as vendor,
     'ngta'::text as source_system,

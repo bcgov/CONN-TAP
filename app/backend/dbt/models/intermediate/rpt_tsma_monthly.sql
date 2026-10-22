@@ -31,7 +31,7 @@ select
     coalesce(sum(spend_amount) filter (where source_table = 'tsma_mms'), 0)      as mms_spend,
     -- Wireline: only the towers dbt categorises as data or voice (Business Internet, Data - WAN /
     -- Conferencing, Long Distance, Voice). Other towers stay out of the report's rows (TSMA-4);
-    -- Managed WLAN is reported under Out of Scope by tsma_other_spend.sql.
+    -- Managed WLAN is reported under Out of Scope (rpt_tsma_other_monthly).
     coalesce(sum(spend_amount) filter (where source_table = 'tsma_wireline' and category = 'data'), 0)  as data_spend,
     coalesce(sum(spend_amount) filter (where source_table = 'tsma_wireline' and category = 'voice'), 0) as voice_spend,
     coalesce(sum(spend_amount) filter (where source_table = 'tsma_ivr'), 0)      as voice_ivr_spend

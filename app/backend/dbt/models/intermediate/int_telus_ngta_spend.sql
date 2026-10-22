@@ -75,7 +75,7 @@ select
     sheet_name,
     organization_name,
     sub_organization_name,
-    -- Same precedence as scripts/sql/telus.sql: hardware first, then Wireless
+    -- Same precedence as the spend report: hardware first, then Wireless
     -- (Cellular Plans) whatever its source_id, then a confirmed source_id.
     -- A blank or unconfirmed source_id is the report's Other: telus_other (Unknown).
     case

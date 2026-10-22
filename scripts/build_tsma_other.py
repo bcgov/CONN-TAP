@@ -2,7 +2,7 @@
 """Generate a standalone Out-of-Scope spend workbook.
 
 Produces tsma_other_spend.xlsx in the same scripts/ folder.
-Reads spend data from scripts/source/tsma_other_spend.csv.
+Reads spend data from the dbt view rpt_tsma_other_monthly (see report_source.py).
 
 Row layout of the standalone file:
   Rows 1-3 : Year spans / Calendar quarters / Fiscal quarters

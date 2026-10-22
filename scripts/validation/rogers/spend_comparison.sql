@@ -67,7 +67,7 @@ LANGUAGE sql
 STABLE
 AS $$
 -- Monthly totals come from intermediate.rpt_rogers_ngta_monthly, the dbt view the spend
--- report reads (scripts/sql/rogers.sql), so this check, the workbook and the dashboards
+-- report reads (scripts/rogers_ngta.py), so this check, the workbook and the dashboards
 -- share one set of rules (hardware split, product-line categories, BGE resolution, ECC row).
 -- Each feed fills its own columns: cellular -> hardware/plans, voice/data -> data/voice/other,
 -- so p_source keeps only that feed's columns. Entities with nothing in scope are left out.
