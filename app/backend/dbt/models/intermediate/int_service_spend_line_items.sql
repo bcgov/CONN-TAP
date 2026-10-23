@@ -90,6 +90,7 @@ select
     u.sub_organization_name,
     coalesce(sb.bge_id, b.id) as bge_id,
     sc.service_category_id,
+    u.lookup_code,
     sb.id       as sub_bge_id,
     u.spend_amount
 from unioned_ecc_fixed u

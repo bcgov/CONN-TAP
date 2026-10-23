@@ -40,7 +40,7 @@ BGE_ROWS = {
 # One row per BGE and month (dbt view rpt_tsma_monthly); a column per workbook row type.
 TSMA_QUERY = """
     SELECT entity_key, month_start,
-           cellular_spend, mms_spend, data_spend, voice_spend, voice_ivr_spend
+           cellular_spend, mms_spend, data_spend, voice_spend, voice_ivr_spend, other_spend
     FROM intermediate.rpt_tsma_monthly
 """
 
@@ -54,7 +54,7 @@ TSMA_COMPONENT_COLS = {
 
 # One row per month (dbt view rpt_tsma_lite_monthly).
 TSMA_LITE_QUERY = """
-    SELECT month_start, conferencing_spend, long_distance_spend, voice_spend, cellular_spend
+    SELECT month_start, conferencing_spend, long_distance_spend, voice_spend, cellular_spend, other_spend
     FROM intermediate.rpt_tsma_lite_monthly
 """
 
@@ -91,6 +91,15 @@ def _amount(value: str) -> float | None:
         return float(raw.replace(",", ""))
     except ValueError:
         return None
+
+
+def _outside_rows_total(query: str) -> float:
+    """Spend the view reports in other_spend: a category with no workbook row (window months only)."""
+    return sum(
+        _amount(row.get("other_spend", "")) or 0.0
+        for row in view_rows(query)
+        if _month_to_col(row.get("month_start", "")) is not None
+    )
 
 
 def load_tsma_data() -> dict[tuple[str, str, int], float]:
@@ -135,6 +144,11 @@ def load_tsma_data() -> dict[tuple[str, str, int], float]:
     for (name, row_type), total in sorted(skipped.items()):
         if row_type == "oos":
             print(f"  ! TSMA: no workbook row for {name!r} (oos); skipped {total:,.2f}")
+
+    for label, query in (("TSMA", TSMA_QUERY), ("TSMA Lite", TSMA_LITE_QUERY)):
+        outside = _outside_rows_total(query)
+        if round(outside, 2):
+            print(f"  ! {label}: {outside:,.2f} in a service category with no workbook row; not shown")
 
     for (lite_type, col), amount in load_tsma_lite_data().items():
         if lite_type == "cellular":

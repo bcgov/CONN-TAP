@@ -83,10 +83,9 @@ select
         when source_service_family = 'wireless' then 'wireless'
         when source_service_id in (select code from telus_service_codes) then source_service_id
         -- === TEMPORARY (TODO remove): PHSA Other → Data ===
-        -- Mirrors the override in scripts/telus_ngta.py. Until upstream
-        -- classification is fixed, PHSA spend that would be Other (telus_other)
-        -- is booked as Data via 103 (Wireline Data). The validation report reads this
-        -- model, so it follows automatically; remove this and the Python copy together.
+        -- Until upstream classification is fixed, PHSA spend that would be Other
+        -- (telus_other) is booked as Data via 103 (Wireline Data). The only copy of this
+        -- rule: the spend report, the validation report and the dashboards all read it.
         when organization_name = 'PHSA' then '103'
         -- === END TEMPORARY PHSA Other → Data ===
         else 'telus_other'
