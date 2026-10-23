@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.endpoints import chefs_hooks
 from app.api.errors import ApiError
 from app.api.routes import router as api_router
 from app.core.config import settings
@@ -40,6 +41,8 @@ def handle_api_error(_: Request, exc: ApiError) -> JSONResponse:
 
 
 app.include_router(api_router, prefix="/api/v1")
+# Outside api_router on purpose: CHEFS authenticates with a shared token, not a user session.
+app.include_router(chefs_hooks.router, prefix="/hooks", tags=["hooks"])
 
 
 @app.get("/health")

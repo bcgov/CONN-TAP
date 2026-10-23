@@ -9,7 +9,7 @@ import {
 } from "@bcgov/design-system-react-components";
 import { AppFooter } from "@/components/footer";
 
-export function HomeClient() {
+export function HomeClient({ chefsFormUrl = null }: { chefsFormUrl?: string | null }) {
   return (
     <div className="telecom-landing__shell">
       <Header
@@ -59,6 +59,17 @@ export function HomeClient() {
               request access and provide feedback.
             </p>
           </div>
+
+          {chefsFormUrl && (
+            <div className="telecom-main__access">
+              <strong>Test form</strong>
+              <p>
+                <BcLink href={chefsFormUrl} target="_blank" rel="noopener noreferrer">
+                  Open the CHEFS test form (opens in a new tab)
+                </BcLink>
+              </p>
+            </div>
+          )}
         </section>
 
         <Heading className="telecom-main__features-title" level={2}>

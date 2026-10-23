@@ -30,6 +30,22 @@ describe("HomeClient", () => {
     );
   });
 
+  it("links to the CHEFS test form in a new tab when configured", () => {
+    const formUrl = "https://submit.digital.gov.bc.ca/app/form/submit?f=abc";
+    render(<HomeClient chefsFormUrl={formUrl} />);
+
+    const link = screen.getByRole("link", { name: /CHEFS test form/i });
+    expect(link).toHaveAttribute("href", formUrl);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("hides the CHEFS test form link when not configured", () => {
+    render(<HomeClient />);
+
+    expect(screen.queryByRole("link", { name: /CHEFS test form/i })).not.toBeInTheDocument();
+  });
+
   it("renders the feature cards", () => {
     render(<HomeClient />);
 
