@@ -2,7 +2,7 @@
 """Generate a standalone Rogers NGTA spend workbook.
 
 Produces rogers_ngta_spend.xlsx in the same scripts/ folder.
-Reads spend data from scripts/source/rogers_ngta_spend.csv (if present).
+Reads spend data from the dbt view rpt_rogers_ngta_monthly (see report_source.py).
 
 Run:  python3 scripts/build_rogers_ngta.py
 Output: scripts/rogers_ngta_spend.xlsx

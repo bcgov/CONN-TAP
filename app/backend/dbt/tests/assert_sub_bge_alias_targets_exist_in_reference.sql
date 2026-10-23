@@ -1,12 +1,12 @@
-{{ config(severity='warn') }}
+{{ config(severity='error') }}
 
 -- Alias -> reference-data gap check: flags sub_bge_alias values in
 -- sub_bge_alias_map that do not resolve to a code in reference_data.sub_bge.
 --
--- Severity is 'warn' by design: sub_bge aliases for a not-yet-loaded or retired
--- entity are intentionally allowed (see the note in seeds/_seeds.yml), so this
--- surfaces gaps for review without failing the build. Flip to 'error' above if
--- you want unresolved sub_bge aliases to break `dbt build`.
+-- Severity is 'error' (2026-10-15): every sub_bge_alias must resolve to a
+-- reference_data.sub_bge (or be a BGE code, skipped below), or the build fails.
+-- An alias kept for a not-yet-loaded or retired entity (see the note in
+-- seeds/_seeds.yml) now needs its sub_bge loaded, or the alias removed.
 --
 -- BGE codes are skipped: some raw sub-org spellings are labelled at BGE level and
 -- carried in the alias map as a BGE code (e.g. the 'ECC' remap). Those are not
