@@ -19,7 +19,7 @@ LANGUAGE sql AS $$
         SELECT 1
         FROM raw_data.raw_rogers_spend_data_voice r
         JOIN seeds.sub_bge_alias_map sbam
-          ON raw_data.norm_key(sbam.raw_name) = raw_data.norm_key(r.sub_bge)
+          ON reference_data.match_key(sbam.raw_name) = reference_data.match_key(r.sub_bge)
         WHERE sbam.sub_bge_alias = sb.code
           AND (p_month IS NULL OR date_trunc('month', r.billingdate::date) = date_trunc('month', p_month))
     )

@@ -12,5 +12,7 @@ LANGUAGE sql AS $$
     SELECT *
     FROM raw_data.v_rogers_data_voice_validated
     WHERE dup_count > 1
+      -- $0 rows don't move spend, so a repeated one isn't worth flagging.
+      AND (COALESCE(billed_amount_pre_tax, 0) <> 0 OR COALESCE(totalamount, 0) <> 0)
       AND (p_month IS NULL OR date_trunc('month', billingdate::date) = date_trunc('month', p_month))
 $$;
