@@ -32,6 +32,24 @@ locals {
     }
   ]
 
+  # Counts tagged images only: each build also pushes untagged image/attestation
+  # manifests under its index, which would otherwise count toward the limit.
+  tagged_image_count_rule = var.tagged_image_keep_count == null ? [] : [
+    {
+      rulePriority = 2
+      description  = "Keep only the ${var.tagged_image_keep_count} most recent tagged images"
+      selection = {
+        tagStatus      = "tagged"
+        tagPatternList = ["*"]
+        countType      = "imageCountMoreThan"
+        countNumber    = var.tagged_image_keep_count
+      }
+      action = {
+        type = "expire"
+      }
+    }
+  ]
+
   ecr_lifecycle_rules = concat(
     [
       {
@@ -49,6 +67,7 @@ locals {
       }
     ],
     local.tagged_image_lifecycle_rule,
+    local.tagged_image_count_rule,
   )
 }
 
@@ -60,4 +79,11 @@ resource "aws_ecr_lifecycle_policy" "this" {
   policy = jsonencode({
     rules = local.ecr_lifecycle_rules
   })
+
+  lifecycle {
+    precondition {
+      condition     = var.tagged_image_expire_after_days == null || var.tagged_image_keep_count == null
+      error_message = "Set only one of tagged_image_expire_after_days or tagged_image_keep_count."
+    }
+  }
 }
