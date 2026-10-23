@@ -37,3 +37,8 @@ sources:
       - name: tsma_other_ingestion_run
       - name: tsma_other_managed_security
       - name: tsma_other_managed_router
+      - name: raw_rogers_v2_cellular_pricebook
+      - name: raw_rogers_v2_cellular_device_pricebook
+      - name: raw_rogers_v2_data_pricebook
+      - name: raw_rogers_v2_voice_pricebook
+      - name: raw_rogers_v2_professional_services_pricebook

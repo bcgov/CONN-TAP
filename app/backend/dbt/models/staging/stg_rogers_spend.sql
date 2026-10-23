@@ -15,6 +15,7 @@ select
     nullif(trim(regexp_replace(c.sub_bge, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'cellular'::text as source_service_family,
     lower(nullif(trim(regexp_replace(c.plan_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
+    {{ rogers_service_id_key('c.service_id', cellular=true) }} as source_service_id,
     'billed_amount_pre_tax - hardware'::text as source_amount_name,
     (coalesce(c.billed_amount_pre_tax, 0) - coalesce(c.hardware, 0))::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'raw_rogers_spend_cellular') }} as c
@@ -36,6 +37,7 @@ select
     nullif(trim(regexp_replace(c.sub_bge, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'cellular_hardware'::text as source_service_family,
     lower(nullif(trim(regexp_replace(c.plan_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
+    {{ rogers_service_id_key('c.device') }} as source_service_id,
     'hardware'::text as source_amount_name,
     c.hardware::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'raw_rogers_spend_cellular') }} as c
@@ -59,6 +61,7 @@ select
     coalesce(lower(nullif(trim(regexp_replace(v.productline, '[\x00-\x1f\x7f]', '', 'g')), '')), 'other') as source_service_family,
     lower(nullif(trim(regexp_replace(coalesce(v.charge_description, v.service_component, v.producttype), '[\x00-\x1f\x7f]', '', 'g')), ''))
         as source_service_description,
+    {{ rogers_service_id_key('v.service_id') }} as source_service_id,
     'billed_amount_pre_tax'::text as source_amount_name,
     coalesce(v.billed_amount_pre_tax, 0)::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'raw_rogers_spend_data_voice') }} as v
@@ -99,6 +102,7 @@ select
     sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
     source_service_description,
+    source_service_id,
     source_amount_name,
     spend_amount
 from cleaned
