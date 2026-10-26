@@ -46,7 +46,7 @@ jobs:
             --cov-report=xml:reports/backend-coverage.xml
 
       - name: Upload backend test reports
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sonar-reports-backend
           path: reports/
@@ -88,7 +88,7 @@ jobs:
           sed 's|^SF:src/|SF:app/frontend/src/|g' app/frontend/coverage/lcov.info > reports/frontend-lcov.info
 
       - name: Upload frontend test reports
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sonar-reports-frontend
           path: reports/
