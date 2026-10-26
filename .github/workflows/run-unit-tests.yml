@@ -110,13 +110,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download backend test reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sonar-reports-backend
           path: reports
 
       - name: Download frontend test reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sonar-reports-frontend
           path: reports
