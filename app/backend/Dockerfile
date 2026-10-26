@@ -7,8 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl \
+# No compilers or dev headers: all Python dependencies install from wheels
+# (psycopg[binary] bundles libpq). Pick up the latest Debian security fixes.
+RUN apt-get update && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

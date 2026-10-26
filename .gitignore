@@ -130,6 +130,7 @@ app/**/*.log
 !app/**/tsconfig.*.json
 !app/**/next.config.json
 !app/**/*.sh
+!.github/renovate.json
 
 /.pnpm-store
 /.venv
