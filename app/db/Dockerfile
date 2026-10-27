@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.28
 # Postgres 16 with pg_partman, pg_trgm, btree_gin/gist available.
-FROM postgres:16
+FROM postgres:18
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql-16-partman \
