@@ -1,4 +1,4 @@
-"""TELUS NGTA section — CSV ingestion and worksheet section writer.
+"""TELUS NGTA section — report-view ingestion and worksheet section writer.
 
 The section builder is parameterised by `first_row` so it can be embedded
 inside the full spend_tracking workbook (first_row=110) or written as a
@@ -7,7 +7,7 @@ standalone file (first_row=5, after four rows of month/quarter headers).
 Row layout relative to first_row
 ---------------------------------
   first_row + 0     : TELUS NGTA header
-  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Other)
+  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Unknown)
   first_row + 6     : Summary Total  ← returned by build_telus_ngta_section()
   first_row + 7     : BGEs header (outline level 1)
   first_row + 8     : first BGE data row
@@ -24,9 +24,10 @@ Row layout relative to first_row
   first_row + 121   : cyan separator (omitted when include_separator=False)
 """
 
-import csv
 import os
 from datetime import datetime
+
+from report_source import view_rows
 
 from sheet_utils import (
     BG_TELUS_HDR, BG_TELUS_BGE, BG_SEPARATOR,
@@ -43,8 +44,6 @@ from sheet_utils import (
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-SOURCE_DIR  = os.path.join(os.path.dirname(__file__), "source")
-TELUS_CSV   = os.path.join(SOURCE_DIR, "telus_ngta_spend.csv")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "telus_ngta_spend.xlsx")
 
 # ---------------------------------------------------------------------------
@@ -91,7 +90,7 @@ ENTITY_KEY_MAP = {
     "WORKERS COMPENSATION BOARD":           "WSBC",
 }
 
-# Maps CSV column names → NGTA_BGE_ROWS row-type keys
+# Maps report view columns → NGTA_BGE_ROWS row-type keys
 SPEND_COL_MAP = {
     "cellular_plans":    "cell_plans",
     "cellular_hardware": "cell_hw",
@@ -101,8 +100,15 @@ SPEND_COL_MAP = {
 }
 
 # ---------------------------------------------------------------------------
-# CSV ingestion
+# Report view ingestion
 # ---------------------------------------------------------------------------
+
+# One row per TELUS tab and month (dbt view rpt_telus_ngta_monthly); entity_key is the tab.
+TELUS_QUERY = """
+    SELECT sheet_name AS entity_key, month_start,
+           cellular_hardware, cellular_plans, data_spend, voice_spend, other_spend
+    FROM intermediate.rpt_telus_ngta_monthly
+"""
 
 def _month_to_col(month_str: str):
     """Parse a month_start string → 0-based Excel column, or None if out of range."""
@@ -117,47 +123,35 @@ def _month_to_col(month_str: str):
     return None
 
 
-def load_telus_ngta(path: str = TELUS_CSV) -> dict:
-    """Read telus_ngta_spend.csv and return {(bge_key, row_type, col_idx): value}.
+def load_telus_ngta() -> dict:
+    """Read rpt_telus_ngta_monthly and return {(bge_key, row_type, col_idx): value}.
 
     Rows with unknown entity_key values or dates outside 2024-2026 are silently
-    skipped so the sheet still builds even with an incomplete CSV.
+    skipped.
 
     Values for the same (bge, row_type, col) are summed so multiple entity
     codes mapping to the same BGE (e.g., BCA + GBC → Gov BC) are combined
     into a single monthly figure.
     """
     data: dict = {}
-    if not os.path.exists(path):
-        return data
-
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
-        reader.fieldnames = [h.strip().lower() for h in (reader.fieldnames or [])]
-        for row in reader:
-            entity_raw = row.get("entity_key", "").strip().upper()
-            bge = ENTITY_KEY_MAP.get(entity_raw)
-            if bge is None:
+    for row in view_rows(TELUS_QUERY):
+        entity_raw = row.get("entity_key", "").strip().upper()
+        bge = ENTITY_KEY_MAP.get(entity_raw)
+        if bge is None:
+            continue
+        col = _month_to_col(row.get("month_start", ""))
+        if col is None:
+            continue
+        for col_name, rtype in SPEND_COL_MAP.items():
+            raw = row.get(col_name, "").strip()
+            if not raw:
                 continue
-            col = _month_to_col(row.get("month_start", ""))
-            if col is None:
+            try:
+                val = float(raw.replace(",", ""))
+            except ValueError:
                 continue
-            for csv_col, rtype in SPEND_COL_MAP.items():
-                # === TEMPORARY (TODO remove): PHSA other_spend → Data row ===
-                # Until upstream classification is fixed, other_spend amounts for
-                # PHSA are posted to the Data BGE row instead of Other.
-                if csv_col == "other_spend" and bge == "PHSA":
-                    rtype = "data"
-                # === END TEMPORARY PHSA other_spend → Data ===
-                raw = row.get(csv_col, "").strip()
-                if not raw:
-                    continue
-                try:
-                    val = float(raw.replace(",", ""))
-                except ValueError:
-                    continue
-                key = (bge, rtype, col)
-                data[key] = data.get(key, 0.0) + val
+            key = (bge, rtype, col)
+            data[key] = data.get(key, 0.0) + val
 
     return data
 
@@ -171,7 +165,7 @@ _SPEND_TYPES = [
     ("Cellular H/W", "cell_hw"),
     ("Data",         "data"),
     ("Voice",        "voice"),
-    ("Other",        "other"),
+    ("Unknown",      "other"),
 ]
 
 
@@ -228,7 +222,7 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
         ("Cellular H/W",   tot_hw),
         ("Data",           tot_dat),
         ("Voice",          tot_voi),
-        ("Other",          tot_oth),
+        ("Unknown",        tot_oth),
     ]):
         r = sum_start + i
         set_row_props(ws, r, height=17, fmt=_ftelh)
@@ -279,7 +273,7 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
         (tot_hw,    "TOTAL Cellular H/W",   hw_rows),
         (tot_dat,   "TOTAL Data",            dat_rows),
         (tot_voi,   "TOTAL Voice",           voi_rows),
-        (tot_oth,   "TOTAL Other",           oth_rows),
+        (tot_oth,   "TOTAL Unknown",         oth_rows),
     ]:
         set_row_props(ws, r, height=17, fmt=_ftelh, opts=_collapsed)
         write(ws, r, COL_B, label, _ftelh)
