@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.28
-FROM node:24-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 # Install deps based on package.json; bind mount in compose overrides /app
