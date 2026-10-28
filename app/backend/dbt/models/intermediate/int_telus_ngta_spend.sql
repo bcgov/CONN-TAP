@@ -22,6 +22,21 @@ telus_excluded_sections as (
     select statement_section from {{ ref('telus_excluded_sections') }}
 ),
 
+pricebook as (
+    select * from {{ ref('stg_telus_pricebook_services') }}
+),
+
+-- Analysts' list of TLS charge descriptions/LTO list, this will be provided when there are more entries to include.
+-- Matched exactly once the bill's trailing '*' is stripped (the list itself has no '*'):
+tls_charges as (
+    select
+        upper(charge_description) as charge_description,
+        'time_limited_services'::text as service_category_code,
+        sub_category_code
+    from {{ ref('telus_tls_charge_descriptions') }}
+),
+
+{# Not used now: needed by the old source_id rule below.
 -- TELUS's own service codes. Filtered by provider because Rogers shares the
 -- 'ngta' source_system.
 telus_service_codes as (
@@ -31,6 +46,7 @@ telus_service_codes as (
     where sc.source_system = 'ngta'
         and p.code = 'telus'
 ),
+#}
 
 filtered as (
     select *
@@ -75,6 +91,18 @@ select
     sheet_name,
     organization_name,
     sub_organization_name,
+    -- TLS comes first: the TLS pricebook, then the analysts' TLS list, then the other pricebooks.
+    case
+        when pb.service_category_code = 'time_limited_services' then pb.service_category_code
+        when tls.service_category_code is not null then tls.service_category_code
+        else coalesce(pb.service_category_code, 'unknown')
+    end as lookup_code,
+    -- The sub-category comes from whichever of the two decided TLS.
+    case
+        when pb.service_category_code = 'time_limited_services' then pb.sub_category_code
+        when tls.service_category_code is not null then tls.sub_category_code
+    end as sub_category_code,
+    {# Old source_id rule, not used now.
     -- Same precedence as the spend report: hardware first, then Wireless
     -- (Cellular Plans) whatever its source_id, then a confirmed source_id.
     -- A blank or unconfirmed source_id is the report's Other: telus_other (Unknown).
@@ -90,8 +118,11 @@ select
         -- === END TEMPORARY PHSA Other → Data ===
         else 'telus_other'
     end as lookup_code,
+    #}
     spend_amount
 from flagged
+left join pricebook pb on pb.service_id_key = flagged.pricebook_service_id
+left join tls_charges tls on tls.charge_description = upper({{ clean_text('flagged.source_service_description', strip_star=true) }})
 -- 'onetime' alone also covers non-cellular charges. Hardware descriptions
 -- require Wireless or the confirmed cellular equipment source_id 164.
 where not is_hw or source_service_family = 'wireless' or source_service_id = '164'

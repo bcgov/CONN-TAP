@@ -19,6 +19,7 @@ sources:
                   field: sub_bge_alias
       - name: provider
       - name: service_category
+      - name: service_sub_category
       - name: service_code
   - name: raw_data
     schema: raw_data
@@ -42,3 +43,25 @@ sources:
       - name: raw_rogers_v2_data_pricebook
       - name: raw_rogers_v2_voice_pricebook
       - name: raw_rogers_v2_professional_services_pricebook
+      - name: raw_telus_v2_data_services_pricebook
+      - name: raw_telus_v2_voice_services_pricebook
+      - name: raw_telus_v2_voice_data_usage_rates_pricebook
+      - name: raw_telus_v2_cellular_services_pricebook
+      - name: raw_telus_v2_cellular_additional_fee_based_features_pricebook
+      - name: raw_telus_v2_cellular_mms_pricebook
+      - name: raw_telus_v2_control_center_pricebook
+      - name: raw_telus_v2_gms_pricebook
+      - name: raw_telus_v2_fleet_complete_pricebook
+      - name: raw_telus_v2_connected_worker_pricebook
+      - name: raw_telus_v2_connected_worker_usage_rate_pricebook
+      - name: raw_telus_v2_connected_worker_hardware_pricebook
+      - name: raw_telus_v2_tls_pricebook
+        columns:
+          # the pricebook tab; stg_telus_pricebook_services maps each one to a TLS sub-category
+          - name: product
+            tests:
+              - accepted_values:
+                  values: ['SIPA V1', 'Analog Private Line', 'Centrex', 'Carrier Optical Ethernet',
+                           'Managed Router', 'Copper Services', 'ADSL Services', 'IP Trunking R2']
+      - name: raw_telus_v2_professional_services_pricebook
+      - name: raw_telus_v2_connected_worker_professional_services_pricebook
