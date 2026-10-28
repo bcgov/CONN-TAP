@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.28
 # Postgres 16 with pg_partman, pg_trgm, btree_gin/gist available.
 FROM postgres:16
 
