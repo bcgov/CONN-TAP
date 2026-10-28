@@ -2,6 +2,8 @@
 
 with cleaned as (
 
+-- Cellular plans: the billed amount minus device hardware, which is its own line below.
+-- Same split as the spend report has always used (plans = billed - hardware).
 select
     'rogers'::text as vendor,
     'ngta'::text as source_system,
@@ -13,8 +15,8 @@ select
     nullif(trim(regexp_replace(c.sub_bge, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'cellular'::text as source_service_family,
     lower(nullif(trim(regexp_replace(c.plan_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
-    'billed_amount_pre_tax'::text as source_amount_name,
-    coalesce(c.billed_amount_pre_tax, 0)::numeric(19, 4) as spend_amount
+    'billed_amount_pre_tax - hardware'::text as source_amount_name,
+    (coalesce(c.billed_amount_pre_tax, 0) - coalesce(c.hardware, 0))::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'raw_rogers_spend_cellular') }} as c
 inner join {{ source('raw_data', 'ingestion_run') }} as r
     on r.ingestion_run_id = c.ingestion_run_id
@@ -22,6 +24,29 @@ where r.provider = 'rogers'
 
 union all
 
+-- Cellular hardware: the device hardware part of the same cellular bill.
+select
+    'rogers'::text as vendor,
+    'ngta'::text as source_system,
+    'raw_rogers_spend_cellular'::text as source_table,
+    c.raw_id,
+    c.ingestion_run_id,
+    (date_trunc('month', coalesce(c.invoice_date, r.source_period)) - interval '1 month')::date as month_start,
+    nullif(trim(regexp_replace(c.bge, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
+    nullif(trim(regexp_replace(c.sub_bge, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
+    'cellular_hardware'::text as source_service_family,
+    lower(nullif(trim(regexp_replace(c.plan_description, '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
+    'hardware'::text as source_amount_name,
+    c.hardware::numeric(19, 4) as spend_amount
+from {{ source('raw_data', 'raw_rogers_spend_cellular') }} as c
+inner join {{ source('raw_data', 'ingestion_run') }} as r
+    on r.ingestion_run_id = c.ingestion_run_id
+where r.provider = 'rogers'
+    and c.hardware <> 0
+
+union all
+
+-- Data and voice
 select
     'rogers'::text as vendor,
     'ngta'::text as source_system,
@@ -41,6 +66,26 @@ inner join {{ source('raw_data', 'ingestion_run') }} as r
     on r.ingestion_run_id = v.ingestion_run_id
 where r.provider = 'rogers'
 
+),
+
+-- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
+-- made every query over this view take minutes. Same alias rows per name as a per-row join.
+org_map as (
+    select n.name, bm.bge_alias
+    from (select distinct organization_name as name from cleaned) n
+    join {{ ref('bge_alias_map') }} bm
+        on reference_data.match_key(bm.raw_name) = reference_data.match_key(n.name)
+),
+
+sub_map as (
+    select n.name, sbm.sub_bge_alias
+    from (select distinct sub_organization_name as name from cleaned) n
+    join (
+        select distinct on (reference_data.match_key(raw_name))
+               reference_data.match_key(raw_name) as mk, sub_bge_alias
+        from {{ ref('sub_bge_alias_map') }}
+    ) sbm
+        on sbm.mk = reference_data.match_key(n.name)
 )
 
 select
@@ -57,11 +102,5 @@ select
     source_amount_name,
     spend_amount
 from cleaned
-left join {{ ref('bge_alias_map') }} bm
-    on reference_data.match_key(bm.raw_name) = reference_data.match_key(cleaned.organization_name)
-left join (
-    select distinct on (reference_data.match_key(raw_name))
-           reference_data.match_key(raw_name) as mk, sub_bge_alias
-    from {{ ref('sub_bge_alias_map') }}
-) sbm
-    on sbm.mk = reference_data.match_key(cleaned.sub_organization_name)
+left join org_map bm on bm.name = cleaned.organization_name
+left join sub_map sbm on sbm.name = cleaned.sub_organization_name
