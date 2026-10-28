@@ -10,7 +10,7 @@ select
     ingestion_run_id,
     date_trunc('month', month_start_dt)::date as month_start,
     nullif(trim(regexp_replace(lcd_cust_cd, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
-    null::text as sub_organization_name,
+    nullif(trim(regexp_replace(rcid_cust_nm, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'managed_security'::text as source_service_family,
     lower(nullif(trim(regexp_replace(coalesce(bpi_prod_desc, prod_family_desc, epp3_desc), '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
     nullif(trim(bpi_prod_cd), '') as source_service_id,
@@ -30,7 +30,7 @@ select
     ingestion_run_id,
     date_trunc('month', month_start_dt)::date as month_start,
     nullif(trim(regexp_replace(lcd_cust_cd, '[\x00-\x1f\x7f]', '', 'g')), '') as organization_name,
-    null::text as sub_organization_name,
+    nullif(trim(regexp_replace(rcid_cust_nm, '[\x00-\x1f\x7f]', '', 'g')), '') as sub_organization_name,
     'managed_router'::text as source_service_family,
     lower(nullif(trim(regexp_replace(coalesce(bpi_prod_desc, prod_family_desc, epp3_desc), '[\x00-\x1f\x7f]', '', 'g')), '')) as source_service_description,
     nullif(trim(bpi_prod_cd), '') as source_service_id,
@@ -40,6 +40,30 @@ select
     coalesce(billed_amt, 0)::numeric(19, 4) as spend_amount
 from {{ source('raw_data', 'tsma_other_managed_router') }}
 
+),
+
+-- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
+-- made every query over this view take minutes. Same alias rows per name as a per-row join.
+org_map as (
+    select n.name, bm.bge_alias
+    from (select distinct organization_name as name from cleaned) n
+    join {{ ref('bge_alias_map') }} bm
+        on reference_data.match_key(bm.raw_name) = reference_data.match_key(n.name)
+),
+
+sub_map as (
+    select n.name, sbm.sub_bge_alias,
+           bm_sub.bge_alias as sub_bge_bge_alias
+    from (select distinct sub_organization_name as name from cleaned) n
+    join (
+        select distinct on (reference_data.match_key(raw_name))
+               reference_data.match_key(raw_name) as mk, sub_bge_alias
+        from {{ ref('sub_bge_alias_map') }}
+    ) sbm
+        on sbm.mk = reference_data.match_key(n.name)
+    -- when the sub-BGE alias itself names a BGE (see organization_name below)
+    left join {{ ref('bge_alias_map') }} bm_sub
+        on reference_data.match_key(bm_sub.raw_name) = reference_data.match_key(sbm.sub_bge_alias)
 )
 
 select
@@ -49,7 +73,10 @@ select
     raw_id,
     ingestion_run_id,
     month_start,
-    bm.bge_alias as organization_name,
+    -- lcd_cust_cd is 'GOBC' on every TSMA Other row, so the customer (rcid_cust_nm) decides:
+    -- when its sub-BGE alias names a BGE (FHA, PHSA, ICBC, ..., Education and Child Care -> ECC)
+    -- that is the organisation; otherwise lcd_cust_cd's BGE, as before.
+    coalesce(sbm.sub_bge_bge_alias, bm.bge_alias) as organization_name,
     sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
     source_service_description,
@@ -59,11 +86,5 @@ select
     source_amount_name,
     spend_amount
 from cleaned
-left join {{ ref('bge_alias_map') }} bm
-    on reference_data.match_key(bm.raw_name) = reference_data.match_key(cleaned.organization_name)
-left join (
-    select distinct on (reference_data.match_key(raw_name))
-           reference_data.match_key(raw_name) as mk, sub_bge_alias
-    from {{ ref('sub_bge_alias_map') }}
-) sbm
-    on sbm.mk = reference_data.match_key(cleaned.sub_organization_name)
+left join org_map bm on bm.name = cleaned.organization_name
+left join sub_map sbm on sbm.name = cleaned.sub_organization_name
