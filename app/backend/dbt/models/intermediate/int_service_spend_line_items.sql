@@ -5,9 +5,19 @@ with rogers as (
     select * from {{ ref('int_rogers_ngta_spend') }}
 ),
 
--- Telus
+-- Telus (all except column sheet_name)
 telus_ngta as (
-    select * from {{ ref('int_telus_ngta_spend') }}
+    select
+        vendor,
+        source_system,
+        source_table,
+        raw_id,
+        month_start,
+        organization_name,
+        sub_organization_name,
+        lookup_code,
+        spend_amount
+    from {{ ref('int_telus_ngta_spend') }}
 ),
 
 -- TSMA and TSMA Lite
@@ -68,7 +78,9 @@ unioned_ecc_fixed as (
 )
 
 select
-    md5(concat_ws('|', u.vendor, u.source_system, u.source_table, u.raw_id::text)) as spend_line_item_id,
+    -- lookup_code is part of the id because one raw row can give several lines
+    -- (a Rogers cellular bill splits into plans and hardware in int_rogers_ngta_spend).
+    md5(concat_ws('|', u.vendor, u.source_system, u.source_table, u.raw_id::text, u.lookup_code)) as spend_line_item_id,
     p.id        as provider_id,
     u.source_system,
     u.source_table,
@@ -78,13 +90,17 @@ select
     u.sub_organization_name,
     coalesce(sb.bge_id, b.id) as bge_id,
     sc.service_category_id,
+    u.lookup_code,
     sb.id       as sub_bge_id,
     u.spend_amount
 from unioned_ecc_fixed u
+left join {{ source('reference_data', 'provider') }} p on p.code = u.vendor
+-- Matched on provider too: TELUS and Rogers both use source_system 'ngta', so a
+-- code alone could pick up the other provider's mapping.
 left join {{ source('reference_data', 'service_code') }} sc
     on sc.source_system = u.source_system
     and sc.code = u.lookup_code
-left join {{ source('reference_data', 'provider') }} p on p.code = u.vendor
+    and sc.provider_id = p.id
 -- organization_name / sub_organization_name arrive already alias-resolved from the
 -- staging models, so here we only resolve the canonical code to its reference id.
 left join {{ source('reference_data', 'bge') }} b on reference_data.norm_key(b.code) = reference_data.norm_key(u.organization_name)
