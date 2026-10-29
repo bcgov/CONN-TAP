@@ -1,6 +1,22 @@
 version: 2
 
 seeds:
+  - name: telus_tls_charge_descriptions
+    description: >
+      TELUS bill charge descriptions that belong to Time Limited Services (the analysts'
+      LTO list), with the sub-category each one falls under.
+    columns:
+      - name: charge_description
+        tests:
+          # a repeated description would double the bill lines it matches
+          - unique
+      - name: sub_category_code
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'service_sub_category')
+              field: code
+
   - name: bge_alias_map
     description: Maps raw organization name spellings/variants to a canonical BGE code.
     columns:
