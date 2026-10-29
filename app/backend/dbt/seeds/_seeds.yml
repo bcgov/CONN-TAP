@@ -4,7 +4,7 @@ seeds:
   - name: telus_tls_charge_descriptions
     description: >
       TELUS bill charge descriptions that belong to Time Limited Services (the analysts'
-      LTO list), with the TLS sub-category each one falls under.
+      LTO list), with the sub-category each one falls under.
     columns:
       - name: charge_description
         tests:

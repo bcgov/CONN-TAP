@@ -57,7 +57,7 @@ sources:
       - name: raw_telus_v2_connected_worker_hardware_pricebook
       - name: raw_telus_v2_tls_pricebook
         columns:
-          # the pricebook tab; stg_telus_pricebook_services maps each one to a TLS sub-category
+          # the pricebook tab; stg_telus_pricebook_services maps each one to a sub-category
           - name: product
             tests:
               - accepted_values:
