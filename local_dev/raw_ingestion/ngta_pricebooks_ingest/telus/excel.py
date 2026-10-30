@@ -21,6 +21,7 @@ from telus.catalogues import (
     SimpleSheetSpec,
     SplitByValueSheetSpec,
     resolve_sheet,
+    sheet_matches,
 )
 
 HEADER_OVERRIDES: dict[str, str] = {
@@ -33,6 +34,10 @@ HEADER_OVERRIDES: dict[str, str] = {
     "cpm_rate": "cpm_rate",
     "calling_to": "calling_to",
     "usage_rate": "usage_rate",
+    # TLS "HGMV" related tab headers
+    "service_id_code": "service_id",
+    "ngta_enhanced_package": "service_name",
+    "mb_code_description_english": "short_service_description",
 }
 
 
@@ -402,9 +407,8 @@ def parse_workbook(path: Path, book: BookSpec) -> dict[str, list[dict[str, Any]]
     layer with no other validation).
     """
     wb = openpyxl.load_workbook(path, data_only=True)
-    found_sheet_names = {name.strip().casefold() for name in wb.sheetnames}
     missing = [
-        spec.sheet_name for spec in book.sheets if spec.sheet_name.strip().casefold() not in found_sheet_names
+        spec.sheet_name for spec in book.sheets if not any(sheet_matches(spec, name) for name in wb.sheetnames)
     ]
     if missing:
         raise ValueError(f"{path.name}: workbook is missing expected sheet(s): {', '.join(missing)}")
