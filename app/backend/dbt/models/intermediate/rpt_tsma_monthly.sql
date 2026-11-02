@@ -1,10 +1,10 @@
-{{ config(materialized='view') }}
+{{ config(materialized='view', tags=['report']) }}
 
 -- TSMA (main feeds) spend per BGE and month, in the spend report's TSMA rows.
 -- A pivot of rpt_spend_lines, which holds the rules (section, BGE, ECC row, category).
 -- MMS and IVR are display splits of their category (by service code).
 -- Time Limited Services lines are their own section (rpt_tsma_other_monthly).
--- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed by the spend report runbook.
 
 select
     entity_key,

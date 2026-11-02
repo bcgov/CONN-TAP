@@ -1,8 +1,8 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', tags=['report']) }}
 
 -- TELUS NGTA spend per tab and month, in the spend report's five buckets.
--- A table, so the spend report reads stored results: it is refreshed on each dbt run,
--- so a newly ingested month shows up after the next dbt run.
+-- A table, so the spend report reads stored results. Tagged 'report': the deploy skips
+-- it and the spend report runbook rebuilds it before each report.
 -- All classification lives upstream; this only maps dbt categories to report buckets.
 
 with telus as (

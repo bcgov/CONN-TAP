@@ -1,11 +1,11 @@
-{{ config(materialized='view') }}
+{{ config(materialized='view', tags=['report']) }}
 
 -- TSMA Lite spend per month, in the spend report's Lite section columns.
 -- A pivot of rpt_spend_lines, which holds the rules (section, category).
 -- Conferencing and Long Distance are display splits of Voice (by service code).
 -- All Lite spend is reported under School Districts (tsma.py), as every Lite customer
 -- resolves to a school district today (LITE-2).
--- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed by the spend report runbook.
 
 select
     month_start,

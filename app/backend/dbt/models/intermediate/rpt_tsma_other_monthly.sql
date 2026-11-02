@@ -1,10 +1,10 @@
-{{ config(materialized='view') }}
+{{ config(materialized='view', tags=['report']) }}
 
 -- TSMA Time Limited Services spend (Managed Router, Managed Security, Managed WLAN) per
 -- feed, customer, BGE and month, for the spend report. A pivot of rpt_spend_lines, which
 -- holds the rules (section, BGE, ECC row, category). The raw customer name (rcid_cust_nm)
 -- is display detail: the report's Time Limited Services section has a row per customer.
--- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed by the spend report runbook.
 
 with customers as (
     select 'tsma_other_managed_router'::text as source_table, raw_id, rcid_cust_nm

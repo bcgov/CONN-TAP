@@ -1,8 +1,8 @@
-{{ config(materialized='view') }}
+{{ config(materialized='view', tags=['report']) }}
 
 -- Rogers NGTA spend per BGE and month, in the spend report's five buckets.
 -- A pivot of rpt_spend_lines, which holds the rules (section, BGE, ECC row, category).
--- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed by the spend report runbook.
 
 select
     entity_key,
