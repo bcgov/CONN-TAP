@@ -4,7 +4,7 @@
 -- A pivot of rpt_spend_lines, which holds the rules (section, BGE, ECC row, category).
 -- MMS and IVR are display splits of their category (by service code).
 -- Time Limited Services lines are their own section (rpt_tsma_other_monthly).
--- Filter on month_start when querying: each query recomputes from raw rows.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
 
 select
     entity_key,

@@ -5,7 +5,7 @@
 -- Conferencing and Long Distance are display splits of Voice (by service code).
 -- All Lite spend is reported under School Districts (tsma.py), as every Lite customer
 -- resolves to a school district today (LITE-2).
--- Filter on month_start when querying: each query recomputes from raw rows.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
 
 select
     month_start,

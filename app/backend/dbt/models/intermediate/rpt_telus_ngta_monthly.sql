@@ -1,10 +1,9 @@
-{{ config(materialized='view') }}
+{{ config(materialized='table') }}
 
 -- TELUS NGTA spend per tab and month, in the spend report's five buckets.
--- A view: it reads raw data live through int_telus_ngta_spend, so a new month is
--- visible straight after ingestion, before dbt publishes anything to core/analytics.
+-- A table, so the spend report reads stored results: it is refreshed on each dbt run,
+-- so a newly ingested month shows up after the next dbt run.
 -- All classification lives upstream; this only maps dbt categories to report buckets.
--- Filter on month_start when querying: each query recomputes from raw rows.
 
 with telus as (
     select sheet_name, organization_name, month_start, lookup_code, spend_amount

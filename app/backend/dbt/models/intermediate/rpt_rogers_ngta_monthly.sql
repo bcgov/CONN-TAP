@@ -2,7 +2,7 @@
 
 -- Rogers NGTA spend per BGE and month, in the spend report's five buckets.
 -- A pivot of rpt_spend_lines, which holds the rules (section, BGE, ECC row, category).
--- Filter on month_start when querying: each query recomputes from raw rows.
+-- Reads the rpt_spend_lines table, so it is quick; refreshed on each dbt run.
 
 select
     entity_key,

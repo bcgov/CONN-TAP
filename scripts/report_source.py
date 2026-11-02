@@ -1,8 +1,8 @@
 """Read the spend report's inputs from the dbt report views.
 
 The workbook builders read these views directly; there are no exported CSVs or report
-SQL files. The views read raw data live, so a newly ingested month is included without
-publishing anything, but they must exist and be current:
+SQL files. The report data is stored by dbt (rpt_spend_lines and rpt_telus_ngta_monthly
+are tables), so a newly ingested month is included after the next dbt run:
 
     dbt run --select staging intermediate
 
