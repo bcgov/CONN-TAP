@@ -62,9 +62,8 @@ STABLE
 AS $$
 -- The classification lives in dbt only: this reads the report view
 -- (stg_telus_ngta_spend -> int_telus_ngta_spend -> rpt_telus_ngta_monthly), filtered to
--- the two months compared. The view reads raw data live, so a newly ingested month is
--- included before dbt publishes anything. Needs dbt's views to exist and be current
--- (dbt run --select staging intermediate after a model change).
+-- the two months compared. rpt_telus_ngta_monthly is a table, so a newly ingested month is
+-- included after the next dbt run (dbt run --select staging intermediate).
 WITH monthly AS (
   SELECT
     sheet_name AS entity_key,
