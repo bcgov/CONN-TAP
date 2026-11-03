@@ -1,4 +1,4 @@
-{{ config(materialized='view') }}
+{{ config(materialized='table', tags=['report']) }}
 
 -- One row per spend line, with the spend report's shared rules written once:
 --   section     which workbook section the line belongs to
@@ -6,8 +6,9 @@
 --   category    the service tower (dbt's category, from reference_data.service_code or a lookup_code that is a category code)
 --   lookup_code the service code, for display splits within a category (MMS, IVR, ...)
 -- The rpt_* views only pivot this into the workbook's columns.
--- A view over int_service_spend_line_items, the same lines core.fct_service_spend is
--- built from; it reads raw data live, so a new month is visible straight after ingestion.
+-- Built from int_service_spend_line_items, the same lines core.fct_service_spend is
+-- built from. A table, so the spend report reads stored results. Tagged 'report': the
+-- deploy skips it and the spend report runbook rebuilds it before each report.
 
 select
     case

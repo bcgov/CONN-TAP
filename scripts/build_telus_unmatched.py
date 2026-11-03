@@ -155,6 +155,9 @@ other_names AS (
     UNION
     SELECT {_norm_pb('short_service_description')} FROM raw_data.raw_telus_v2_tls_pricebook
     UNION
+    -- some TLS tabs (e.g. Centrex, ADSL) put the item text in "Service ID / Billing ID"
+    SELECT {_norm_pb('service_id')} FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION
     SELECT {_norm_pb('service')} FROM raw_data.raw_telus_v2_voice_data_usage_rates_pricebook
     UNION
     SELECT {_norm_pb('description')} FROM raw_data.raw_telus_v2_voice_data_usage_rates_pricebook

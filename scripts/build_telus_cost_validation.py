@@ -196,16 +196,23 @@ other_id_fee AS (
   ) x WHERE sid IS NOT NULL AND sid <> ''
   GROUP BY sid HAVING COUNT(fee_num) > 0
 ),
+-- Some TLS tabs (e.g. Centrex, ADSL) put the item text in "Service ID / Billing ID",
+-- so service_id is matched as text too. MWLAN is left out: its rates are hourly
+-- and one-time design fees, not monthly fees.
 tls_name_fee AS (
   SELECT name_norm, MIN(service_id) AS service_id,
          ARRAY_AGG(fee_num) FILTER (WHERE fee_num IS NOT NULL) AS fees
   FROM (
     SELECT {_norm_pb('service_name')} AS name_norm, TRIM(service_id) AS service_id,
-           {_fee_num('monthly_fee')} AS fee_num FROM raw_data.raw_telus_v2_tls_pricebook
+           {_fee_num('monthly_fee')} AS fee_num, product FROM raw_data.raw_telus_v2_tls_pricebook
     UNION ALL
     SELECT {_norm_pb('short_service_description')}, TRIM(service_id),
-           {_fee_num('monthly_fee')} FROM raw_data.raw_telus_v2_tls_pricebook
+           {_fee_num('monthly_fee')}, product FROM raw_data.raw_telus_v2_tls_pricebook
+    UNION ALL
+    SELECT {_norm_pb('service_id')}, TRIM(service_id),
+           {_fee_num('monthly_fee')}, product FROM raw_data.raw_telus_v2_tls_pricebook
   ) x WHERE name_norm IS NOT NULL AND name_norm <> ''
+    AND product IS DISTINCT FROM 'MWLAN'
   GROUP BY name_norm HAVING COUNT(fee_num) > 0
 ),
 spend AS (

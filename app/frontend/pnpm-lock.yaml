@@ -15,8 +15,8 @@ importers:
         specifier: ^0.7.0
         version: 0.7.0(@bcgov/bc-sans@2.1.2)(@react-spectrum/provider@3.11.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@bcgov/design-tokens':
-        specifier: ^4.0.0
-        version: 4.0.0
+        specifier: ^5.0.0
+        version: 5.0.0
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.3.0)(react@19.3.1)
@@ -282,8 +282,8 @@ packages:
   '@bcgov/design-tokens@3.2.0':
     resolution: {integrity: sha512-2D3mPFKTpNLeIp8ER9y8oDKxXE8+rBfcvuF4yFd7uUvDm0izZNFhambUi6sN3OdkmuZoGQO7AjlMtOQzsHtxzA==}
 
-  '@bcgov/design-tokens@4.0.0':
-    resolution: {integrity: sha512-kcen18Q/snP6M6JQ6XUQTlWXM1Gnm6y8Zk0i29K+T/Y0m/ab4PufmGpl43l/EJKCnYgpOaZFSXDK7CCO6P0INw==}
+  '@bcgov/design-tokens@5.0.0':
+    resolution: {integrity: sha512-D4Ub2jZ04Jv7hBUi6gqHTzIYTLtsqdr/FMv+m598IcfMLUy3b6CEVh3UH9ZXZLC/npPC7g05I4j3YMm46IGWjQ==}
 
   '@bcoe/v8-coverage@1.0.2':
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
@@ -5378,7 +5378,7 @@ snapshots:
 
   '@bcgov/design-tokens@3.2.0': {}
 
-  '@bcgov/design-tokens@4.0.0': {}
+  '@bcgov/design-tokens@5.0.0': {}
 
   '@bcoe/v8-coverage@1.0.2': {}
 
@@ -8059,7 +8059,7 @@ snapshots:
       eslint: 10.13.0
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint@10.13.0))(eslint@10.13.0)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint@10.13.0))(eslint@10.13.0))(eslint@10.13.0)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.13.0)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@10.13.0)
       eslint-plugin-react: 7.37.5(eslint@10.13.0)
       eslint-plugin-react-hooks: 7.1.1(eslint@10.13.0)
@@ -8092,7 +8092,7 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint@10.13.0))(eslint@10.13.0))(eslint@10.13.0)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.13.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -8107,7 +8107,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint@10.13.0))(eslint@10.13.0))(eslint@10.13.0):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.13.0):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.2.0
