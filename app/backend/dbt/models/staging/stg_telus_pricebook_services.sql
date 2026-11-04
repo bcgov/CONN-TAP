@@ -69,6 +69,8 @@ select distinct
         when 'Centrex' then 'tls_centrex'
         when 'Analog Private Line' then 'tls_analog_private_line'
         when 'Managed Router' then 'tls_managed_router'
+        when 'MWLAN' then 'tls_managed_wlan'
+        when 'HGMV' then 'tls_health_grade_managed_voice'
         -- 'ADSL Services' covers both the voice and the data bill, so the LTO list decides those
     end as sub_category_code,
     priority

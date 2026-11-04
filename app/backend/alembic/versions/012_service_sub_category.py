@@ -1,4 +1,4 @@
-"""Add reference_data.service_sub_category with the Time Limited Services sub-categories.
+"""Bring the service categories in line with the analysts' list: TLS sub-categories and Ancillary Products.
 
 Revision ID: 012_service_sub_category
 Revises: 011_rogers_professional_services
@@ -57,7 +57,30 @@ def upgrade() -> None:
         ON CONFLICT (code) DO NOTHING
         """
     )
+    op.execute(
+        """
+        INSERT INTO reference_data.service_category (code, name)
+        VALUES ('ancillary_hardware', 'Ancillary Products - Hardware')
+        ON CONFLICT (code) DO NOTHING
+        """
+    )
+    op.execute(_rename("cellular_hardware", "Ancillary Products - Cellular Hardware"))
+    op.execute(_rename("professional_services", "Ancillary Products - Professional Services"))
 
 
 def downgrade() -> None:
+    op.execute(_rename("cellular_hardware", "Cellular Hardware"))
+    op.execute(_rename("professional_services", "Professional Services"))
+    # Only droppable once nothing points at it: analytics rows still using it
+    # need a dbt run to move off first.
+    op.execute("DELETE FROM reference_data.service_category WHERE code = 'ancillary_hardware'")
     op.execute("DROP TABLE IF EXISTS reference_data.service_sub_category")
+
+
+def _rename(category_code: str, name: str) -> str:
+    """Set a category's display name. Both arguments are literals written in this file."""
+    return f"""
+        UPDATE reference_data.service_category
+        SET name = '{name}', updated_at = now()
+        WHERE code = '{category_code}'
+    """

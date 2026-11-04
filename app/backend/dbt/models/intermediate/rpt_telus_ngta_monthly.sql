@@ -18,7 +18,7 @@ select
     coalesce(sum(t.spend_amount) filter (where t.lookup_code = 'cellular'), 0)          as cellular_plans,
     coalesce(sum(t.spend_amount) filter (where t.lookup_code = 'data'), 0)              as data_spend,
     coalesce(sum(t.spend_amount) filter (where t.lookup_code = 'voice'), 0)             as voice_spend,
-    -- Unknown, or any other category (Time Limited Services, Professional Services), is the report's Other
+    -- Unknown, or any other category (Time Limited Services, Professional Services, Ancillary Hardware), is the report's Other
     coalesce(sum(t.spend_amount) filter (
         where t.lookup_code not in ('cellular_hardware', 'cellular', 'data', 'voice')
     ), 0)                                                                               as other_spend,
