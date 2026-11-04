@@ -44,6 +44,8 @@ source_id_categories as (
 -- ============================================================
 
 -- Pricebook match by service ID. An ID in more than one pricebook takes the first one (TLS first).
+-- TODO: an ID on more than one TLS tab gets the sub-category of either tab; waiting on
+-- TELUS to say which tab is right.
 pricebook_ids as (
     select distinct on (service_id)
         service_id,
