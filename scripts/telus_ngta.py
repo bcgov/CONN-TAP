@@ -4,24 +4,16 @@ The section builder is parameterised by `first_row` so it can be embedded
 inside the full spend_tracking workbook (first_row=110) or written as a
 standalone file (first_row=5, after four rows of month/quarter headers).
 
-Row layout relative to first_row
+Row layout, top to bottom (n = the 8 spend rows in NGTA_SPEND_ROWS)
 ---------------------------------
-  first_row + 0     : TELUS NGTA header
-  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Unknown)
-  first_row + 6     : Summary Total  ← returned by build_telus_ngta_section()
-  first_row + 7     : BGEs header (outline level 1)
-  first_row + 8     : first BGE data row
-  first_row + 91    : last BGE data row (14 BGEs × 6 rows)
-  first_row + 92-96 : aggregate TOTAL rows (outline level 1)
-  first_row + 97    : hidden separator
-  first_row + 98-102 : hidden Gov & ECC sub-totals
-  first_row + 103   : hidden separator
-  first_row + 104-108: hidden Health sub-totals
-  first_row + 109   : hidden separator
-  first_row + 110-114: hidden Crown Corps sub-totals
-  first_row + 115   : hidden separator
-  first_row + 116-120: hidden School Districts sub-totals
-  first_row + 121   : cyan separator (omitted when include_separator=False)
+  TELUS NGTA header
+  n summary rows, then the summary Total  <- returned by build_telus_ngta_section()
+  BGEs header (outline level 1)
+  14 BGEs x (n spend rows + Total)
+  n aggregate TOTAL rows (outline level 1)
+  hidden sub-totals: Gov & ECC, Health, Crown Corps, School Districts
+    (a separator and n rows each)
+  cyan separator (omitted when include_separator=False)
 """
 
 import os
@@ -33,7 +25,7 @@ from sheet_utils import (
     BG_TELUS_HDR, BG_TELUS_BGE, BG_SEPARATOR,
     COL_A, COL_B, COL_AM, COL_AN, COL_AO, COL_AP, COL_AR, COL_AS,
     MONTH_COLS, FIRST_MONTH, LAST_MONTH, Y2024, Y2025,
-    BGES, BGE_A_LABELS, BGE_A2_LABELS, NGTA_BGE_ROWS,
+    BGES, BGE_A_LABELS, BGE_A2_LABELS, NGTA_SPEND_ROWS, NGTA_BGE_ROWS,
     _build_ngta_row_map, _ngta_rows_by_type,
     col_letter, annual_sum, q_sum, sum_rows,
     write, write_f, set_row_props,
@@ -92,11 +84,14 @@ ENTITY_KEY_MAP = {
 
 # Maps report view columns → NGTA_BGE_ROWS row-type keys
 SPEND_COL_MAP = {
-    "cellular_plans":    "cell_plans",
-    "cellular_hardware": "cell_hw",
-    "data_spend":        "data",
-    "voice_spend":       "voice",
-    "other_spend":       "other",
+    "cellular_plans":              "cell_plans",
+    "cellular_hardware":           "cell_hw",
+    "data_spend":                  "data",
+    "voice_spend":                 "voice",
+    "tls_spend":                   "tls",
+    "professional_services_spend": "prof_services",
+    "ancillary_hardware_spend":    "anc_hw",
+    "other_spend":                 "other",
 }
 
 # ---------------------------------------------------------------------------
@@ -106,7 +101,8 @@ SPEND_COL_MAP = {
 # One row per TELUS tab and month (dbt view rpt_telus_ngta_monthly); entity_key is the tab.
 TELUS_QUERY = """
     SELECT sheet_name AS entity_key, month_start,
-           cellular_hardware, cellular_plans, data_spend, voice_spend, other_spend
+           cellular_hardware, cellular_plans, data_spend, voice_spend,
+           tls_spend, professional_services_spend, ancillary_hardware_spend, other_spend
     FROM intermediate.rpt_telus_ngta_monthly
 """
 
@@ -160,18 +156,9 @@ def load_telus_ngta() -> dict:
 # Section builder
 # ---------------------------------------------------------------------------
 
-_SPEND_TYPES = [
-    ("Cellular",     "cell_plans"),
-    ("Cellular H/W", "cell_hw"),
-    ("Data",         "data"),
-    ("Voice",        "voice"),
-    ("Unknown",      "other"),
-]
-
-
 def build_telus_ngta_section(ws, F, telus_data: dict, *,
                               first_row: int = 110,
-                              include_separator: bool = True) -> int:
+                              include_separator: bool = True) -> tuple[int, int]:
     """Write the complete TELUS NGTA section to *ws* starting at *first_row*.
 
     Args:
@@ -184,25 +171,16 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
         include_separator: Write the cyan separator row at the very end.
 
     Returns:
-        The row number of the summary "Total" row so callers can reference
-        it in combined-total formulas.
+        (summary Total row, next free row): the Total row for combined-total
+        formulas, and the row the next section starts on.
     """
     # ---- derive all section-relative row positions ----
-    bges_data_start = first_row + 8
+    n = len(NGTA_SPEND_ROWS)
+    sum_start = first_row + 1            # n summary rows
+    sum_total_r = sum_start + n          # summary Total
+    bges_hdr = sum_total_r + 1
+    bges_data_start = bges_hdr + 1
     telus_row_map, tot_start = _build_ngta_row_map(bges_data_start)
-    # tot_start = first_row + 8 + 14×6 = first_row + 92
-
-    tot_plans = tot_start
-    tot_hw    = tot_start + 1
-    tot_dat   = tot_start + 2
-    tot_voi   = tot_start + 3
-    tot_oth   = tot_start + 4
-
-    plans_rows = _ngta_rows_by_type(telus_row_map, 'cell_plans')
-    hw_rows    = _ngta_rows_by_type(telus_row_map, 'cell_hw')
-    dat_rows   = _ngta_rows_by_type(telus_row_map, 'data')
-    voi_rows   = _ngta_rows_by_type(telus_row_map, 'voice')
-    oth_rows   = _ngta_rows_by_type(telus_row_map, 'other')
 
     _ftelh   = F.n(bg_color=BG_TELUS_HDR)
     _ftelh_b = F.n(bold=True, bg_color=BG_TELUS_HDR)
@@ -215,31 +193,22 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
     set_row_props(ws, first_row, height=16, fmt=_ftelh)
     write(ws, first_row, COL_B, "TELUS NGTA", _ftelh_b)
 
-    # ---- summary rows (plans / hw / data / voice / other) ----
-    sum_start = first_row + 1
-    for i, (label, tot_row) in enumerate([
-        ("Cellular Plans", tot_plans),
-        ("Cellular H/W",   tot_hw),
-        ("Data",           tot_dat),
-        ("Voice",          tot_voi),
-        ("Unknown",        tot_oth),
-    ]):
+    # ---- summary rows, one per spend row, each pointing at its TOTAL row ----
+    for i, (label, _rtype) in enumerate(NGTA_SPEND_ROWS):
         r = sum_start + i
         set_row_props(ws, r, height=17, fmt=_ftelh)
         write(ws, r, COL_B, label, _ftelh)
-        write_monthly_ref(ws, r, tot_row, _ftelh)
+        write_monthly_ref(ws, r, tot_start + i, _ftelh)
         write(ws, r, COL_AN, label)
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
     # ---- summary Total row ----
-    sum_total_r = sum_start + 5   # = first_row + 6
     set_row_props(ws, sum_total_r, height=17, fmt=_ftelh, opts={"collapsed": True})
     write(ws, sum_total_r, COL_B, "Total", _ftelh_b)
-    write_monthly_sum_range(ws, sum_total_r, sum_start, sum_start + 4, _ftelh_b)
+    write_monthly_sum_range(ws, sum_total_r, sum_start, sum_start + n - 1, _ftelh_b)
 
     # ---- BGEs header ----
-    bges_hdr = first_row + 7
     set_row_props(ws, bges_hdr, fmt=_ftelh, opts=_collapsed)
     write(ws, bges_hdr, COL_A, "BGEs", _ftelh_b)
 
@@ -267,30 +236,25 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
                     if val is not None:
                         write(ws, r, col, val, _ftelb)
 
-    # ---- aggregate TOTAL rows ----
-    for r, label, rows_list in [
-        (tot_plans, "TOTAL Cellular Plans", plans_rows),
-        (tot_hw,    "TOTAL Cellular H/W",   hw_rows),
-        (tot_dat,   "TOTAL Data",            dat_rows),
-        (tot_voi,   "TOTAL Voice",           voi_rows),
-        (tot_oth,   "TOTAL Unknown",         oth_rows),
-    ]:
+    # ---- aggregate TOTAL rows, one per spend row ----
+    for i, (label, rtype) in enumerate(NGTA_SPEND_ROWS):
+        r = tot_start + i
         set_row_props(ws, r, height=17, fmt=_ftelh, opts=_collapsed)
-        write(ws, r, COL_B, label, _ftelh)
-        write_monthly_sum_rows(ws, r, rows_list, _ftelh)
-        write(ws, r, COL_AN, label.replace("TOTAL ", ""))
+        write(ws, r, COL_B, f"TOTAL {label}", _ftelh)
+        write_monthly_sum_rows(ws, r, _ngta_rows_by_type(telus_row_map, rtype), _ftelh)
+        write(ws, r, COL_AN, label)
         write_f(ws, r, COL_AR, q_sum(r, Y2025[0],  Y2025[2]))
         write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
 
     # ---- hidden sub-aggregate rows ----
-    # Layout: sep + 5 data rows, repeated 4 times (Gov & ECC, Health, Crown, School Districts)
-    _hidden_base = tot_oth + 1   # = first_row + 97
+    # Layout: sep + n rows, repeated 4 times (Gov & ECC, Health, Crown, School Districts)
+    _hidden_base = tot_start + n
 
     # Gov & ECC (formula: GovBC row + ECC row)
     gov_r = telus_row_map["Gov BC"]
     ecc_r = telus_row_map["ECC"]
     set_row_props(ws, _hidden_base, height=16, fmt=_ftelb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(NGTA_SPEND_ROWS):
         r = _hidden_base + 1 + idx
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -306,9 +270,9 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
 
     # Health (sum of health BGE rows)
     health_bges = ["FHA", "NHA", "ICBC", "PHSA", "IHA", "VIHA", "FNHA", "VCHA"]
-    health_sep  = _hidden_base + 6
+    health_sep  = _hidden_base + (n + 1)
     set_row_props(ws, health_sep, height=16, fmt=_ftelb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(NGTA_SPEND_ROWS):
         r = health_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -321,9 +285,9 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
 
     # Crown Corps
     crown_bges = ["BCLC", "BC Hydro", "WSBC", "ICBC"]
-    crown_sep  = _hidden_base + 12
+    crown_sep  = _hidden_base + 2 * (n + 1)
     set_row_props(ws, crown_sep, height=16, fmt=_ftelb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(NGTA_SPEND_ROWS):
         r = crown_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -336,9 +300,9 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
 
     # School Districts (reference to that single BGE's rows)
     sd_r   = telus_row_map["School Districts"]
-    sd_sep = _hidden_base + 18
+    sd_sep = _hidden_base + 3 * (n + 1)
     set_row_props(ws, sd_sep, height=16, fmt=_ftelb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(NGTA_SPEND_ROWS):
         r = sd_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_ftelb, opts=_hidden)
         write(ws, r, COL_B, label, _ftelb)
@@ -349,8 +313,9 @@ def build_telus_ngta_section(ws, F, telus_data: dict, *,
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
     # ---- optional cyan separator ----
+    next_row = _hidden_base + 4 * (n + 1)
     if include_separator:
-        sep_r = _hidden_base + 24   # = first_row + 121
-        set_row_props(ws, sep_r, height=16, fmt=F(bg_color=BG_SEPARATOR))
+        set_row_props(ws, next_row, height=16, fmt=F(bg_color=BG_SEPARATOR))
+        next_row += 1
 
-    return sum_total_r
+    return sum_total_r, next_row
