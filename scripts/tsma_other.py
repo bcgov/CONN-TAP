@@ -154,7 +154,7 @@ def load_tsma_other() -> dict:
 # Section builder
 # ---------------------------------------------------------------------------
 
-def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
+def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> int:
     """Write the complete Out-of-Scope section to *ws* starting at *first_row*.
 
     Args:
@@ -164,6 +164,9 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
         first_row: Row number of the "Time Limited Services" header (1-based).
                    Use 355 in the full spend_tracking sheet,
                    use 5 in the standalone tsma_other_spend sheet.
+
+    Returns:
+        The row the next section starts on.
     """
     f_bold    = F(bold=True)
     f_section = F(bold=True)
@@ -238,3 +241,4 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
 
     # ---- Blank trailing row ----
     set_row_props(ws, sec_total + 1, height=16)
+    return sec_total + 2
