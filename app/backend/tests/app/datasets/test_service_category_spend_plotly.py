@@ -87,3 +87,14 @@ def test_empty_frame_produces_no_annotations() -> None:
     ).metadata["chart"]
 
     assert chart["layout"]["annotations"] == []
+
+
+def test_long_category_names_break_onto_two_lines() -> None:
+    chart = chart_of(
+        row("Cellular", "telus", 21_600_000.0),
+        row("Ancillary Products - Cellular Hardware", "telus", 1_200_000.0),
+    )
+
+    xaxis = chart["layout"]["xaxis"]
+    assert xaxis["tickvals"] == ["Cellular", "Ancillary Products - Cellular Hardware"]
+    assert xaxis["ticktext"] == ["Cellular", "Ancillary Products<br>Cellular Hardware"]

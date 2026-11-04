@@ -9,6 +9,7 @@ import type { CsvData } from "@/components/chart-download-button";
 import {
   applyOutsideLabels,
   plotlyCategoryRows,
+  sortServiceCategories,
   type CategoryRow,
   type PlotlyChart,
   type PlotlyTrace,
@@ -32,6 +33,12 @@ const CategoryGraph = ({ chart }: { chart: PlotlyChart }) => (
     )}
     layout={{
       ...chart.layout,
+      xaxis: {
+        ...chart.layout.xaxis,
+        categoryarray: sortServiceCategories(
+          (chart.layout.xaxis?.categoryarray ?? []).map(String),
+        ),
+      },
       autosize: true,
       showlegend: true,
       legend: {
