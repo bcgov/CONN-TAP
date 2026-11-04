@@ -150,6 +150,9 @@ def build_plotly_result(dataset_id: str, df: pd.DataFrame, filters: Filters) -> 
                         "title": {"text": "Service category", "font": {"size": 11}},
                         "categoryorder": "array",
                         "categoryarray": categories,
+                        # Long names ("Ancillary Products - Cellular Hardware") go on two lines
+                        "tickvals": categories,
+                        "ticktext": [category.replace(" - ", "<br>") for category in categories],
                     },
                     "yaxis": {"title": {"text": "Spend ($M)", "font": {"size": 11}}, "range": [0, max_stack * 1.25]},
                     "margin": {"l": 72, "r": 24, "t": 24, "b": 96},
