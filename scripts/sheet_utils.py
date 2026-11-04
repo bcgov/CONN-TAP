@@ -128,23 +128,31 @@ BGE_A2_LABELS = [
     None, None, "(+PHC)", None,
 ]
 
-NGTA_BGE_ROWS = [
-    ('Cellular Plans', 'cell_plans'),
-    ('Cellular H/W',   'cell_hw'),
-    ('Data',           'data'),
-    ('Voice',          'voice'),
-    ('Unknown',        'other'),
-    ('Total',          'total'),
+# The spend rows of the NGTA sections (TELUS, Rogers): one per service category.
+NGTA_SPEND_ROWS = [
+    ('Cellular Plans',                             'cell_plans'),
+    ('Ancillary Products - Cellular Hardware',     'cell_hw'),
+    ('Data',                                       'data'),
+    ('Voice',                                      'voice'),
+    ('Time Limited Services',                      'tls'),
+    ('Ancillary Products - Professional Services', 'prof_services'),
+    ('Ancillary Products - Hardware',              'anc_hw'),
+    ('Unknown',                                    'other'),
 ]
+NGTA_BGE_ROWS = NGTA_SPEND_ROWS + [('Total', 'total')]
+
+# Rogers has no Time Limited Services.
+ROGERS_SPEND_ROWS = [row for row in NGTA_SPEND_ROWS if row[1] != 'tls']
+ROGERS_BGE_ROWS = ROGERS_SPEND_ROWS + [('Total', 'total')]
 
 
-def _build_ngta_row_map(start_row: int):
-    """Return ({bge_name: {row_type: row_number}}, next_free_row) with 6 rows per BGE."""
+def _build_ngta_row_map(start_row: int, bge_rows=NGTA_BGE_ROWS):
+    """Return ({bge_name: {row_type: row_number}}, next_free_row), one block of bge_rows per BGE."""
     row_map = {}
     r = start_row
     for bge in BGE_A_LABELS:
         row_map[bge] = {}
-        for _label, rtype in NGTA_BGE_ROWS:
+        for _label, rtype in bge_rows:
             row_map[bge][rtype] = r
             r += 1
     return row_map, r
@@ -254,7 +262,7 @@ def write_summary_cols(ws, row_1: int, label: str,
 def set_column_widths(ws):
     """Apply the standard column widths used by all spend-tracking sheets."""
     ws.set_column(COL_A, COL_A, 10.5)
-    ws.set_column(COL_B, COL_B, 43.0)
+    ws.set_column(COL_B, COL_B, 50.0)  # fits 'TOTAL Ancillary Products - Professional Services'
     ws.set_column(FIRST_MONTH, LAST_MONTH, 10.5)
     ws.set_column(11, 11, 11.5)
     ws.set_column(18, 18, 11.17)
