@@ -4,24 +4,16 @@ The section builder is parameterised by `first_row` so it can be embedded
 inside the full spend_tracking workbook (first_row=232) or written as a
 standalone file (first_row=5, after four rows of month/quarter headers).
 
-Row layout relative to first_row
+Row layout, top to bottom (n = the 7 spend rows in ROGERS_SPEND_ROWS)
 ---------------------------------
-  first_row + 0     : Rogers NGTA header
-  first_row + 1-5   : Summary rows (Cellular Plans / H/W / Data / Voice / Unknown)
-  first_row + 6     : Summary Total  ← returned by build_rogers_ngta_section()
-  first_row + 7     : BGEs header (outline level 1)
-  first_row + 8     : first BGE data row
-  first_row + 91    : last BGE data row (14 BGEs × 6 rows)
-  first_row + 92-96 : aggregate TOTAL rows (outline level 1)
-  first_row + 97    : hidden separator
-  first_row + 98-102 : hidden Gov & ECC sub-totals
-  first_row + 103   : hidden separator
-  first_row + 104-108: hidden Health sub-totals
-  first_row + 109   : hidden separator
-  first_row + 110-114: hidden Crown Corps sub-totals
-  first_row + 115   : hidden separator
-  first_row + 116-120: hidden School Districts sub-totals
-  first_row + 122   : cyan separator (omitted when include_separator=False)
+  Rogers NGTA header
+  n summary rows, then the summary Total  <- returned by build_rogers_ngta_section()
+  BGEs header (outline level 1)
+  14 BGEs x (n spend rows + Total)
+  n aggregate TOTAL rows (outline level 1)
+  hidden sub-totals: Gov & ECC, Health, Crown Corps, School Districts
+    (a separator and n rows each)
+  blank row + cyan separator (omitted when include_separator=False)
 """
 
 import os
@@ -33,7 +25,7 @@ from sheet_utils import (
     BG_ROGERS_HDR, BG_ROGERS_BGE, BG_SEPARATOR,
     COL_A, COL_B, COL_AM, COL_AN, COL_AO, COL_AP, COL_AR, COL_AS,
     MONTH_COLS, FIRST_MONTH, LAST_MONTH, Y2024, Y2025,
-    BGES, BGE_A_LABELS, BGE_A2_LABELS, NGTA_BGE_ROWS,
+    BGES, BGE_A_LABELS, BGE_A2_LABELS, ROGERS_SPEND_ROWS, ROGERS_BGE_ROWS,
     _build_ngta_row_map, _ngta_rows_by_type,
     col_letter, annual_sum, q_sum,
     write, write_f, set_row_props,
@@ -69,13 +61,15 @@ BGE_ROWS = {
     "WSBC": "WSBC",
 }
 
-# Maps report view columns → NGTA_BGE_ROWS row-type keys
+# Maps report view columns → ROGERS_BGE_ROWS row-type keys
 SPEND_COL_MAP = {
-    "cellular_plans":    "cell_plans",
-    "cellular_hardware": "cell_hw",
-    "data_spend":        "data",
-    "voice_spend":       "voice",
-    "other_spend":       "other",
+    "cellular_plans":              "cell_plans",
+    "cellular_hardware":           "cell_hw",
+    "data_spend":                  "data",
+    "voice_spend":                 "voice",
+    "professional_services_spend": "prof_services",
+    "ancillary_hardware_spend":    "anc_hw",
+    "other_spend":                 "other",
 }
 
 # ---------------------------------------------------------------------------
@@ -85,7 +79,8 @@ SPEND_COL_MAP = {
 # One row per BGE and month (dbt view rpt_rogers_ngta_monthly); entity_key is the BGE code.
 ROGERS_QUERY = """
     SELECT entity_key, month_start, cellular_hardware, cellular_plans,
-           data_spend, voice_spend, other_spend, total_reported
+           data_spend, voice_spend, professional_services_spend,
+           ancillary_hardware_spend, other_spend, total_reported
     FROM intermediate.rpt_rogers_ngta_monthly
 """
 
@@ -175,18 +170,9 @@ def load_rogers_ngta() -> dict[tuple[str, str, int], float]:
 # Section builder
 # ---------------------------------------------------------------------------
 
-_SPEND_TYPES = [
-    ("Cellular",     "cell_plans"),
-    ("Cellular H/W", "cell_hw"),
-    ("Data",         "data"),
-    ("Voice",        "voice"),
-    ("Unknown",      "other"),
-]
-
-
 def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
                                first_row: int = 232,
-                               include_separator: bool = True) -> int:
+                               include_separator: bool = True) -> tuple[int, int]:
     """Write the complete Rogers NGTA section to *ws* starting at *first_row*.
 
     Args:
@@ -199,24 +185,16 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
         include_separator: Write the cyan separator row at the very end.
 
     Returns:
-        The row number of the summary "Total" row so callers can reference
-        it in combined-total formulas.
+        (summary Total row, next free row): the Total row for combined-total
+        formulas, and the row the next section starts on.
     """
     # ---- derive all section-relative row positions ----
-    bges_data_start = first_row + 8
-    rogers_row_map, tot_start = _build_ngta_row_map(bges_data_start)
-
-    tot_plans = tot_start
-    tot_hw    = tot_start + 1
-    tot_dat   = tot_start + 2
-    tot_voi   = tot_start + 3
-    tot_oth   = tot_start + 4
-
-    plans_rows = _ngta_rows_by_type(rogers_row_map, "cell_plans")
-    hw_rows    = _ngta_rows_by_type(rogers_row_map, "cell_hw")
-    dat_rows   = _ngta_rows_by_type(rogers_row_map, "data")
-    voi_rows   = _ngta_rows_by_type(rogers_row_map, "voice")
-    oth_rows   = _ngta_rows_by_type(rogers_row_map, "other")
+    n = len(ROGERS_SPEND_ROWS)
+    sum_start = first_row + 1            # n summary rows
+    sum_total_r = sum_start + n          # summary Total
+    bges_hdr = sum_total_r + 1
+    bges_data_start = bges_hdr + 1
+    rogers_row_map, tot_start = _build_ngta_row_map(bges_data_start, ROGERS_BGE_ROWS)
 
     _frogh   = F.n(bg_color=BG_ROGERS_HDR)
     _frogh_b = F.n(bold=True, bg_color=BG_ROGERS_HDR)
@@ -229,31 +207,22 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
     set_row_props(ws, first_row, height=16, fmt=_frogh)
     write(ws, first_row, COL_B, "Rogers NGTA", _frogh_b)
 
-    # ---- summary rows (plans / hw / data / voice / other) ----
-    sum_start = first_row + 1
-    for i, (label, tot_row) in enumerate([
-        ("Cellular Plans", tot_plans),
-        ("Cellular H/W",   tot_hw),
-        ("Data",           tot_dat),
-        ("Voice",          tot_voi),
-        ("Unknown",        tot_oth),
-    ]):
+    # ---- summary rows, one per spend row, each pointing at its TOTAL row ----
+    for i, (label, _rtype) in enumerate(ROGERS_SPEND_ROWS):
         r = sum_start + i
         set_row_props(ws, r, height=17, fmt=_frogh)
         write(ws, r, COL_B, label, _frogh)
-        write_monthly_ref(ws, r, tot_row, _frogh)
+        write_monthly_ref(ws, r, tot_start + i, _frogh)
         write(ws, r, COL_AN, label)
         write_f(ws, r, COL_AO, annual_sum(r, Y2024))
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
     # ---- summary Total row ----
-    sum_total_r = sum_start + 5
     set_row_props(ws, sum_total_r, height=17, fmt=_frogh, opts={"collapsed": True})
     write(ws, sum_total_r, COL_B, "Total", _frogh_b)
-    write_monthly_sum_range(ws, sum_total_r, sum_start, sum_start + 4, _frogh_b)
+    write_monthly_sum_range(ws, sum_total_r, sum_start, sum_start + n - 1, _frogh_b)
 
     # ---- BGEs header ----
-    bges_hdr = first_row + 7
     set_row_props(ws, bges_hdr, fmt=_frogh, opts=_collapsed)
     write(ws, bges_hdr, COL_A, "BGEs", _frogh_b)
 
@@ -264,7 +233,7 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
         first_r = bge_rm["cell_plans"]
         last_r = bge_rm["total"]
 
-        for label, rtype in NGTA_BGE_ROWS:
+        for label, rtype in ROGERS_BGE_ROWS:
             r = bge_rm[rtype]
             set_row_props(ws, r, height=17, fmt=_frogb, opts=_collapsed)
             if r == first_r:
@@ -281,31 +250,26 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
                     if val is not None:
                         write(ws, r, col, val, _frogb)
 
-    # ---- aggregate TOTAL rows ----
-    for r, label, rows_list in [
-        (tot_plans, "TOTAL Cellular Plans", plans_rows),
-        (tot_hw,    "TOTAL Cellular H/W",   hw_rows),
-        (tot_dat,   "TOTAL Data",           dat_rows),
-        (tot_voi,   "TOTAL Voice",          voi_rows),
-        (tot_oth,   "TOTAL Unknown",        oth_rows),
-    ]:
+    # ---- aggregate TOTAL rows, one per spend row ----
+    for i, (label, rtype) in enumerate(ROGERS_SPEND_ROWS):
+        r = tot_start + i
         set_row_props(ws, r, height=17, fmt=_frogh, opts=_collapsed)
-        write(ws, r, COL_B, label, _frogh)
-        write_monthly_sum_rows(ws, r, rows_list, _frogh)
-        write(ws, r, COL_AN, label.replace("TOTAL ", ""))
+        write(ws, r, COL_B, f"TOTAL {label}", _frogh)
+        write_monthly_sum_rows(ws, r, _ngta_rows_by_type(rogers_row_map, rtype), _frogh)
+        write(ws, r, COL_AN, label)
         write_f(ws, r, COL_AR, q_sum(r, Y2025[0], Y2025[2]))
         write_f(ws, r, COL_AS, q_sum(r, Y2025[9], Y2025[11]))
 
     # ---- hidden sub-aggregate rows ----
-    # Layout: sep + 5 data rows, repeated 4 times
+    # Layout: sep + n rows, repeated 4 times
     # (Gov & ECC, Health, Crown, School Districts).
-    hidden_base = tot_oth + 1
+    hidden_base = tot_start + n
 
     # Gov & ECC (formula: GovBC row + ECC row)
     gov_r = rogers_row_map["Gov BC"]
     ecc_r = rogers_row_map["ECC"]
     set_row_props(ws, hidden_base, height=16, fmt=_frogb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(ROGERS_SPEND_ROWS):
         r = hidden_base + 1 + idx
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -321,9 +285,9 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
 
     # Health (sum of health BGE rows)
     health_bges = ["FHA", "NHA", "ICBC", "PHSA", "IHA", "VIHA", "FNHA", "VCHA"]
-    health_sep = hidden_base + 6
+    health_sep = hidden_base + (n + 1)
     set_row_props(ws, health_sep, height=16, fmt=_frogb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(ROGERS_SPEND_ROWS):
         r = health_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -336,9 +300,9 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
 
     # Crown Corps
     crown_bges = ["BCLC", "BC Hydro", "WSBC", "ICBC"]
-    crown_sep = hidden_base + 12
+    crown_sep = hidden_base + 2 * (n + 1)
     set_row_props(ws, crown_sep, height=16, fmt=_frogb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(ROGERS_SPEND_ROWS):
         r = crown_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -351,9 +315,9 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
 
     # School Districts (reference to that single BGE's rows)
     sd_r = rogers_row_map["School Districts"]
-    sd_sep = hidden_base + 18
+    sd_sep = hidden_base + 3 * (n + 1)
     set_row_props(ws, sd_sep, height=16, fmt=_frogb, opts=_hidden)
-    for idx, (label, rtype) in enumerate(_SPEND_TYPES):
+    for idx, (label, rtype) in enumerate(ROGERS_SPEND_ROWS):
         r = sd_sep + 1 + idx
         set_row_props(ws, r, height=17, fmt=_frogb, opts=_hidden)
         write(ws, r, COL_B, label, _frogb)
@@ -364,11 +328,11 @@ def build_rogers_ngta_section(ws, F, rogers_data: dict, *,
         write_f(ws, r, COL_AP, annual_sum(r, Y2025))
 
     # ---- optional cyan separator ----
+    next_row = hidden_base + 4 * (n + 1)
     if include_separator:
-        # Rogers keeps one blank row before the separator in the master sheet,
-        # preserving the existing ROWS 232-354 layout.
-        sep_r = hidden_base + 25
-        set_row_props(ws, sep_r - 1, height=16)
-        set_row_props(ws, sep_r, height=16, fmt=F(bg_color=BG_SEPARATOR))
+        # Rogers keeps one blank row before the separator in the master sheet.
+        set_row_props(ws, next_row, height=16)
+        set_row_props(ws, next_row + 1, height=16, fmt=F(bg_color=BG_SEPARATOR))
+        next_row += 2
 
-    return sum_total_r
+    return sum_total_r, next_row
