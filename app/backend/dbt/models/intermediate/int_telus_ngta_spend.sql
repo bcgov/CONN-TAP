@@ -1,7 +1,7 @@
 {{ config(materialized='view') }}
 
 -- Applies Telus NGTA-specific exclusion rules so int_service_spend_line_items stays vendor-agnostic,
--- then gives each line a category: hardware first, then by matching it to the TELUS pricebooks,
+-- then gives each line a category: TLS first, then hardware, then the other TELUS pricebooks,
 -- then, when nothing matched, the old source rule.
 
 with source as (
@@ -44,6 +44,8 @@ source_id_categories as (
 -- ============================================================
 
 -- Pricebook match by service ID. An ID in more than one pricebook takes the first one (TLS first).
+-- TODO: an ID on more than one TLS tab gets the sub-category of either tab; waiting on
+-- TELUS to say which tab is right.
 pricebook_ids as (
     select distinct on (service_id)
         service_id,
@@ -107,7 +109,7 @@ filtered as (
 ),
 
 -- ============================================================
--- 2. Hardware: decided before the pricebooks
+-- 2. Hardware (used after TLS, before the other pricebooks)
 --    a. source_id 164                         -> cellular hardware
 --    b. hardware description on a Wireless line -> cellular hardware
 --    c. hardware description on any other line  -> ancillary hardware
@@ -166,8 +168,8 @@ spend_with_service_id as (
 ),
 
 -- ============================================================
--- 4. The line's category. Hardware (step 2) comes first.
---    Then TLS: the TLS pricebook, then the LTO list.
+-- 4. The line's category. TLS first: the TLS pricebook, then the LTO list.
+--    Then hardware (step 2).
 --    Then the other pricebooks: by service ID, then by rate plan / service / description.
 --    No pricebook match: the old rule (Wireless -> Cellular, then the source_id's category).
 -- ============================================================
@@ -176,9 +178,9 @@ categorised_spend as (
     select
         spend.*,
         case
-            when spend.hardware_category_code is not null then spend.hardware_category_code
             when pricebook.service_category_code = 'time_limited_services' then pricebook.service_category_code
             when lto.service_category_code is not null then lto.service_category_code
+            when spend.hardware_category_code is not null then spend.hardware_category_code
             when pricebook.service_category_code is not null then pricebook.service_category_code
             when pricebook_name.service_category_code is not null then pricebook_name.service_category_code
 
@@ -189,9 +191,8 @@ categorised_spend as (
             when spend.organization_name = 'PHSA' then 'data'
             else 'unknown'
         end as lookup_code,
-        -- The sub-category comes from whichever of the two decided TLS. Hardware has none.
+        -- The sub-category comes from whichever of the two decided TLS.
         case
-            when spend.hardware_category_code is not null then null
             when pricebook.service_category_code = 'time_limited_services' then pricebook.sub_category_code
             when lto.service_category_code is not null then lto.sub_category_code
         end as sub_category_code
