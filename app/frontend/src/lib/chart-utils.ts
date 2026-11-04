@@ -181,6 +181,30 @@ export const applyOutsideLabels = (traces: Data[], activeProviders: Set<string>)
   });
 };
 
+// The order service categories are listed in (the analysts' list). A category
+// missing from this list goes last.
+export const SERVICE_CATEGORY_ORDER = [
+  "Cellular",
+  "Voice",
+  "Data",
+  "Time Limited Services",
+  "Ancillary Products - Cellular Hardware",
+  "Ancillary Products - Professional Services",
+  "Ancillary Products - Hardware",
+  "Unknown",
+];
+
+const categoryPosition = (category: string) => {
+  const index = SERVICE_CATEGORY_ORDER.indexOf(category);
+  return index === -1 ? SERVICE_CATEGORY_ORDER.length : index;
+};
+
+export const compareServiceCategories = (a: string, b: string) =>
+  categoryPosition(a) - categoryPosition(b);
+
+export const sortServiceCategories = (categories: string[]): string[] =>
+  [...categories].sort(compareServiceCategories);
+
 export type CategoryRow = {
   category: string;
   total: number;
@@ -207,7 +231,7 @@ export const plotlyCategoryRows = (
     }
   }
 
-  const rows = categories
+  const rows = sortServiceCategories(categories)
     .map((category) => {
       const row: CategoryRow = { category, total: 0 };
       for (const trace of traces) {
