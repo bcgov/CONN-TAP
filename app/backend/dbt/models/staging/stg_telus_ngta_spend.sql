@@ -17,6 +17,10 @@ with normalized as (
                 then (trim(t.source_id::text)::numeric)::bigint::text
             else nullif(trim(t.source_id::text), '')
         end as source_service_id,
+        -- Codes written in the description (see the macro)
+        {{ extract_telus_service_ids('t.detail_description') }} as service_ids,
+        -- The description cleaned for matching to the pricebooks (punctuation and the trailing '*' ignored)
+        upper({{ clean_text('t.detail_description', strip_punctuation=true) }}) as cleaned_description,
         coalesce(t.amount, 0)::numeric(19, 4) as spend_amount
     from {{ source('raw_data', 'raw_telus_spend') }} as t
 ),
@@ -55,6 +59,8 @@ select
     source_service_family,
     source_service_description,
     source_service_id,
+    service_ids,
+    cleaned_description,
     statement_category,
     statement_section,
     'amount'::text as source_amount_name,

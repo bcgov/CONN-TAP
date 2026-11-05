@@ -5,25 +5,30 @@
 
 with rogers as (
     select * from {{ ref('stg_rogers_spend') }}
+),
+
+pricebook as (
+    select * from {{ ref('stg_rogers_pricebook_services') }}
 )
 
 select
-    vendor,
-    source_system,
-    source_table,
-    raw_id,
-    month_start,
+    r.vendor,
+    r.source_system,
+    r.source_table,
+    r.raw_id,
+    r.month_start,
     -- TO wants school districts grouped together separately, for example: under ECC.
     -- organization_name / sub_organization_name are already alias-resolved in
     -- stg_rogers_spend, so the sub-org check below sees 'School District 71'
     -- rather than the raw 'DISTRICT 71 COMOX VALLEY'.
     case
-        when lower(organization_name) like '%school district%'
-            or lower(sub_organization_name) like '%school district%'
+        when lower(r.organization_name) like '%school district%'
+            or lower(r.sub_organization_name) like '%school district%'
             then 'School Districts'
-        else organization_name
+        else r.organization_name
     end as organization_name,
-    sub_organization_name,
-    source_service_family as lookup_code,
-    spend_amount
-from rogers
+    r.sub_organization_name,
+    coalesce(pb.service_category_code, r.source_service_family) as lookup_code,
+    r.spend_amount
+from rogers r
+left join pricebook pb on pb.service_id_key = r.source_service_id

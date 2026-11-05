@@ -2,7 +2,7 @@
 
 -- Rogers
 with rogers as (
-    select * from {{ ref('int_rogers_ngta_spend') }}
+    select *, null::text as sub_category_code from {{ ref('int_rogers_ngta_spend') }}
 ),
 
 -- Telus (all except column sheet_name)
@@ -16,7 +16,8 @@ telus_ngta as (
         organization_name,
         sub_organization_name,
         lookup_code,
-        spend_amount
+        spend_amount,
+        sub_category_code
     from {{ ref('int_telus_ngta_spend') }}
 ),
 
@@ -31,7 +32,8 @@ tsma as (
         organization_name,
         sub_organization_name,
         coalesce(tsma_service_tower, source_service_family) as lookup_code,
-        spend_amount
+        spend_amount,
+        null::text as sub_category_code
     from {{ ref('stg_tsma_spend') }}
 ),
 
@@ -46,7 +48,8 @@ tsma_other as (
         organization_name,
         sub_organization_name,
         source_service_family as lookup_code,
-        spend_amount
+        spend_amount,
+        null::text as sub_category_code
     from {{ ref('stg_tsma_other_spend') }}
 ),
 
@@ -73,7 +76,8 @@ unioned_ecc_fixed as (
         case when organization_name = 'ECC' then 'Gov BC' else organization_name end as organization_name,
         case when organization_name = 'ECC' then 'Education and Child Care' else sub_organization_name end as sub_organization_name,
         lookup_code,
-        spend_amount
+        spend_amount,
+        sub_category_code
     from unioned
 )
 
@@ -89,7 +93,8 @@ select
     u.organization_name,
     u.sub_organization_name,
     coalesce(sb.bge_id, b.id) as bge_id,
-    sc.service_category_id,
+    coalesce(sc.service_category_id, cat.id) as service_category_id,
+    ssc.id      as service_sub_category_id,
     u.lookup_code,
     sb.id       as sub_bge_id,
     u.spend_amount
@@ -101,6 +106,9 @@ left join {{ source('reference_data', 'service_code') }} sc
     on sc.source_system = u.source_system
     and sc.code = u.lookup_code
     and sc.provider_id = p.id
+-- A lookup_code that is already a category code (TELUS pricebook match) needs no service code.
+left join {{ source('reference_data', 'service_category') }} cat on cat.code = u.lookup_code
+left join {{ source('reference_data', 'service_sub_category') }} ssc on ssc.code = u.sub_category_code
 -- organization_name / sub_organization_name arrive already alias-resolved from the
 -- staging models, so here we only resolve the canonical code to its reference id.
 left join {{ source('reference_data', 'bge') }} b on reference_data.norm_key(b.code) = reference_data.norm_key(u.organization_name)
