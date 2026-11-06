@@ -17,13 +17,16 @@ from app.datasets.base import DatasetResult
 from app.datasets.chart_format import to_float
 from app.datasets.spend_common import Filters
 
-# Fixed column order (code -> display name), matching the summary table mockup.
+# The summary table's category columns (code -> display name). The frontend puts
+# them in the analysts' order.
 CATEGORY_ORDER: tuple[tuple[str, str], ...] = (
     ("voice", "Voice"),
     ("data", "Data"),
     ("cellular", "Cellular"),
-    ("professional_services", "Professional Services"),
+    ("professional_services", "Ancillary Products - Professional Services"),
     ("time_limited_services", "Time Limited Services"),
+    ("cellular_hardware", "Ancillary Products - Cellular Hardware"),
+    ("ancillary_hardware", "Ancillary Products - Hardware"),
     # Spend we can't attribute to a real service (eg. Rogers rows with no
     # productline: late fees, credit memos). Always last.
     ("unknown", "Unknown"),
@@ -118,10 +121,7 @@ def _aggregate(
     """
     for r in df.itertuples(index=False):
         bge_id = int(r.bge_id)
-        # Cellular Hardware displays as part of Cellular in UI.
         cat = str(r.service_category_code)
-        if cat == "cellular_hardware":
-            cat = "cellular"
         millions = to_float(r.spend_millions)
 
         bge = bges.setdefault(
