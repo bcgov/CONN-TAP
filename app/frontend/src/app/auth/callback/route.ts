@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(appUrl(transaction.returnTo));
   } catch (error) {
-    console.error("Keycloak callback failed:", error);
+    console.error("Entra callback failed:", error);
     return NextResponse.redirect(appUrl("/?authError=callback_failed"));
   }
 }

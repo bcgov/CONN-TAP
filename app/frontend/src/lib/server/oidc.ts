@@ -4,13 +4,11 @@ import {
   ClientSecretBasic,
   authorizationCodeGrant,
   buildAuthorizationUrl,
-  buildEndSessionUrl,
   calculatePKCECodeChallenge,
   discovery,
   randomNonce,
   randomPKCECodeVerifier,
   randomState,
-  refreshTokenGrant,
   type Configuration,
 } from "openid-client";
 import { authEnv } from "./env";
@@ -65,25 +63,5 @@ export async function exchangeAuthorizationCode(
     expectedState,
     pkceCodeVerifier: pkceVerifier,
     expectedNonce,
-  });
-}
-
-export async function refreshAccessToken(refreshToken: string) {
-  try {
-    const config = await getOidcConfig();
-    return await refreshTokenGrant(config, refreshToken);
-  } catch (error) {
-    console.warn("Access token refresh failed:", error);
-    return null;
-  }
-}
-
-export async function createLogoutUrl(idToken: string | null): Promise<URL | null> {
-  if (!idToken) return null;
-
-  const config = await getOidcConfig();
-  return buildEndSessionUrl(config, {
-    id_token_hint: idToken,
-    post_logout_redirect_uri: `${authEnv().appBaseUrl}/`,
   });
 }

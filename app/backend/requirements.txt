@@ -10,4 +10,3 @@ alembic==1.14.0
 dbt-core==1.12.6
 dbt-postgres==1.11.0
 httpx==0.28.1
-PyJWT[crypto]==2.15.1

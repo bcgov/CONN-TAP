@@ -1,6 +1,6 @@
 name: app
 
-# Auth and Keycloak settings are loaded from frontend env files (when present):
+# Auth settings (Entra, session) are loaded from frontend env files (when present):
 #   1. frontend/.env.local.example — committed local defaults
 #   2. frontend/.env.local — optional developer overrides (copy from .env.local.example)
 # Docker-specific values below override host-oriented settings from those files

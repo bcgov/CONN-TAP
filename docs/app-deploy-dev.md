@@ -52,4 +52,6 @@ After merge to `main`, the main pipeline redeploys dev with the merged code.
 
 See [github_action_and_aws.md](./github_action_and_aws.md) for AWS OIDC, secrets, and `LICENSE_PLATE`.
 
-Dev secrets: `AWS_DEPLOY_ROLE_ARN`, `KEYCLOAK_CLIENT_SECRET`, `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`.
+Dev secrets: `AWS_DEPLOY_ROLE_ARN`, `ENTRA_CLIENT_SECRET`, `SESSION_SECRET`.
+
+Dev variables: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` (from the dev Entra app registration). See [app/frontend/ENTRA.md](../app/frontend/ENTRA.md).

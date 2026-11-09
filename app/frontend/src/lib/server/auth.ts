@@ -4,9 +4,8 @@ import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authEnv, sessionCookieName } from "./env";
-import { createOpaqueToken, decryptToken, encryptToken, hashAccessToken, hashSessionToken } from "./crypto";
+import { createOpaqueToken, hashSessionToken } from "./crypto";
 import { query } from "./db";
-import { refreshAccessToken } from "./oidc";
 
 export const ALLOWED_ROLES = ["global_admin", "global_analyst"] as const;
 export type AllowedRole = (typeof ALLOWED_ROLES)[number];
@@ -23,10 +22,6 @@ export interface PublicSession {
 
 export interface ServerSession extends PublicSession {
   sessionHash: string;
-  accessToken: string;
-  refreshToken: string | null;
-  idToken: string | null;
-  accessTokenExpiresAt: Date;
 }
 
 interface SessionRow {
@@ -36,11 +31,6 @@ interface SessionRow {
   email: string | null;
   name: string | null;
   claims: Record<string, unknown> | null;
-  encrypted_access_token: string;
-  encrypted_refresh_token: string | null;
-  encrypted_id_token: string | null;
-  access_token_hash: string;
-  access_token_expires_at: Date;
   session_expires_at: Date;
 }
 
@@ -54,27 +44,17 @@ export function sanitizeReturnTo(value: string | null): string {
   return value;
 }
 
-function decodeJwtPayload(token: string | undefined): Record<string, unknown> {
-  if (!token) return {};
-  const [, payload] = token.split(".");
-  if (!payload) return {};
-  try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 function claimString(claims: Record<string, unknown>, name: string): string | null {
   const value = claims[name];
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function extractClientRoles(claims: Record<string, unknown> | null): string[] {
+// Entra app roles assigned to the user arrive in the `roles` claim.
+function extractRoles(claims: Record<string, unknown> | null): string[] {
   if (!claims) return [];
-  const clientRoles = claims["client_roles"];
-  if (!Array.isArray(clientRoles)) return [];
-  return clientRoles.filter((r): r is string => typeof r === "string");
+  const roles = claims["roles"];
+  if (!Array.isArray(roles)) return [];
+  return roles.filter((r): r is string => typeof r === "string");
 }
 
 export function hasAuthorizedRole(roles: string[]): boolean {
@@ -134,28 +114,20 @@ export async function consumeOauthState(state: string): Promise<{
 }
 
 export async function createSessionFromTokens(tokens: {
-  access_token?: string;
-  refresh_token?: string;
-  id_token?: string;
-  expiresIn(): number | undefined;
   claims(): Record<string, unknown> | undefined;
 }): Promise<string> {
-  if (!tokens.access_token) {
-    throw new Error("Keycloak did not return an access token");
-  }
-
   const now = new Date();
   const { sessionTtlSeconds } = authEnv();
-  const expiresIn = tokens.expiresIn() ?? 300;
-  const accessTokenExpiresAt = new Date(now.getTime() + expiresIn * 1000);
   const sessionExpiresAt = new Date(now.getTime() + sessionTtlSeconds * 1000);
-  const idClaims = tokens.claims() ?? {};
-  const accessClaims = decodeJwtPayload(tokens.access_token);
-  const claims = { ...accessClaims, ...idClaims };
-  const subject = claimString(claims, "sub");
+  // User details and roles come from the ID token, which openid-client has
+  // already validated (signature, issuer, audience, nonce, expiry).
+  const claims = tokens.claims() ?? {};
+  // `oid` is the user's Entra object ID: the same for this user across apps
+  // in the tenant, unlike `sub`.
+  const subject = claimString(claims, "oid");
 
   if (!subject) {
-    throw new Error("Keycloak token is missing a subject claim");
+    throw new Error("Entra ID token is missing the oid claim");
   }
 
   const sessionToken = createOpaqueToken();
@@ -169,9 +141,9 @@ export async function createSessionFromTokens(tokens: {
     displayName ?? ([givenName, familyName].filter(Boolean).join(" ") || null);
 
   const userResult = await query<{ id: string }>(
-    `INSERT INTO users (keycloak_subject, username, given_name, family_name, email, display_name, last_login_at, updated_at)
+    `INSERT INTO users (entra_object_id, username, given_name, family_name, email, display_name, last_login_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, now(), now())
-     ON CONFLICT (keycloak_subject) DO UPDATE
+     ON CONFLICT (entra_object_id) DO UPDATE
        SET username = COALESCE(EXCLUDED.username, users.username),
            given_name = COALESCE(EXCLUDED.given_name, users.given_name),
            family_name = COALESCE(EXCLUDED.family_name, users.family_name),
@@ -198,14 +170,9 @@ export async function createSessionFromTokens(tokens: {
        email,
        name,
        claims,
-       encrypted_access_token,
-       encrypted_refresh_token,
-       encrypted_id_token,
-       access_token_hash,
-       access_token_expires_at,
        session_expires_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
     [
       randomUUID(),
       userId,
@@ -215,11 +182,6 @@ export async function createSessionFromTokens(tokens: {
       email,
       sessionName,
       JSON.stringify(claims),
-      encryptToken(tokens.access_token),
-      encryptToken(tokens.refresh_token),
-      encryptToken(tokens.id_token),
-      hashAccessToken(tokens.access_token),
-      accessTokenExpiresAt,
       sessionExpiresAt,
     ]
   );
@@ -263,12 +225,10 @@ async function invalidateSession(sessionHash: string): Promise<void> {
   await clearSessionCookie();
 }
 
-export async function getCurrentSession(options: { refresh?: boolean } = {}): Promise<ServerSession | null> {
+export async function getCurrentSession(): Promise<ServerSession | null> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(sessionCookieName())?.value;
   if (!sessionToken) return null;
-
-  const { refreshWindowSeconds } = authEnv();
 
   const sessionHash = hashSessionToken(sessionToken);
   const result = await query<SessionRow>(
@@ -278,11 +238,6 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
             email,
             name,
             claims,
-            encrypted_access_token,
-            encrypted_refresh_token,
-            encrypted_id_token,
-            access_token_hash,
-            access_token_expires_at,
             session_expires_at
        FROM auth_sessions
       WHERE session_hash = $1
@@ -294,56 +249,7 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
   const row = result.rows[0];
   if (!row) return null;
 
-  let accessToken: string | null;
-  let refreshToken: string | null;
-  let idToken: string | null;
-  try {
-    accessToken = decryptToken(row.encrypted_access_token);
-    refreshToken = decryptToken(row.encrypted_refresh_token);
-    idToken = decryptToken(row.encrypted_id_token);
-  } catch {
-    return null;
-  }
-
-  if (!accessToken) return null;
-
-  const refreshAt = row.access_token_expires_at.getTime() - refreshWindowSeconds * 1000;
-  if (options.refresh && refreshToken && Date.now() >= refreshAt) {
-    const refreshed = await refreshAccessToken(refreshToken);
-    if (!refreshed?.access_token) {
-      // Server Components cannot modify cookies; logout route clears the cookie.
-      await revokeSessionInDatabase(sessionHash);
-      return null;
-    }
-
-    accessToken = refreshed.access_token;
-    refreshToken = refreshed.refresh_token ?? refreshToken;
-    const expiresIn = refreshed.expiresIn() ?? 300;
-    row.access_token_expires_at = new Date(Date.now() + expiresIn * 1000);
-    row.access_token_hash = hashAccessToken(accessToken);
-
-    await query(
-      `UPDATE auth_sessions
-          SET encrypted_access_token = $2,
-              encrypted_refresh_token = $3,
-              encrypted_id_token = COALESCE($4, encrypted_id_token),
-              access_token_hash = $5,
-              access_token_expires_at = $6,
-              last_seen_at = now(),
-              updated_at = now()
-        WHERE session_hash = $1`,
-      [
-        sessionHash,
-        encryptToken(accessToken),
-        encryptToken(refreshToken),
-        encryptToken(refreshed.id_token),
-        row.access_token_hash,
-        row.access_token_expires_at,
-      ]
-    );
-  } else {
-    await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
-  }
+  await query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_hash = $1", [sessionHash]);
 
   return {
     authenticated: true,
@@ -352,17 +258,13 @@ export async function getCurrentSession(options: { refresh?: boolean } = {}): Pr
     username: row.username,
     email: row.email,
     name: row.name,
-    roles: extractClientRoles(row.claims),
-    accessToken,
-    refreshToken,
-    idToken,
-    accessTokenExpiresAt: row.access_token_expires_at,
+    roles: extractRoles(row.claims),
     expiresAt: row.session_expires_at.toISOString(),
   };
 }
 
 export async function requireSession(returnTo: string): Promise<ServerSession> {
-  const session = await getCurrentSession({ refresh: true });
+  const session = await getCurrentSession();
   if (!session) {
     redirect(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
   }
@@ -377,12 +279,11 @@ export async function requireAuthorizedSession(returnTo: string): Promise<Server
   return session;
 }
 
-export async function revokeCurrentSession(): Promise<string | null> {
+export async function revokeCurrentSession(): Promise<void> {
   const session = await getCurrentSession();
   if (session) {
     await invalidateSession(session.sessionHash);
   } else {
     await clearSessionCookie();
   }
-  return session?.idToken ?? null;
 }
