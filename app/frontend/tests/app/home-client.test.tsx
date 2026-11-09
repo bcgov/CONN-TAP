@@ -20,7 +20,7 @@ describe("HomeClient", () => {
   it("renders the login and contact links", () => {
     render(<HomeClient />);
 
-    expect(screen.getByRole("link", { name: "Log in with IDIR" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
       "href",
       "/auth/login?returnTo=/dashboard",
     );
