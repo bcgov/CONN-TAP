@@ -20,7 +20,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 async function proxy(request: NextRequest, context: RouteContext) {
-  const session = await getCurrentSession({ refresh: true });
+  const session = await getCurrentSession();
   if (!session) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
@@ -36,7 +36,6 @@ async function proxy(request: NextRequest, context: RouteContext) {
       headers.set(key, value);
     }
   });
-  headers.set("authorization", `Bearer ${session.accessToken}`);
 
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
   const upstream = await fetch(target, {

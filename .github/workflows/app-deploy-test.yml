@@ -9,8 +9,7 @@ name: app-deploy-test
 #
 # Prerequisites: Terraform alb_controller.tf applied in infra/envs/test.
 #
-# Test environment secrets: AWS_DEPLOY_ROLE_ARN, KEYCLOAK_CLIENT_SECRET, SESSION_SECRET,
-# TOKEN_ENCRYPTION_KEY
+# Test environment secrets: AWS_DEPLOY_ROLE_ARN, ENTRA_CLIENT_SECRET, SESSION_SECRET
 
 on:
   workflow_run:
@@ -103,12 +102,11 @@ jobs:
     env:
       LICENSE_PLATE: ${{ vars.LICENSE_PLATE }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
-      KEYCLOAK_ISSUER_URL: ${{ vars.KEYCLOAK_ISSUER_URL }}
-      KEYCLOAK_CLIENT_ID: ${{ vars.KEYCLOAK_CLIENT_ID }}
-      KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+      ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
+      ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+      ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       SESSION_COOKIE_NAME: ${{ vars.SESSION_COOKIE_NAME }}
-      TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
       IMAGE_TAG: ${{ needs.gate.outputs.image_tag }}
       BUILD_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
 
@@ -226,12 +224,11 @@ jobs:
         run: |
           set +x
 
-          : "${KEYCLOAK_CLIENT_SECRET:?Set the test environment secret KEYCLOAK_CLIENT_SECRET.}"
+          : "${ENTRA_TENANT_ID:?Set the test environment variable ENTRA_TENANT_ID.}"
+          : "${ENTRA_CLIENT_ID:?Set the test environment variable ENTRA_CLIENT_ID.}"
+          : "${ENTRA_CLIENT_SECRET:?Set the test environment secret ENTRA_CLIENT_SECRET.}"
           : "${SESSION_SECRET:?Set the test environment secret SESSION_SECRET.}"
-          : "${TOKEN_ENCRYPTION_KEY:?Set the test environment secret TOKEN_ENCRYPTION_KEY.}"
 
-          keycloak_issuer_url="${KEYCLOAK_ISSUER_URL:-https://dev.loginproxy.gov.bc.ca/auth/realms/standard}"
-          keycloak_client_id="${KEYCLOAK_CLIENT_ID:-conn-hub-6434}"
           session_cookie_name="${SESSION_COOKIE_NAME:-telecom_session}"
           cors_origins="${CORS_ORIGINS:-[\"${APP_BASE_URL}\"]}"
 
@@ -265,9 +262,8 @@ jobs:
           kubectl create secret generic "${frontend_secret}" \
             --namespace "${HELM_NAMESPACE}" \
             --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
-            --from-literal=KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET}" \
+            --from-literal=ENTRA_CLIENT_SECRET="${ENTRA_CLIENT_SECRET}" \
             --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
-            --from-literal=TOKEN_ENCRYPTION_KEY="${TOKEN_ENCRYPTION_KEY}" \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
@@ -302,8 +298,6 @@ jobs:
             --set-string backend.env.POSTGRES_DB="app" \
             --set-string backend.env.POSTGRES_SSL="true" \
             --set-string backend.env.CORS_ORIGINS="${cors_origins}" \
-            --set-string backend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
-            --set-string backend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
             --set-string backend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
             --set-string backend.existingSecret="${backend_secret}" \
             --set-string frontend.image.repository="${FRONTEND_IMAGE_URI}" \
@@ -318,8 +312,8 @@ jobs:
             --set-string frontend.env.POSTGRES_USER="dbadmin" \
             --set-string frontend.env.POSTGRES_DB="app" \
             --set-string frontend.env.POSTGRES_SSL="true" \
-            --set-string frontend.env.KEYCLOAK_ISSUER_URL="${keycloak_issuer_url}" \
-            --set-string frontend.env.KEYCLOAK_CLIENT_ID="${keycloak_client_id}" \
+            --set-string frontend.env.ENTRA_TENANT_ID="${ENTRA_TENANT_ID}" \
+            --set-string frontend.env.ENTRA_CLIENT_ID="${ENTRA_CLIENT_ID}" \
             --set-string frontend.env.SESSION_COOKIE_NAME="${session_cookie_name}" \
             --set-string frontend.existingSecret="${frontend_secret}" \
             --set ingress.enabled=true \

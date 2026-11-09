@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const session = await requireAuthorizedSession("/dashboard");
   const displayName = session.name ?? session.username ?? session.email ?? "an authorized user";
-  const visibleDatasetIds = [...(await getVisibleDatasetIds(session))];
+  const visibleDatasetIds = [...(await getVisibleDatasetIds())];
 
   return <DashboardClient displayName={displayName} visibleDatasetIds={visibleDatasetIds} />;
 }
