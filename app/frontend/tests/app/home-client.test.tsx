@@ -30,6 +30,18 @@ describe("HomeClient", () => {
     );
   });
 
+  it("shows a sign-in error message when given one", () => {
+    render(<HomeClient authErrorMessage="Sign-in was cancelled." />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in was cancelled.");
+  });
+
+  it("shows no error message by default", () => {
+    render(<HomeClient />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders the feature cards", () => {
     render(<HomeClient />);
 

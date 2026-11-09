@@ -50,7 +50,7 @@ function claimString(claims: Record<string, unknown>, name: string): string | nu
 }
 
 // Entra app roles assigned to the user arrive in the `roles` claim.
-function extractRoles(claims: Record<string, unknown> | null): string[] {
+export function extractRoles(claims: Record<string, unknown> | null): string[] {
   if (!claims) return [];
   const roles = claims["roles"];
   if (!Array.isArray(roles)) return [];
