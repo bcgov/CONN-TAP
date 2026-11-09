@@ -55,7 +55,7 @@ Tables:
 
 One app registration per environment (dev, test, prod), managed with the BC Gov Entra team:
 
-- Platform: **Web**, redirect URI `https://<host>/auth/callback` (dev also `http://localhost:3001/auth/callback`)
+- Platform: **Web**, redirect URIs `https://<host>/auth/callback` and `https://<host>/` (dev also `http://localhost:3001/auth/callback` and `http://localhost:3001/`). The site root is where Entra sends the user after logout.
 - A client secret (note its expiry and renew it before then)
 - App roles whose **Value** matches the role names used by the app: `global_admin`, `global_analyst`
 - Optional claims on the ID token: `email`, `given_name`, `family_name`
@@ -76,7 +76,7 @@ Roles come from the ID token's `roles` claim (Entra app roles assigned to the us
 4. `/dashboard` is gated server-side and redirects unauthenticated users to `/auth/login` and users without an allowed role to `/unauthorized`.
 5. Browser API calls go to same-origin `/api/...`; Next validates the session and forwards the request with the session cookie to FastAPI.
 6. FastAPI looks up the session cookie in `app.auth_sessions` on each `/api/v1/*` request and reads the user's roles from the stored claims.
-7. `/auth/logout` revokes the session row and clears the cookie. The user stays signed in to Entra.
+7. `/auth/logout` revokes the session row, clears the cookie and sends the user to Entra's sign-out page, which returns them to the TAP home page.
 
 A session lasts `SESSION_TTL_SECONDS`. After that the user is sent back to Entra, which signs them in again without a prompt if their Entra session is still active.
 

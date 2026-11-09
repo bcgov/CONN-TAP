@@ -5,11 +5,12 @@ import Link from "next/link";
 import {
   Header,
   Heading,
+  InlineAlert,
   Link as BcLink,
 } from "@bcgov/design-system-react-components";
 import { AppFooter } from "@/components/footer";
 
-export function HomeClient() {
+export function HomeClient({ authErrorMessage }: { authErrorMessage?: string }) {
   return (
     <div className="telecom-landing__shell">
       <Header
@@ -38,6 +39,10 @@ export function HomeClient() {
             The Telecom Access Point (TAP) provides access to telecom dashboards, reports, and
             spend insights.
           </p>
+
+          {authErrorMessage && (
+            <InlineAlert variant="danger" role="alert" description={authErrorMessage} />
+          )}
 
           <div>
             <p className="telecom-main__login-label">Sign in to get started</p>
