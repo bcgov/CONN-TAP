@@ -47,7 +47,7 @@ export function HomeClient() {
               buttonVariant="primary"
               size="large"
             >
-              Log in with IDIR
+              Log in
             </BcLink>
           </div>
 

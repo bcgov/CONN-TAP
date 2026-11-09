@@ -1,8 +1,8 @@
 """Stub the heavy third-party deps so the RBAC source modules import cleanly.
 
 The unit-test job installs only ``pytest``/``pytest-cov`` (see
-``.github/workflows/run-unit-tests.yml``), so ``fastapi``, ``pandas``, ``jwt``
-and ``pydantic`` are not available. Mirroring the root ``conftest`` (which stubs
+``.github/workflows/run-unit-tests.yml``), so ``fastapi``, ``pandas`` and
+``pydantic`` are not available. Mirroring the root ``conftest`` (which stubs
 ``alembic.op``/``sqlalchemy``), we inject just enough of each module for
 ``app.core.auth``, ``app.datasets.base`` and ``app.api.endpoints.datasets_api``
 to be imported and their pure logic exercised.
@@ -54,24 +54,6 @@ except ImportError:
 # those, so identity is a faithful enough stand-in for the real NaN check.
 if not hasattr(_pd, "notna"):
     _pd.notna = lambda value: value is not None
-
-
-# ---- jwt --------------------------------------------------------------------
-_jwt = _ensure("jwt")
-
-
-class PyJWTError(Exception):
-    ...
-
-
-class PyJWKClient:
-    def __init__(self, *a, **k) -> None:
-        ...
-
-
-_jwt.PyJWTError = PyJWTError
-_jwt.PyJWKClient = PyJWKClient
-_jwt.decode = lambda *a, **k: {}
 
 
 # ---- fastapi ----------------------------------------------------------------
@@ -160,25 +142,6 @@ _fa_cors = _ensure("fastapi.middleware.cors")
 _fa_cors.CORSMiddleware = type("CORSMiddleware", (), {})
 _fa_mw.cors = _fa_cors
 _fa.middleware = _fa_mw
-
-_fa_sec = _ensure("fastapi.security")
-
-
-class HTTPAuthorizationCredentials:
-    def __init__(self, scheme: str = "Bearer", credentials: str = "") -> None:
-        self.scheme = scheme
-        self.credentials = credentials
-
-
-class HTTPBearer:
-    def __init__(self, *a, **k) -> None:
-        ...
-
-
-_fa_sec.HTTPAuthorizationCredentials = HTTPAuthorizationCredentials
-_fa_sec.HTTPBearer = HTTPBearer
-_fa.security = _fa_sec
-
 
 # ---- pydantic ---------------------------------------------------------------
 _pyd = _ensure("pydantic")

@@ -24,8 +24,6 @@ backend:
     POSTGRES_DB: "app"
     POSTGRES_SSL: "true"
     CORS_ORIGINS: '["http://localhost:3000"]'
-    KEYCLOAK_ISSUER_URL: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
-    KEYCLOAK_CLIENT_ID: "conn-hub-6434"
     SESSION_COOKIE_NAME: "telecom_session"
   existingSecret: ""
   secretEnv: {}
@@ -44,8 +42,8 @@ frontend:
   env:
     APP_BASE_URL: ""
     BACKEND_INTERNAL_URL: "http://conn-tap-backend:8000"
-    KEYCLOAK_ISSUER_URL: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard"
-    KEYCLOAK_CLIENT_ID: "conn-hub-6434"
+    ENTRA_TENANT_ID: ""
+    ENTRA_CLIENT_ID: ""
     SESSION_COOKIE_NAME: "telecom_session"
     POSTGRES_HOST: ""
     POSTGRES_PORT: "5432"
