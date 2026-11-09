@@ -4,6 +4,7 @@ import {
   ClientSecretBasic,
   authorizationCodeGrant,
   buildAuthorizationUrl,
+  buildEndSessionUrl,
   calculatePKCECodeChallenge,
   discovery,
   randomNonce,
@@ -50,6 +51,15 @@ export async function createAuthorizationRequest(returnTo: string) {
   });
 
   return { url, state, nonce, pkceVerifier, returnTo };
+}
+
+// Entra's sign-out page. After signing the user out it sends them back to the
+// TAP home page, which must be registered as a redirect URI on the app.
+export async function createLogoutUrl(): Promise<URL> {
+  const config = await getOidcConfig();
+  return buildEndSessionUrl(config, {
+    post_logout_redirect_uri: `${authEnv().appBaseUrl}/`,
+  });
 }
 
 export async function exchangeAuthorizationCode(

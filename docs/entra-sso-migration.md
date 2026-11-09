@@ -177,7 +177,7 @@ are kept in the GitHub environment settings and local `.env.local` only, never i
 
 ## Improvements
 
-### Block sign-in for users without a TAP role (not done yet; decide before go-live)
+### Block sign-in for users without a TAP role (done)
 
 Today two things stop people who were not added by an admin:
 
@@ -196,7 +196,7 @@ Fix: in `app/frontend/src/app/auth/callback/route.ts`, do not create a session w
 user has no allowed role (`hasAuthorizedRole`); redirect to `/unauthorized` instead.
 Then no session exists without a role, whatever the Entra settings.
 
-### Log out of Entra too, not only TAP (not done yet; decide before go-live)
+### Log out of Entra too, not only TAP (done in code; redirect URI in step 2 still to register)
 
 Microsoft's OIDC guide (https://learn.microsoft.com/en-us/entra/identity-platform/v2-protocols-oidc,
 "Send a sign-out request") says sign-out must do **both**: clear the app's session **and**
@@ -230,7 +230,7 @@ out of TAP. Needs:
 
 Not needed unless someone asks for it.
 
-### Clearer sign-in error messages (nice to have)
+### Clearer sign-in error messages (done)
 
 When Entra sends an error back to `/auth/callback` (e.g. `access_denied` when the user
 cancels or refuses consent), TAP shows the generic `/?authError=callback_failed`. Reading
@@ -248,8 +248,9 @@ to untick it in each environment, so a flow TAP doesn't use is closed.
 
 ## Before go-live checklist
 
-- [ ] Decide on / implement **Block sign-in for users without a TAP role** (see Improvements)
-- [ ] Decide on / implement **Log out of Entra too, not only TAP** (see Improvements)
+- [x] Decide on / implement **Block sign-in for users without a TAP role** (see Improvements)
+- [x] Decide on / implement **Log out of Entra too, not only TAP** (see Improvements)
+- [ ] Site root `https://<host>/` registered as a redirect URI in every environment (needed for logout)
 - [ ] Enterprise app **Assignment required = Yes** in every environment
 - [ ] App roles created with Values `global_admin`, `global_analyst`
 - [ ] `openid` added to API permissions and admin consent granted
