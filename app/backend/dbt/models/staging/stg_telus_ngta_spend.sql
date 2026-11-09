@@ -1,6 +1,13 @@
 {{ config(materialized='view') }}
 
-with normalized as (
+with description_ids as (
+    select
+        d.detail_description,
+        {{ extract_telus_service_ids('d.detail_description') }} as service_ids
+    from (select distinct detail_description from {{ source('raw_data', 'raw_telus_spend') }}) d
+),
+
+normalized as (
     select
         t.raw_id,
         t.ingestion_run_id,
@@ -17,8 +24,14 @@ with normalized as (
                 then (trim(t.source_id::text)::numeric)::bigint::text
             else nullif(trim(t.source_id::text), '')
         end as source_service_id,
+        -- Codes written in the description (see the macro). A NULL description gets
+        -- '{}', the same as the macro returns for it.
+        coalesce(di.service_ids, '{}'::text[]) as service_ids,
+        -- The description cleaned for matching to the pricebooks (punctuation and the trailing '*' ignored)
+        upper({{ clean_text('t.detail_description', strip_punctuation=true) }}) as cleaned_description,
         coalesce(t.amount, 0)::numeric(19, 4) as spend_amount
     from {{ source('raw_data', 'raw_telus_spend') }} as t
+    left join description_ids di on di.detail_description = t.detail_description
 ),
 
 -- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
@@ -55,6 +68,8 @@ select
     source_service_family,
     source_service_description,
     source_service_id,
+    service_ids,
+    cleaned_description,
     statement_category,
     statement_section,
     'amount'::text as source_amount_name,

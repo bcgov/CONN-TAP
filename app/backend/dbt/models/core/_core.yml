@@ -44,6 +44,15 @@ models:
           - relationships:
               to: source('reference_data', 'service_category')
               field: id
+      - name: service_sub_category_id
+        description: Set for NGTA Time Limited Services only (from the TLS pricebook tab or the LTO list). TSMA TLS spend has none.
+        tests:
+          - not_null:
+              config:
+                where: "source_system = 'ngta' and service_category_id = (select id from reference_data.service_category where code = 'time_limited_services')"
+          - relationships:
+              to: source('reference_data', 'service_sub_category')
+              field: id
 
   - name: dim_period
     description: Conformed period dimension at month grain (BC Gov fiscal calendar).
