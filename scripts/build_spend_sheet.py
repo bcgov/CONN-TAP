@@ -5,10 +5,11 @@ Recreate the spend tracking spreadsheet using xlsxwriter.
 Organized into 6 fillable categories:
   1. tsma           – TSMA BGE detail (rows 11-90)
   2. mms            – MMS summary row and within-BGE MMS sub-rows
-  3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Unknown row added)
-  4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Unknown row added)
-  5. out_of_scope   – Out-of-Scope sub-categories (rows 355-384)
-  6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
+  3. telus_ngta     – TELUS NGTA section (starts at row 110)
+  4. rogers_ngta    – Rogers NGTA section (follows TELUS)
+  5. out_of_scope   – Out-of-Scope sub-categories (follows Rogers)
+  6. tsma_lite      – TSMA Lite quarterly data (follows Out of Scope)
+Each section returns where it ends, so the next one starts there.
 
 Run:  python3 scripts/build_spend_sheet.py
 Output: scripts/spend_tracking_<YYYY_MM_DD_HHMMAMPM>.xlsx
@@ -124,19 +125,6 @@ TSMA_MMS_ROWS = _tsma_rows_by_type('mms')
 TSMA_DAT_ROWS = _tsma_rows_by_type('data')
 TSMA_VOI_ROWS = _tsma_rows_by_type('voice') + _tsma_rows_by_type('voice_ivr')
 TSMA_OOS_ROWS = _tsma_rows_by_type('oos')
-
-# ---------------------------------------------------------------------------
-# TSMA Lite row constants
-# ---------------------------------------------------------------------------
-ROW_TSMALITE_CONF    = 387
-ROW_TSMALITE_LDIST   = 388
-ROW_TSMALITE_VOICE   = 389
-ROW_TSMALITE_CELL    = 390
-ROW_TSMALITE_TOTAL   = 391
-ROW_TSMALITE_VOICE2  = 393
-ROW_TSMALITE_CELL2   = 394
-ROW_TSMALITE_TOTAL2  = 395
-
 
 # ---------------------------------------------------------------------------
 # Main builder
@@ -258,21 +246,6 @@ def build():
     write_monthly_sum_rows(ws, ROW_TSMA_TOTAL_OOS, TSMA_OOS_ROWS, _fth)
 
     # =========================================================
-    # ROW 91: TSMA + NGTAs combined totals
-    # =========================================================
-    _fcomb = F.n(bg_color=BG_COMBINED)
-    _fcomb_i = F.n(bg_color=BG_COMBINED, italic=True)
-    set_row_props(ws, 91, height=16, fmt=_fcomb)
-    write(ws, 91, COL_B, "TSMA+NGTAs", _fcomb_i)
-    write_monthly_formula(
-        ws, 91,
-        lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
-                  f"+{col_letter(c)}116"   # TELUS NGTA summary Total (first_row=110 → row 116)
-                  f"+{col_letter(c)}238",  # Rogers NGTA summary Total
-        _fcomb_i,
-    )
-
-    # =========================================================
     # ROWS 92-108: Hidden TSMA sub-aggregate rows
     # =========================================================
     _hidden = {"hidden": True}
@@ -356,32 +329,56 @@ def build():
     set_row_props(ws, 109, height=16, fmt=_fsep)
 
     # =========================================================
-    # ROWS 110-231: TELUS NGTA section  (delegated to telus_ngta.py)
+    # From ROW 110: TELUS NGTA section  (delegated to telus_ngta.py)
     # =========================================================
     telus_data = load_telus_ngta()
-    build_telus_ngta_section(ws, F, telus_data, first_row=110, include_separator=True)
+    telus_total_r, rogers_first = build_telus_ngta_section(ws, F, telus_data, first_row=110, include_separator=True)
 
     # =========================================================
-    # ROWS 232-354: Rogers NGTA section  (delegated to rogers_ngta.py)
+    # Rogers NGTA section  (delegated to rogers_ngta.py)
     # =========================================================
     rogers_data = load_rogers_ngta()
-    build_rogers_ngta_section(ws, F, rogers_data, first_row=232, include_separator=True)
+    rogers_total_r, oos_first = build_rogers_ngta_section(ws, F, rogers_data, first_row=rogers_first, include_separator=True)
 
     # =========================================================
-    # ROWS 355-385: Out of Scope section  (delegated to tsma_other.py)
+    # ROW 91: TSMA + NGTAs combined totals
+    # =========================================================
+    _fcomb = F.n(bg_color=BG_COMBINED)
+    _fcomb_i = F.n(bg_color=BG_COMBINED, italic=True)
+    set_row_props(ws, 91, height=16, fmt=_fcomb)
+    write(ws, 91, COL_B, "TSMA+NGTAs", _fcomb_i)
+    write_monthly_formula(
+        ws, 91,
+        lambda c: f"={col_letter(c)}{ROW_TSMA_SUM_TOT}"
+                  f"+{col_letter(c)}{telus_total_r}"
+                  f"+{col_letter(c)}{rogers_total_r}",
+        _fcomb_i,
+    )
+
+    # =========================================================
+    # Out of Scope section  (delegated to tsma_other.py)
     # =========================================================
     oos_data = load_tsma_other()
-    build_oos_section(ws, F, oos_data, first_row=355)
+    tsma_lite_first = build_oos_section(ws, F, oos_data, first_row=oos_first)
 
     _fnum = F.n()   # plain currency format for TSMA Lite input rows
     _fnum_bold = F.n(bold=True)
     _tsma_lite_hidden = {"level": 1, "hidden": True}
 
     # =========================================================
-    # ROWS 386-395: TSMA Lite  (quarterly data)
+    # TSMA Lite  (quarterly data)
     # =========================================================
-    set_row_props(ws, 386, height=16)
-    write(ws, 386, COL_B, "TSMA Lite", f_section)
+    ROW_TSMALITE_CONF   = tsma_lite_first + 1
+    ROW_TSMALITE_LDIST  = tsma_lite_first + 2
+    ROW_TSMALITE_VOICE  = tsma_lite_first + 3
+    ROW_TSMALITE_CELL   = tsma_lite_first + 4
+    ROW_TSMALITE_TOTAL  = tsma_lite_first + 5
+    ROW_TSMALITE_VOICE2 = tsma_lite_first + 7
+    ROW_TSMALITE_CELL2  = tsma_lite_first + 8
+    ROW_TSMALITE_TOTAL2 = tsma_lite_first + 9
+
+    set_row_props(ws, tsma_lite_first, height=16)
+    write(ws, tsma_lite_first, COL_B, "TSMA Lite", f_section)
 
     for r, label in [
         (ROW_TSMALITE_CONF,  "Conferencing"),
@@ -409,7 +406,7 @@ def build():
         write_f(ws, ROW_TSMALITE_TOTAL, col,
                 sum_range(ROW_TSMALITE_CONF, ROW_TSMALITE_CELL, col), _fnum_bold)
 
-    set_row_props(ws, 392, height=17, opts=_tsma_lite_hidden)
+    set_row_props(ws, ROW_TSMALITE_TOTAL + 1, height=17, opts=_tsma_lite_hidden)
 
     set_row_props(ws, ROW_TSMALITE_VOICE2, height=17, fmt=_fnum_bold, opts=_tsma_lite_hidden)
     write(ws, ROW_TSMALITE_VOICE2, COL_B, "Total Voice", _fnum_bold)

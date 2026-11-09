@@ -1,6 +1,6 @@
 {{ config(materialized='view', tags=['report']) }}
 
--- Rogers NGTA spend per BGE and month, in the spend report's five buckets.
+-- Rogers NGTA spend per BGE and month, one column per spend report row.
 -- A pivot of rpt_spend_lines, which holds the rules (section, BGE, ECC row, category).
 -- Reads the rpt_spend_lines table, so it is quick; refreshed by the spend report runbook.
 
@@ -11,9 +11,14 @@ select
     coalesce(sum(spend_amount) filter (where category = 'cellular'), 0)          as cellular_plans,
     coalesce(sum(spend_amount) filter (where category = 'data'), 0)              as data_spend,
     coalesce(sum(spend_amount) filter (where category = 'voice'), 0)             as voice_spend,
+    coalesce(sum(spend_amount) filter (where category = 'professional_services'), 0) as professional_services_spend,
+    coalesce(sum(spend_amount) filter (where category = 'ancillary_hardware'), 0)    as ancillary_hardware_spend,
     -- Unknown (blank product line), or anything without a category, is the report's Unknown row
     coalesce(sum(spend_amount) filter (
-        where category is null or category not in ('cellular_hardware', 'cellular', 'data', 'voice')
+        where category is null or category not in (
+            'cellular_hardware', 'cellular', 'data', 'voice',
+            'professional_services', 'ancillary_hardware'
+        )
     ), 0)                                                                        as other_spend,
     coalesce(sum(spend_amount), 0)                                               as total_reported
 from {{ ref('rpt_spend_lines') }}
