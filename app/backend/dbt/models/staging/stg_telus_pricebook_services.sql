@@ -62,10 +62,10 @@ with pricebooks as (
     select service_id, null, service, description, 'voice', null, 12
     from {{ source('raw_data', 'raw_telus_v2_voice_data_usage_rates_pricebook') }}
     union all
-    select service_id, null, null, null, 'data', null, 13
+    select service_id, null, service_name, short_service_description, 'data', null, 13
     from {{ source('raw_data', 'raw_telus_v2_data_services_pricebook') }}
     union all
-    select service_id, null, null, null, 'voice', null, 14
+    select service_id, null, service_name, short_service_description, 'voice', null, 14
     from {{ source('raw_data', 'raw_telus_v2_voice_services_pricebook') }}
     union all
     select service_id, rate_plan, null, null, 'cellular', null, 15
