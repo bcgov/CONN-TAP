@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appUrl } from "@/lib/server/app-url";
 import { revokeCurrentSession } from "@/lib/server/auth";
+import { createLogoutUrl } from "@/lib/server/oidc";
 
 async function logout(_request: NextRequest) {
-  // Ends only the TAP session. The user stays signed in to Entra (and to their
-  // own organization), so other apps they use are not signed out.
+  // End the TAP session, then sign the user out of Entra too. Otherwise the
+  // next "Log in" would sign them straight back in without asking.
   await revokeCurrentSession();
-  return NextResponse.redirect(appUrl("/"));
+  return NextResponse.redirect(await createLogoutUrl());
 }
 
 export async function GET(request: NextRequest) {
