@@ -1,4 +1,4 @@
-{{ config(materialized='materialized_view') }}
+{{ config(materialized='table', post_hook="{{ org_row_security() }}") }}
 
 -- Org-hierarchy x service-category aggregate. Finest grain the summary table needs:
 -- period x provider x bge_id x sub_bge_id x service_category_id. sub_bge_id is
