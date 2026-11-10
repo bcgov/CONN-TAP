@@ -8,8 +8,8 @@ One Postgres role per Entra app role, plus a login user for each part of the
 app. Nothing uses them yet: the app still connects as the owner user.
 
 Group roles (no login), named after the Entra app roles:
-- tap_global_admin, tap_global_analyst: read `analytics` and `reference_data`.
-- tap_org_admin, tap_org_analyst: no data access yet. Organization-level
+- tap_to_admin, tap_to_viewer: read `analytics` and `reference_data`.
+- tap_org_admin, tap_org_user: no data access yet. Organization-level
   access will be added later.
 
 Login users (passwords are set per environment, not here):
@@ -29,9 +29,9 @@ down_revision: Union[str, None] = "012_drop_session_tokens"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-GLOBAL_ROLES = ["tap_global_admin", "tap_global_analyst"]
-ORG_ROLES = ["tap_org_admin", "tap_org_analyst"]
-GROUP_ROLES = GLOBAL_ROLES + ORG_ROLES
+TO_ROLES = ["tap_to_admin", "tap_to_viewer"]
+ORG_ROLES = ["tap_org_admin", "tap_org_user"]
+GROUP_ROLES = TO_ROLES + ORG_ROLES
 
 DATA_SCHEMAS = ["analytics", "reference_data"]
 
@@ -73,24 +73,24 @@ def upgrade() -> None:
     for table, privileges in WEB_TABLE_GRANTS.items():
         op.execute(f"GRANT {privileges} ON app.{table} TO tap_web")
 
-    # Global roles read all data. dbt rebuilds the analytics tables on every
+    # TO roles read all data. dbt rebuilds the analytics tables on every
     # run, so default privileges also cover tables created later. They apply
     # to tables created by the user running this migration, which is the same
     # user that runs dbt (helm db-migrate-job).
-    global_roles = ", ".join(GLOBAL_ROLES)
+    to_roles = ", ".join(TO_ROLES)
     for schema in DATA_SCHEMAS:
         op.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        op.execute(f"GRANT USAGE ON SCHEMA {schema} TO {global_roles}")
-        op.execute(f"GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {global_roles}")
-        op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT ON TABLES TO {global_roles}")
+        op.execute(f"GRANT USAGE ON SCHEMA {schema} TO {to_roles}")
+        op.execute(f"GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {to_roles}")
+        op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT ON TABLES TO {to_roles}")
 
 
 def downgrade() -> None:
-    global_roles = ", ".join(GLOBAL_ROLES)
+    to_roles = ", ".join(TO_ROLES)
     for schema in DATA_SCHEMAS:
-        op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} REVOKE SELECT ON TABLES FROM {global_roles}")
-        op.execute(f"REVOKE SELECT ON ALL TABLES IN SCHEMA {schema} FROM {global_roles}")
-        op.execute(f"REVOKE USAGE ON SCHEMA {schema} FROM {global_roles}")
+        op.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} REVOKE SELECT ON TABLES FROM {to_roles}")
+        op.execute(f"REVOKE SELECT ON ALL TABLES IN SCHEMA {schema} FROM {to_roles}")
+        op.execute(f"REVOKE USAGE ON SCHEMA {schema} FROM {to_roles}")
 
     for table in WEB_TABLE_GRANTS:
         op.execute(f"REVOKE ALL ON app.{table} FROM tap_web")
