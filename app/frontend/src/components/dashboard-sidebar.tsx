@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home } from "lucide-react";
+import { Home, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: Home },
 ];
 
-export function DashboardSidebar() {
+const ADMIN_ITEM = { href: "/admin", label: "Admin", icon: Settings };
+
+// showAdmin: the Admin link, for TO admins only. The /admin page checks the
+// role itself too.
+export function DashboardSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = showAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
     <nav className="dashboard-sidebar" aria-label="Main navigation">
       <ul className="dashboard-sidebar__list">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href;
           return (
             <li key={href}>
