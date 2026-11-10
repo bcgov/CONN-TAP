@@ -15,7 +15,7 @@ from psycopg import sql
 
 from app.core.config import settings
 
-PASSWORD_VARIABLES = {
+LOGIN_USERS = {
     "tap_api": "TAP_API_POSTGRES_PASSWORD",
     "tap_web": "TAP_WEB_POSTGRES_PASSWORD",
 }
@@ -30,14 +30,14 @@ def main() -> None:
         dbname=settings.POSTGRES_DB,
         sslmode="require" if settings.POSTGRES_SSL else "disable",
     ) as conn:
-        for role, variable in PASSWORD_VARIABLES.items():
+        for user, variable in LOGIN_USERS.items():
             password = os.environ.get(variable)
             if not password:
-                print(f"{variable} is not set; {role} password left unchanged")
+                print(f"No password given for {user}; left unchanged")
                 continue
             # ALTER ROLE can't take a bind parameter, so the password is quoted as a literal.
-            conn.execute(sql.SQL("ALTER ROLE {} PASSWORD {}").format(sql.Identifier(role), sql.Literal(password)))
-            print(f"Set the {role} password")
+            conn.execute(sql.SQL("ALTER ROLE {} PASSWORD {}").format(sql.Identifier(user), sql.Literal(password)))
+            print(f"Updated {user}")
 
 
 if __name__ == "__main__":
