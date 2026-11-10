@@ -37,12 +37,16 @@ spec:
           # was last run, longer than the 10m Helm --timeout on its own.
           # The spend report models (tag 'report') are skipped here; the spend report
           # runbook rebuilds them when a report is made.
-          command: ["sh", "-c", "alembic upgrade head && dbt seed --profiles-dir /app/dbt --project-dir /app/dbt && dbt run --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt && dbt test --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt"]
+          # set_login_passwords gives tap_api / tap_web their passwords from the migrate secret.
+          command: ["sh", "-c", "alembic upgrade head && python -m app.db.set_login_passwords && dbt seed --profiles-dir /app/dbt --project-dir /app/dbt && dbt run --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt && dbt test --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt"]
+          # Uses the backend's settings, but runs as the owner user with its own
+          # secret: the backend's user (tap_api) can't create tables or roles.
           envFrom:
             - configMapRef:
                 name: {{ include "conn-tap.backendName" . }}
-            {{- if or .Values.backend.existingSecret .Values.backend.secretEnv }}
             - secretRef:
-                name: {{ include "conn-tap.backendSecretName" . }}
-            {{- end }}
+                name: {{ required "migrate.existingSecret is required" .Values.migrate.existingSecret }}
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.migrate.postgresUser | quote }}
 {{- end }}

@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.roles import GLOBAL_ADMIN
 from app.datasets.base import DatasetResult, DatasetService
 from .helpers import build_bar_result, run_query
 from .schema import Filters
@@ -14,7 +15,7 @@ class Service(DatasetService):
     id = "spend-by-bge"
     name = "Spend by BGE"
     description = "Total telecom spend aggregated by business government entity — used by the BGE bar chart."
-    required_roles = ("global_admin",)
+    required_roles = (GLOBAL_ADMIN,)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
