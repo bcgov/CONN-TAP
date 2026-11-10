@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.roles import database_role
 from app.db.session import get_db
 
 
@@ -88,6 +89,16 @@ def get_current_user(
     # Entra app roles assigned to the user arrive in the `roles` claim.
     claim_roles = claims.get("roles")
     roles = [r for r in claim_roles if isinstance(r, str)] if isinstance(claim_roles, list) else []
+
+    db_role = database_role(roles)
+    if db_role is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No TAP role")
+
+    # The rest of this request's queries run as the user's database role, so
+    # Postgres only returns data that role is granted. `true` limits it to the
+    # current transaction: after a commit or at the end of the request the
+    # connection is back to the login user, which has no data access.
+    db.execute(text("SELECT set_config('role', :role, true)"), {"role": db_role})
 
     return AuthenticatedUser(
         subject=row["subject"],
