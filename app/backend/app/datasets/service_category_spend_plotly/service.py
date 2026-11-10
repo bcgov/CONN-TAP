@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.roles import TO_ADMIN, TO_VIEWER
 from app.datasets.base import DatasetResult, DatasetService
 from .helpers import build_plotly_result, run_query
 from .schema import Filters
@@ -14,6 +15,7 @@ class Service(DatasetService):
     id = "service-category-spend-plotly"
     name = "Service Category Spend - Plotly"
     description = "Stacked spend by service category and provider formatted for Plotly."
+    required_roles = (TO_ADMIN, TO_VIEWER)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

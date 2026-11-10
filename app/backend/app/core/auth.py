@@ -69,7 +69,7 @@ def get_current_user(
         db.execute(
             text(
                 """
-                SELECT subject, username, email, name, claims
+                SELECT user_id, subject, username, email, name, claims
                   FROM auth_sessions
                  WHERE session_hash = :session_hash
                    AND revoked_at IS NULL
@@ -98,7 +98,12 @@ def get_current_user(
     # Postgres only returns data that role is granted. `true` limits it to the
     # current transaction: after a commit or at the end of the request the
     # connection is back to the login user, which has no data access.
-    db.execute(text("SELECT set_config('role', :role, true)"), {"role": db_role})
+    # tap.user_id tells Postgres which user this is, so org users only see
+    # their assigned organizations (alembic 015_org_scope_functions).
+    db.execute(
+        text("SELECT set_config('role', :role, true), set_config('tap.user_id', :user_id, true)"),
+        {"role": db_role, "user_id": str(row["user_id"])},
+    )
 
     return AuthenticatedUser(
         subject=row["subject"],
