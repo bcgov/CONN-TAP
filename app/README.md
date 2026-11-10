@@ -97,6 +97,29 @@ For Entra setup, environment variables, roles and the authentication flow, see [
 
 3. Users log in via the landing page and are redirected to a secure dashboard after authentication. The browser receives only an opaque `HttpOnly` session cookie.
 
+## Database users and roles
+
+Each part of the app connects to Postgres as its own user, with only the access it needs. Created by Alembic migration `013_database_roles`.
+
+| User | Used by | Access |
+|------|---------|--------|
+| `dbadmin` (RDS) / `app` (local) | Migrate job: Alembic and dbt | Owner of everything |
+| `tap_web` | Frontend | Only `app.users`, `app.auth_sessions`, `app.auth_oauth_states` |
+| `tap_api` | Backend | Reads `app.auth_sessions`, then switches to the user's role (below). No data access on its own. |
+
+For every API request the backend switches to the Postgres role that matches the user's Entra app role (`app/core/roles.py`, highest role wins). The switch lasts for that transaction only, so the connection goes back to `tap_api` afterwards.
+
+| Entra app role | Postgres role | Data |
+|----------------|---------------|------|
+| `global_admin` | `tap_global_admin` | All of `analytics` and `reference_data` |
+| `global_analyst` | `tap_global_analyst` | All of `analytics` and `reference_data` |
+| `org_admin` | `tap_org_admin` | None yet (organization-level access to come) |
+| `org_analyst` | `tap_org_analyst` | None yet (organization-level access to come) |
+
+New tables in `analytics` and `reference_data` are readable by the global roles automatically, as long as dbt and Alembic run as the same user that ran migration 013.
+
+Passwords on RDS: Terraform (`infra/modules/postgres_rds`) creates them in Secrets Manager as `<license>-<env>/rds-tap-api` and `<license>-<env>/rds-tap-web`. The deploy's migrate job sets them in Postgres (`app/db/set_login_passwords.py`). Locally, the backend and frontend still connect as `app`.
+
 ## Running dbt
 
 From inside the backend container (or any environment with dbt installed):

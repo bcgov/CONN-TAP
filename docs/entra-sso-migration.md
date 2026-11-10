@@ -165,7 +165,7 @@ After Entra is live everywhere, delete `KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_I
 | Web redirect URI `https://<host>/auth/callback` | Done | Done | |
 | ID tokens enabled | Done | Done | |
 | Client secret (note expiry) | | | |
-| App roles `global_admin`, `global_analyst` (Value must match exactly) | | | |
+| App roles `global_admin`, `global_analyst`, `org_admin`, `org_analyst` (Value must match exactly) | | | |
 | Optional claims `email`, `given_name`, `family_name` on ID token | | | |
 | `http://localhost:3001/auth/callback` (dev only) | | n/a | n/a |
 | Homepage URL `https://<host>/dashboard` | | | |
@@ -252,7 +252,7 @@ to untick it in each environment, so a flow TAP doesn't use is closed.
 - [x] Decide on / implement **Log out of Entra too, not only TAP** (see Improvements)
 - [ ] Site root `https://<host>/` registered as a redirect URI in every environment (needed for logout)
 - [ ] Enterprise app **Assignment required = Yes** in every environment
-- [ ] App roles created with Values `global_admin`, `global_analyst`
+- [ ] App roles created with Values `global_admin`, `global_analyst`, `org_admin`, `org_analyst`
 - [ ] `openid` added to API permissions and admin consent granted
 - [ ] Redirect URI is `https://<host>/auth/callback` (not the site root) in every environment
 - [ ] GitHub variables/secret `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` set per environment

@@ -167,6 +167,8 @@ jobs:
             echo "FRONTEND_IMAGE_URI=${registry}/${frontend_repository}"
             echo "EKS_CLUSTER_NAME=${LICENSE_PLATE}-${ENV_NAME}-eks"
             echo "POSTGRES_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-master"
+            echo "TAP_API_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-tap-api"
+            echo "TAP_WEB_SECRET_ID=${LICENSE_PLATE}-${ENV_NAME}/rds-tap-web"
             echo "POSTGRES_DB_INSTANCE_ID=${LICENSE_PLATE}-${ENV_NAME}"
             echo "APP_BASE_URL=${app_base_url}"
             echo "INGRESS_HOST=${ingress_host}"
@@ -236,8 +238,17 @@ jobs:
             --db-instance-identifier "${POSTGRES_DB_INSTANCE_ID}" \
             --query "DBInstances[0].Endpoint.Address" \
             --output text)"
+          # Owner password: only for the migrate job. The app uses tap_api / tap_web.
           postgres_password="$(aws secretsmanager get-secret-value \
             --secret-id "${POSTGRES_SECRET_ID}" \
+            --query SecretString \
+            --output text)"
+          tap_api_password="$(aws secretsmanager get-secret-value \
+            --secret-id "${TAP_API_SECRET_ID}" \
+            --query SecretString \
+            --output text)"
+          tap_web_password="$(aws secretsmanager get-secret-value \
+            --secret-id "${TAP_WEB_SECRET_ID}" \
             --query SecretString \
             --output text)"
 
@@ -251,19 +262,28 @@ jobs:
 
           backend_secret="${HELM_RELEASE}-backend-runtime"
           frontend_secret="${HELM_RELEASE}-frontend-runtime"
+          migrate_secret="${HELM_RELEASE}-migrate-runtime"
 
           kubectl create secret generic "${backend_secret}" \
             --namespace "${HELM_NAMESPACE}" \
-            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=POSTGRES_PASSWORD="${tap_api_password}" \
             --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
           kubectl create secret generic "${frontend_secret}" \
             --namespace "${HELM_NAMESPACE}" \
-            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=POSTGRES_PASSWORD="${tap_web_password}" \
             --from-literal=ENTRA_CLIENT_SECRET="${ENTRA_CLIENT_SECRET}" \
             --from-literal=SESSION_SECRET="${SESSION_SECRET}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          kubectl create secret generic "${migrate_secret}" \
+            --namespace "${HELM_NAMESPACE}" \
+            --from-literal=POSTGRES_PASSWORD="${postgres_password}" \
+            --from-literal=TAP_API_POSTGRES_PASSWORD="${tap_api_password}" \
+            --from-literal=TAP_WEB_POSTGRES_PASSWORD="${tap_web_password}" \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
@@ -294,7 +314,7 @@ jobs:
             --set-string 'backend.podAnnotations.conn-tap\.github\.com/build-run-id'="${BUILD_RUN_ID}" \
             --set-string backend.env.POSTGRES_HOST="${postgres_host}" \
             --set-string backend.env.POSTGRES_PORT="5432" \
-            --set-string backend.env.POSTGRES_USER="dbadmin" \
+            --set-string backend.env.POSTGRES_USER="tap_api" \
             --set-string backend.env.POSTGRES_DB="app" \
             --set-string backend.env.POSTGRES_SSL="true" \
             --set-string backend.env.CORS_ORIGINS="${cors_origins}" \
@@ -309,7 +329,7 @@ jobs:
             --set-string frontend.env.BACKEND_INTERNAL_URL="http://${HELM_RELEASE}-backend:8000" \
             --set-string frontend.env.POSTGRES_HOST="${postgres_host}" \
             --set-string frontend.env.POSTGRES_PORT="5432" \
-            --set-string frontend.env.POSTGRES_USER="dbadmin" \
+            --set-string frontend.env.POSTGRES_USER="tap_web" \
             --set-string frontend.env.POSTGRES_DB="app" \
             --set-string frontend.env.POSTGRES_SSL="true" \
             --set-string frontend.env.ENTRA_TENANT_ID="${ENTRA_TENANT_ID}" \
@@ -320,4 +340,5 @@ jobs:
             --set ingress.className=alb \
             --set-string ingress.host="${INGRESS_HOST}" \
             --set-json ingress.annotations="${ingress_annotations}" \
-            --set migrate.enabled=true
+            --set migrate.enabled=true \
+            --set-string migrate.existingSecret="${migrate_secret}"
