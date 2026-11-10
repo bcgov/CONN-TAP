@@ -111,10 +111,10 @@ For every API request the backend switches to the Postgres role that matches the
 
 | Entra app role | Postgres role | Data |
 |----------------|---------------|------|
-| `global_admin` | `tap_global_admin` | All of `analytics` and `reference_data` |
-| `global_analyst` | `tap_global_analyst` | All of `analytics` and `reference_data` |
+| `to_admin` | `tap_to_admin` | All of `analytics` and `reference_data` |
+| `to_viewer` | `tap_to_viewer` | All of `analytics` and `reference_data` |
 | `org_admin` | `tap_org_admin` | None yet (organization-level access to come) |
-| `org_analyst` | `tap_org_analyst` | None yet (organization-level access to come) |
+| `org_user` | `tap_org_user` | None yet (organization-level access to come) |
 
 New tables in `analytics` and `reference_data` are readable by the global roles automatically, as long as dbt and Alembic run as the same user that ran migration 013.
 
