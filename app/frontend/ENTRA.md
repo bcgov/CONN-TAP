@@ -65,7 +65,7 @@ One app registration per environment (dev, test, prod), managed with the BC Gov 
 
 Roles come from the ID token's `roles` claim (Entra app roles assigned to the user). They are read at sign-in, so a role change takes effect the next time the user signs in.
 
-- `ALLOWED_ROLES` in `src/lib/server/auth.ts` lists the roles that may open the dashboard; anyone else is sent to `/unauthorized`. `org_admin` and `org_user` are left out until organization-level data access is built.
+- `ALLOWED_ROLES` in `src/lib/server/auth.ts` lists the roles that may open the dashboard; anyone else is sent to `/unauthorized`. All four roles can sign in; `org_admin` and `org_user` have no data access until organization-level data access is built.
 - Each dataset's `required_roles` (backend `service.py`) decides which datasets a role can see.
 - Each role also has its own Postgres role, and the backend runs every request's queries as it. See [Database users and roles](../README.md#database-users-and-roles).
 
