@@ -72,14 +72,14 @@ def test_user_without_roles_denied_when_role_required() -> None:
 
 
 def test_request_runs_as_the_users_database_role() -> None:
-    db = _FakeDb(_session_row(["global_analyst"]))
+    db = _FakeDb(_session_row(["to_viewer"]))
 
     user = get_current_user(session_cookie="cookie", db=db)
 
-    assert user.roles == ["global_analyst"]
+    assert user.roles == ["to_viewer"]
     statement, params = db.statements[-1]
     assert "set_config('role'" in statement
-    assert params == {"role": "tap_global_analyst"}
+    assert params == {"role": "tap_to_viewer"}
 
 
 def test_user_without_tap_role_is_refused_before_switching_role() -> None:

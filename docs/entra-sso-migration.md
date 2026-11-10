@@ -77,7 +77,7 @@ From here on, local sign-in needs the Entra values in `frontend/.env.local`.
   read the user's roles from the `roles` claim (Entra app roles) instead of Keycloak's
   `client_roles`. Both read the claims saved on the session row at sign-in.
 - The app role **Value** in Entra must match the names in `ALLOWED_ROLES`
-  (`global_admin`, `global_analyst`) and the datasets' `required_roles`.
+  (`to_admin`, `to_viewer`) and the datasets' `required_roles`.
 
 ### Step 2d – User details from the ID token, users keyed on `oid`
 
@@ -165,7 +165,7 @@ After Entra is live everywhere, delete `KEYCLOAK_ISSUER_URL`, `KEYCLOAK_CLIENT_I
 | Web redirect URI `https://<host>/auth/callback` | Done | Done | |
 | ID tokens enabled | Done | Done | |
 | Client secret (note expiry) | | | |
-| App roles `global_admin`, `global_analyst`, `org_admin`, `org_analyst` (Value must match exactly) | | | |
+| App roles `to_admin`, `to_viewer`, `org_admin`, `org_user` (Value must match exactly) | | | |
 | Optional claims `email`, `given_name`, `family_name` on ID token | | | |
 | `http://localhost:3001/auth/callback` (dev only) | | n/a | n/a |
 | Homepage URL `https://<host>/dashboard` | | | |
@@ -183,7 +183,7 @@ Today two things stop people who were not added by an admin:
 
 1. Entra: **Assignment required = Yes** on the Enterprise app. Anyone not assigned
    (including IDIR users) is refused by Entra (AADSTS50105) and never reaches TAP.
-2. TAP: the dashboard only opens for `ALLOWED_ROLES` (`global_admin`, `global_analyst`);
+2. TAP: the dashboard only opens for `ALLOWED_ROLES` (`to_admin`, `to_viewer`);
    others are sent to `/unauthorized`.
 
 Gap: the role check guards the dashboard page, not sign-in. If a user were ever signed
@@ -252,7 +252,7 @@ to untick it in each environment, so a flow TAP doesn't use is closed.
 - [x] Decide on / implement **Log out of Entra too, not only TAP** (see Improvements)
 - [ ] Site root `https://<host>/` registered as a redirect URI in every environment (needed for logout)
 - [ ] Enterprise app **Assignment required = Yes** in every environment
-- [ ] App roles created with Values `global_admin`, `global_analyst`, `org_admin`, `org_analyst`
+- [ ] App roles created with Values `to_admin`, `to_viewer`, `org_admin`, `org_user`
 - [ ] `openid` added to API permissions and admin consent granted
 - [ ] Redirect URI is `https://<host>/auth/callback` (not the site root) in every environment
 - [ ] GitHub variables/secret `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` set per environment
