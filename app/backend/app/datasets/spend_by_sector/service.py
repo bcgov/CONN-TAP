@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.roles import TO_ADMIN, TO_VIEWER
 from app.datasets.base import DatasetResult, DatasetService
 from .helpers import build_pie_result, run_query
 from .schema import Filters
@@ -14,6 +15,8 @@ class Service(DatasetService):
     id = "spend-by-sector"
     name = "Spend by Sector"
     description = "Total telecom spend aggregated by sector — used by the sector pie chart."
+    # Reads bge_vendor_spend, which has no row-level security yet: TO roles only.
+    required_roles = (TO_ADMIN, TO_VIEWER)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

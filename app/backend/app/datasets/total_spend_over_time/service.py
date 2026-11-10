@@ -6,13 +6,15 @@ from typing import Any
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from app.core.roles import ORG_ADMIN, ORG_USER, TO_ADMIN, TO_VIEWER
 from app.datasets.base import DatasetResult, DatasetService
 
 
 class Service(DatasetService):
     id = "total-spend-over-time"
     name = "Total Spend Over Time"
-    description = "Monthly total spend for all periods — used by the timeline range selector."
+    description = "Monthly total spend (org users: their organizations only) — used by the timeline range selector."
+    required_roles = (TO_ADMIN, TO_VIEWER, ORG_ADMIN, ORG_USER)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         df = self.execute_sql(db, "monthly")

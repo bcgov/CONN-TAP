@@ -58,6 +58,9 @@ export function DashboardClient({
   visibleDatasetIds: string[];
 }) {
   const [period, setPeriods] = useState<string[]>([]);
+  const canAccessIndicators = visibleDatasetIds.includes("isp-spend-indicators");
+  const canAccessCategory = visibleDatasetIds.includes("service-category-spend-plotly");
+  const canAccessSector = visibleDatasetIds.includes("spend-by-sector");
   const canAccessBgeData = visibleDatasetIds.includes("spend-by-bge");
   const canAccessSummary = visibleDatasetIds.includes("spend-summary");
 
@@ -73,7 +76,7 @@ export function DashboardClient({
           : null,
       };
     },
-    enabled: period.length > 0,
+    enabled: canAccessCategory && period.length > 0,
   });
   const indicatorQuery = useQuery({
     queryKey: ["isp-spend-indicators", period],
@@ -85,6 +88,7 @@ export function DashboardClient({
         ? result.metadata.chart
         : null;
     },
+    enabled: canAccessIndicators,
   });
 
   const timelineQuery = useQuery({
@@ -110,7 +114,7 @@ export function DashboardClient({
         ? result.metadata.chart
         : null;
     },
-    enabled: period.length > 0,
+    enabled: canAccessSector && period.length > 0,
   });
 
   const bgeQuery = useQuery({
@@ -205,27 +209,35 @@ export function DashboardClient({
                 tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
               />
 
-              <SpendIndicatorCards
-                indicators={indicatorQuery.data?.indicators ?? []}
-                dateRangeLabel={dateRangeLabel}
-                isLoading={indicatorQuery.isLoading}
-              />
-
-              <section className="dashboard-chart-grid" aria-live="polite">
-                <SpendByCategory
-                  chart={chartQuery.data?.plotly}
+              {canAccessIndicators && (
+                <SpendIndicatorCards
+                  indicators={indicatorQuery.data?.indicators ?? []}
                   dateRangeLabel={dateRangeLabel}
-                  isLoading={chartQuery.isLoading}
-                  isError={chartQuery.isError}
+                  isLoading={indicatorQuery.isLoading}
                 />
+              )}
 
-                <SpendBySector
-                  chart={sectorQuery.data}
-                  dateRangeLabel={dateRangeLabel}
-                  isLoading={sectorQuery.isLoading}
-                  isError={sectorQuery.isError}
-                />
-              </section>
+              {(canAccessCategory || canAccessSector) && (
+                <section className="dashboard-chart-grid" aria-live="polite">
+                  {canAccessCategory && (
+                    <SpendByCategory
+                      chart={chartQuery.data?.plotly}
+                      dateRangeLabel={dateRangeLabel}
+                      isLoading={chartQuery.isLoading}
+                      isError={chartQuery.isError}
+                    />
+                  )}
+
+                  {canAccessSector && (
+                    <SpendBySector
+                      chart={sectorQuery.data}
+                      dateRangeLabel={dateRangeLabel}
+                      isLoading={sectorQuery.isLoading}
+                      isError={sectorQuery.isError}
+                    />
+                  )}
+                </section>
+              )}
 
               {canAccessBgeData && (
                 <section

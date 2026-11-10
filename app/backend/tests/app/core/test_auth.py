@@ -25,6 +25,7 @@ class _FakeDb:
 
 def _session_row(roles: list[str]) -> dict:
     return {
+        "user_id": 7,
         "subject": "oid-1",
         "username": "alice",
         "email": None,
@@ -79,7 +80,17 @@ def test_request_runs_as_the_users_database_role() -> None:
     assert user.roles == ["to_viewer"]
     statement, params = db.statements[-1]
     assert "set_config('role'" in statement
-    assert params == {"role": "tap_to_viewer"}
+    assert params["role"] == "tap_to_viewer"
+
+
+def test_request_tells_postgres_which_user_it_is() -> None:
+    db = _FakeDb(_session_row(["org_user"]))
+
+    get_current_user(session_cookie="cookie", db=db)
+
+    statement, params = db.statements[-1]
+    assert "set_config('tap.user_id'" in str(statement)
+    assert params == {"role": "tap_org_user", "user_id": "7"}
 
 
 def test_user_without_tap_role_is_refused_before_switching_role() -> None:
