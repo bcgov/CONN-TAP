@@ -57,6 +57,33 @@ resource "aws_secretsmanager_secret_version" "db" {
   secret_string = random_password.master.result
 }
 
+# Passwords for the app's own database users (tap_api = backend, tap_web =
+# frontend; created by alembic 013_database_roles). The deploy's migrate job
+# sets them in Postgres on every deploy.
+locals {
+  app_db_users = toset(["tap-api", "tap-web"])
+}
+
+resource "random_password" "app_user" {
+  for_each = local.app_db_users
+  length   = 24
+  special  = false
+}
+
+resource "aws_secretsmanager_secret" "app_user" {
+  for_each                = local.app_db_users
+  name                    = "${var.name_prefix}/rds-${each.key}"
+  recovery_window_in_days = 0
+
+  tags = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "app_user" {
+  for_each      = local.app_db_users
+  secret_id     = aws_secretsmanager_secret.app_user[each.key].id
+  secret_string = random_password.app_user[each.key].result
+}
+
 resource "aws_db_instance" "primary" {
   identifier     = var.name_prefix
   engine         = "postgres"

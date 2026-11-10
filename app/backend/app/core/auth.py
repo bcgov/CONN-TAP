@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.roles import database_role
 from app.db.session import get_db
 
 
@@ -68,7 +69,7 @@ def get_current_user(
         db.execute(
             text(
                 """
-                SELECT subject, username, email, name, claims
+                SELECT user_id, subject, username, email, name, claims
                   FROM auth_sessions
                  WHERE session_hash = :session_hash
                    AND revoked_at IS NULL
@@ -88,6 +89,21 @@ def get_current_user(
     # Entra app roles assigned to the user arrive in the `roles` claim.
     claim_roles = claims.get("roles")
     roles = [r for r in claim_roles if isinstance(r, str)] if isinstance(claim_roles, list) else []
+
+    db_role = database_role(roles)
+    if db_role is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No TAP role")
+
+    # The rest of this request's queries run as the user's database role, so
+    # Postgres only returns data that role is granted. `true` limits it to the
+    # current transaction: after a commit or at the end of the request the
+    # connection is back to the login user, which has no data access.
+    # tap.user_id tells Postgres which user this is, so org users only see
+    # their assigned organizations (alembic 015_org_scope_functions).
+    db.execute(
+        text("SELECT set_config('role', :role, true), set_config('tap.user_id', :user_id, true)"),
+        {"role": db_role, "user_id": str(row["user_id"])},
+    )
 
     return AuthenticatedUser(
         subject=row["subject"],

@@ -57,7 +57,7 @@ One app registration per environment (dev, test, prod), managed with the BC Gov 
 
 - Platform: **Web**, redirect URIs `https://<host>/auth/callback` and `https://<host>/` (dev also `http://localhost:3001/auth/callback` and `http://localhost:3001/`). The site root is where Entra sends the user after logout.
 - A client secret (note its expiry and renew it before then)
-- App roles whose **Value** matches the role names used by the app: `global_admin`, `global_analyst`
+- App roles whose **Value** matches the role names used by the app: `to_admin`, `to_viewer`, `org_admin`, `org_user`
 - Optional claims on the ID token: `email`, `given_name`, `family_name`
 - Enterprise application: **Assignment required = Yes**, so only users given a role (directly or through an access package) can sign in
 
@@ -65,8 +65,9 @@ One app registration per environment (dev, test, prod), managed with the BC Gov 
 
 Roles come from the ID token's `roles` claim (Entra app roles assigned to the user). They are read at sign-in, so a role change takes effect the next time the user signs in.
 
-- `ALLOWED_ROLES` in `src/lib/server/auth.ts` lists the roles that may open the dashboard; anyone else is sent to `/unauthorized`.
+- `ALLOWED_ROLES` in `src/lib/server/auth.ts` lists the roles that may open the dashboard; anyone else is sent to `/unauthorized`. All four roles can sign in; `org_admin` and `org_user` have no data access until organization-level data access is built.
 - Each dataset's `required_roles` (backend `service.py`) decides which datasets a role can see.
+- Each role also has its own Postgres role, and the backend runs every request's queries as it. See [Database users and roles](../README.md#database-users-and-roles).
 
 ## Flow
 
