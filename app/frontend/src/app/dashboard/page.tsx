@@ -9,5 +9,13 @@ export default async function DashboardPage() {
   const displayName = session.name ?? session.username ?? session.email ?? "an authorized user";
   const visibleDatasetIds = [...(await getVisibleDatasetIds())];
 
-  return <DashboardClient displayName={displayName} visibleDatasetIds={visibleDatasetIds} />;
+  const isAdmin = session.roles.includes("to_admin");
+
+  return (
+    <DashboardClient
+      displayName={displayName}
+      visibleDatasetIds={visibleDatasetIds}
+      isAdmin={isAdmin}
+    />
+  );
 }

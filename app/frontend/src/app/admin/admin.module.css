@@ -1,0 +1,20 @@
+/* White instead of the dashboard's light gray. "main" makes this win over
+   .dashboard-main in globals.css. */
+main.page {
+  background: var(--color-surface-white);
+}
+
+.assign {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.assign select {
+  max-width: 20rem;
+  padding: 0.25rem;
+}
+
+.error {
+  color: var(--surface-color-primary-danger-button-default, #ce3e39);
+}

@@ -53,9 +53,11 @@ async function fetchDataset(
 export function DashboardClient({
   displayName,
   visibleDatasetIds,
+  isAdmin = false,
 }: {
   displayName: string;
   visibleDatasetIds: string[];
+  isAdmin?: boolean;
 }) {
   const [period, setPeriods] = useState<string[]>([]);
   const canAccessIndicators = visibleDatasetIds.includes("isp-spend-indicators");
@@ -156,7 +158,7 @@ export function DashboardClient({
     <div className="dashboard-page">
       <ConfidentialityBanner />
       <div className="dashboard-shell">
-        <DashboardSidebar />
+        <DashboardSidebar showAdmin={isAdmin} />
 
         <div className="dashboard-right">
           <Header
