@@ -35,7 +35,9 @@ spec:
           # the fact, unmapped NGTA sub-BGE name, ...) fails the deploy.
           # NOTE: assert_ngta_sub_bge_names_mapped_to_alias took ~17 min when it
           # was last run, longer than the 10m Helm --timeout on its own.
-          command: ["sh", "-c", "alembic upgrade head && dbt seed --profiles-dir /app/dbt --project-dir /app/dbt && dbt run --profiles-dir /app/dbt --project-dir /app/dbt && dbt test --profiles-dir /app/dbt --project-dir /app/dbt"]
+          # The spend report models (tag 'report') are skipped here; the spend report
+          # runbook rebuilds them when a report is made.
+          command: ["sh", "-c", "alembic upgrade head && dbt seed --profiles-dir /app/dbt --project-dir /app/dbt && dbt run --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt && dbt test --exclude tag:report --profiles-dir /app/dbt --project-dir /app/dbt"]
           envFrom:
             - configMapRef:
                 name: {{ include "conn-tap.backendName" . }}
