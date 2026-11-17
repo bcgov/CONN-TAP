@@ -2,6 +2,8 @@
 
 ![TELUS NGTA categorisation: 7 steps, each pricebook with its sheets in the order checked, with the problems at each](diagrams/telus_categorisation.png)
 
+![TELUS NGTA categorisation with percentages: share of spend and rows decided at each step](diagrams/telus_categorisation_flow.png)
+
 ## Service ID mapping list
 
 The bill shows some services by name only, mostly cellular plans, and the pricebook's names don't match the bill wording. So in step 2 we turn the name into a service ID with this list. It's kept as a CSV file in the code (`telus_service_id_mapping_list`). TELUS has never confirmed it.
@@ -77,6 +79,10 @@ Rogers is simpler than TELUS: the bill carries a service ID, so a line either ma
 ![Rogers NGTA categorisation: 4 steps, with the problems at each](diagrams/rogers_categorisation.png)
 
 A line with no category is left out of the dashboard's category chart and shows as Unknown in the spend report.
+
+The same flow by file: each file, the key it is matched on, and the share of rows that matched a pricebook or fell back. Percentages are of rows, all months in `stg_rogers_spend`, spend ≠ 0, at the time of DMP-354.
+
+![Rogers NGTA categorisation by file: plan, hardware and data/voice lines, pricebook match or fallback, and the category each ends in](diagrams/rogers_categorisation_flow.png)
 
 ### Rogers pricebooks
 
