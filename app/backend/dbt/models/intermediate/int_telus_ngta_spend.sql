@@ -1,8 +1,8 @@
 {{ config(materialized='view') }}
 
 -- Applies Telus NGTA-specific exclusion rules so int_service_spend_line_items stays vendor-agnostic,
--- then gives each line a category: TLS first, then hardware, then the other TELUS pricebooks,
--- then, when nothing matched, the old source rule.
+-- then gives each line a category: TLS first, then the other TELUS pricebooks,
+-- then, when nothing matched, hardware and then the old source rule.
 
 with source as (
     select * from {{ ref('stg_telus_ngta_spend') }}
@@ -71,6 +71,15 @@ pricebook_names as (
     order by name, priority
 ),
 
+-- Bill plan names and the pricebook service ID each one stands for (GoBC V&D ULNA 5GB -> XPULNA5GB).
+-- Entries are LIKE patterns ('%' = anything), cleaned the same way as the bill description.
+plan_names as (
+    select
+        {{ text_key('description_pattern') }} as pattern,
+        upper(trim(service_id)) as service_id
+    from {{ ref('telus_service_id_mapping_list') }}
+),
+
 -- Analysts' list of TLS charge descriptions/LTO list, this will be provided when there are more entries to include.
 -- Matched exactly, both sides cleaned the same way (punctuation and the bill's trailing '*' ignored):
 lto_list as (
@@ -109,7 +118,7 @@ filtered as (
 ),
 
 -- ============================================================
--- 2. Hardware (used after TLS, before the other pricebooks)
+-- 2. Hardware (used only when no pricebook matched, before the old rule)
 --    a. source_id 164                         -> cellular hardware
 --    b. hardware description on a Wireless line -> cellular hardware
 --    c. hardware description on any other line  -> ancillary hardware
@@ -140,7 +149,7 @@ spend_with_hardware as (
 -- ============================================================
 -- 3. The line's pricebook service ID: the first of these found in the pricebook
 --    a. a code written in the description; when there are several, the longest
---    b. the cellular plan name (GoBC V&D ULNA 5GB -> XPULNA5GB)
+--    b. the plan name, from the plan name list (GoBC V&D ULNA 5GB -> XPULNA5GB)
 --    c. the whole cleaned description (TLS IDs are names)
 -- ============================================================
 
@@ -154,6 +163,16 @@ code_matches as (
     order by codes.service_ids, length(code) desc, code
 ),
 
+-- When more than one plan name pattern fits, the longest pattern wins.
+plan_name_matches as (
+    select distinct on (descriptions.description)
+        descriptions.description,
+        plan_name.service_id
+    from (select distinct source_service_description as description from spend_with_hardware) descriptions
+    join plan_names plan_name on {{ text_key('descriptions.description') }} like plan_name.pattern
+    order by descriptions.description, length(plan_name.pattern) desc, plan_name.pattern
+),
+
 spend_with_service_id as (
     select
         spend.*,
@@ -161,17 +180,19 @@ spend_with_service_id as (
     from spend_with_hardware spend
     left join code_matches code_match
         on code_match.service_ids = spend.service_ids
+    left join plan_name_matches plan_name_match
+        on plan_name_match.description = spend.source_service_description
     left join pricebook_ids plan_match
-        on plan_match.service_id = {{ telus_cellular_plan_id('spend.source_service_description') }}
+        on plan_match.service_id = plan_name_match.service_id
     left join pricebook_ids description_match
         on description_match.service_id = spend.cleaned_description
 ),
 
 -- ============================================================
 -- 4. The line's category. TLS first: the TLS pricebook, then the LTO list.
---    Then hardware (step 2).
 --    Then the other pricebooks: by service ID, then by rate plan / service / description.
---    No pricebook match: the old rule (Wireless -> Cellular, then the source_id's category).
+--    No pricebook match: hardware (step 2), then the old rule (Wireless -> Cellular,
+--    then the source_id's category).
 -- ============================================================
 
 categorised_spend as (
@@ -180,11 +201,11 @@ categorised_spend as (
         case
             when pricebook.service_category_code = 'time_limited_services' then pricebook.service_category_code
             when lto.service_category_code is not null then lto.service_category_code
-            when spend.hardware_category_code is not null then spend.hardware_category_code
             when pricebook.service_category_code is not null then pricebook.service_category_code
             when pricebook_name.service_category_code is not null then pricebook_name.service_category_code
 
-            -- No pricebook match: the old rule
+            -- No pricebook match: hardware, then the old rule
+            when spend.hardware_category_code is not null then spend.hardware_category_code
             when spend.source_service_family = 'wireless' then 'cellular'
             when old_rule.service_category_code is not null then old_rule.service_category_code
             -- === TEMPORARY (TODO remove): PHSA Other -> Data, until TELUS confirms the classification ===
