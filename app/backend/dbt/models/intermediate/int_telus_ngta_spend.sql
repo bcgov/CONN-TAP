@@ -124,26 +124,12 @@ filtered as (
 --    c. hardware description on any other line  -> ancillary hardware
 -- ============================================================
 
-flagged as (
-    select
-        s.*,
-        -- telus_hardware_details entries are LIKE patterns ('%' = variable suffix)
-        exists (
-            select 1 from telus_hardware_details h
-            where {{ text_key('s.source_service_description') }} like h.detail_key
-        ) as is_hw
-    from filtered s
-),
-
-spend_with_hardware as (
-    select
-        *,
-        case
-            when source_service_id = '164' then 'cellular_hardware'
-            when is_hw and source_service_family = 'wireless' then 'cellular_hardware'
-            when is_hw then 'ancillary_hardware'
-        end as hardware_category_code
-    from flagged
+-- Descriptions on the hardware list, checked once per distinct description (not per line).
+-- telus_hardware_details entries are LIKE patterns ('%' = variable suffix).
+hardware_descriptions as (
+    select distinct descriptions.description
+    from (select distinct source_service_description as description from filtered) descriptions
+    join telus_hardware_details h on {{ text_key('descriptions.description') }} like h.detail_key
 ),
 
 -- ============================================================
@@ -157,7 +143,7 @@ code_matches as (
     select distinct on (codes.service_ids)
         codes.service_ids,
         pricebook.service_id
-    from (select distinct service_ids from spend_with_hardware) codes
+    from (select distinct service_ids from filtered) codes
     cross join unnest(codes.service_ids) as code
     join pricebook_ids pricebook on pricebook.service_id = code
     order by codes.service_ids, length(code) desc, code
@@ -168,7 +154,7 @@ plan_name_matches as (
     select distinct on (descriptions.description)
         descriptions.description,
         plan_name.service_id
-    from (select distinct source_service_description as description from spend_with_hardware) descriptions
+    from (select distinct source_service_description as description from filtered) descriptions
     join plan_names plan_name on {{ text_key('descriptions.description') }} like plan_name.pattern
     order by descriptions.description, length(plan_name.pattern) desc, plan_name.pattern
 ),
@@ -176,8 +162,15 @@ plan_name_matches as (
 spend_with_service_id as (
     select
         spend.*,
+        case
+            when spend.source_service_id = '164' then 'cellular_hardware'
+            when hardware.description is not null and spend.source_service_family = 'wireless' then 'cellular_hardware'
+            when hardware.description is not null then 'ancillary_hardware'
+        end as hardware_category_code,
         coalesce(code_match.service_id, plan_match.service_id, description_match.service_id) as pricebook_service_id
-    from spend_with_hardware spend
+    from filtered spend
+    left join hardware_descriptions hardware
+        on hardware.description = spend.source_service_description
     left join code_matches code_match
         on code_match.service_ids = spend.service_ids
     left join plan_name_matches plan_name_match
