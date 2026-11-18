@@ -7,7 +7,8 @@ module "app_ecr" {
   image_tag_mutability = "MUTABLE"
 
   untagged_image_expire_after_days = 14
-  tagged_image_expire_after_days   = 30
+  # tagged_image_expire_after_days   = 30
+  tagged_image_keep_count = 40
 
   tags = {
     Environment = var.env
