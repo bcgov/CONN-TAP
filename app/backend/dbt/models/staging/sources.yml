@@ -62,6 +62,7 @@ sources:
             tests:
               - accepted_values:
                   values: ['SIPA V1', 'Analog Private Line', 'Centrex', 'Carrier Optical Ethernet',
-                           'Managed Router', 'Copper Services', 'ADSL Services', 'IP Trunking R2']
+                           'Managed Router', 'Copper Services', 'ADSL Services', 'IP Trunking R2',
+                           'MWLAN', 'HGMV']
       - name: raw_telus_v2_professional_services_pricebook
       - name: raw_telus_v2_connected_worker_professional_services_pricebook

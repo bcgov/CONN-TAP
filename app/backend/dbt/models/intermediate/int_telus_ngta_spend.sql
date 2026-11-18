@@ -81,9 +81,11 @@ plan_names as (
 ),
 
 -- Analysts' list of TLS charge descriptions/LTO list, this will be provided when there are more entries to include.
--- Matched exactly, both sides cleaned the same way (punctuation and the bill's trailing '*' ignored):
+-- Matched exactly, both sides cleaned the same way (punctuation and the bill's trailing '*' ignored).
+-- distinct: some entries differ only by punctuation ('..., 1ST QTR MILE' and '... 1ST QTR MILE')
+-- and become the same once cleaned; without it those bill lines would be counted twice.
 lto_list as (
-    select
+    select distinct
         upper({{ clean_text('charge_description', strip_punctuation=true) }}) as charge_description,
         'time_limited_services'::text as service_category_code,
         sub_category_code
