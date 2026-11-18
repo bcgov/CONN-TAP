@@ -8,6 +8,7 @@ select
     bge_id,
     sub_bge_id,
     service_category_id,
+    service_sub_category_id,
     organization_name,
     sub_organization_name,
     source_system,

@@ -21,6 +21,19 @@ with normalized as (
     from {{ source('raw_data', 'raw_telus_spend') }} as t
 ),
 
+-- The raw table has ~18M rows but far fewer distinct descriptions, so the codes and the
+-- cleaned text are worked out once per description and joined back at the end.
+-- Keeping them out of normalized also keeps that CTE small (Postgres writes it out in full).
+description_ids as (
+    select
+        d.source_service_description,
+        -- Codes written in the description (see the macro)
+        {{ extract_telus_service_ids('d.source_service_description') }} as service_ids,
+        -- The description cleaned for matching to the pricebooks (punctuation and the trailing '*' ignored)
+        upper({{ clean_text('d.source_service_description', strip_punctuation=true) }}) as cleaned_description
+    from (select distinct source_service_description from normalized) d
+),
+
 -- Each distinct name is looked up once: match_key is expensive, and calling it per raw row
 -- made every query over this view take minutes. Same alias rows per name as a per-row join.
 org_map as (
@@ -53,8 +66,11 @@ select
     bm.bge_alias as organization_name,
     sbm.sub_bge_alias as sub_organization_name,
     source_service_family,
-    source_service_description,
+    normalized.source_service_description,
     source_service_id,
+    -- A NULL description gets '{}', the same as the macro returns for it.
+    coalesce(di.service_ids, '{}'::text[]) as service_ids,
+    di.cleaned_description,
     statement_category,
     statement_section,
     'amount'::text as source_amount_name,
@@ -62,3 +78,4 @@ select
 from normalized
 left join org_map bm on bm.name = normalized.organization_name
 left join sub_map sbm on sbm.name = normalized.sub_organization_name
+left join description_ids di on di.source_service_description = normalized.source_service_description
