@@ -11,7 +11,7 @@
 --   Data (numeric):  UPPER(SUBSTRING(TRIM(detail_description) FROM '^(NG[0-9]{5})'))
 --   Voice + cross:   UPPER(SUBSTRING(TRIM(detail_description) FROM '^(NG[A-Z0-9]{2,6})'))
 
--- Current source_id bucket (matches scripts/sql/telus.sql):
+-- Current source_id bucket (matches int_telus_ngta_spend / rpt_telus_ngta_monthly):
 --   CASE
 --     WHEN is_hw OR TRIM(source_id) = '164' THEN 'cellular_hardware'
 --     WHEN TRIM(source) = 'Wireless' OR TRIM(source_id) = '130' THEN 'cellular_plans'

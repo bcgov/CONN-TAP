@@ -10,7 +10,7 @@ models:
       the hard-fail gate: an unmatched entity stops the pipeline.
     columns:
       - name: spend_line_item_id
-        description: MD5 of vendor|source_system|source_table|raw_id. One row per raw line item.
+        description: MD5 of vendor|source_system|source_table|raw_id|lookup_code. One row per raw line item and service code (a Rogers cellular row gives a plans line and a hardware line).
         tests:
           - unique     # fails if two raw rows hash to the same id, ie: a duplicate/double-counted row
           - not_null

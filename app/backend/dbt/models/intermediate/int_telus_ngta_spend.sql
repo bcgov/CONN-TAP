@@ -11,15 +11,25 @@ telus_excluded_categories as (
 ),
 
 telus_excluded_details as (
-    select detail_description from {{ ref('telus_excluded_details') }}
+    select {{ text_key('detail_description') }} as detail_key from {{ ref('telus_excluded_details') }}
 ),
 
 telus_hardware_details as (
-    select detail_description from {{ ref('telus_hardware_details') }}
+    select {{ text_key('detail_description') }} as detail_key from {{ ref('telus_hardware_details') }}
 ),
 
 telus_excluded_sections as (
     select statement_section from {{ ref('telus_excluded_sections') }}
+),
+
+-- TELUS's own service codes. Filtered by provider because Rogers shares the
+-- 'ngta' source_system.
+telus_service_codes as (
+    select sc.code
+    from {{ source('reference_data', 'service_code') }} sc
+    join {{ source('reference_data', 'provider') }} p on p.id = sc.provider_id
+    where sc.source_system = 'ngta'
+        and p.code = 'telus'
 ),
 
 filtered as (
@@ -36,7 +46,7 @@ filtered as (
         -- Drop tax and other explicitly excluded line items
         and (
             source_service_description is null
-            or source_service_description not in (select detail_description from telus_excluded_details)
+            or {{ text_key('source_service_description') }} not in (select detail_key from telus_excluded_details)
         )
 
         -- Category exclusions apply even to hardware descriptions and source_id 164.
@@ -51,7 +61,7 @@ flagged as (
         -- telus_hardware_details entries are LIKE patterns ('%' = variable suffix)
         exists (
             select 1 from telus_hardware_details h
-            where s.source_service_description like h.detail_description
+            where {{ text_key('s.source_service_description') }} like h.detail_key
         ) as is_hw
     from filtered s
 )
@@ -62,13 +72,23 @@ select
     source_table,
     raw_id,
     month_start,
+    sheet_name,
     organization_name,
     sub_organization_name,
-    -- Hardware rows resolve through 164 (Cellular Hardware) whatever their own
-    -- source_id, matching the cellular_hardware bucket in scripts/sql/telus.sql.
+    -- Same precedence as the spend report: hardware first, then Wireless
+    -- (Cellular Plans) whatever its source_id, then a confirmed source_id.
+    -- A blank or unconfirmed source_id is the report's Other: telus_other (Unknown).
     case
-        when is_hw then '164'
-        else coalesce(source_service_id, source_service_family)
+        when is_hw or source_service_id = '164' then '164'
+        when source_service_family = 'wireless' then 'wireless'
+        when source_service_id in (select code from telus_service_codes) then source_service_id
+        -- === TEMPORARY (TODO remove): PHSA Other → Data ===
+        -- Until upstream classification is fixed, PHSA spend that would be Other
+        -- (telus_other) is booked as Data via 103 (Wireline Data). The only copy of this
+        -- rule: the spend report, the validation report and the dashboards all read it.
+        when organization_name = 'PHSA' then '103'
+        -- === END TEMPORARY PHSA Other → Data ===
+        else 'telus_other'
     end as lookup_code,
     spend_amount
 from flagged

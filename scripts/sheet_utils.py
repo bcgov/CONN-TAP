@@ -133,7 +133,7 @@ NGTA_BGE_ROWS = [
     ('Cellular H/W',   'cell_hw'),
     ('Data',           'data'),
     ('Voice',          'voice'),
-    ('Other',          'other'),
+    ('Unknown',        'other'),
     ('Total',          'total'),
 ]
 

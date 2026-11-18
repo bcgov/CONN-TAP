@@ -2,12 +2,12 @@
 """Generate a standalone Out-of-Scope spend workbook.
 
 Produces tsma_other_spend.xlsx in the same scripts/ folder.
-Reads spend data from scripts/source/tsma_other_spend.csv.
+Reads spend data from the dbt view rpt_tsma_other_monthly (see report_source.py).
 
 Row layout of the standalone file:
   Rows 1-3 : Year spans / Calendar quarters / Fiscal quarters
   Row 4    : Month labels (Jan 2024 … Dec 2026)
-  Row 5    : "Out of Scope" section header  (first_row=5)
+  Row 5    : "Time Limited Services" section header  (first_row=5)
   Row 6    : "Managed Router" sub-header
   Rows 7-13 : Managed Router detail (7 orgs)
   Row 14   : Managed Router Total
