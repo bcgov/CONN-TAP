@@ -59,9 +59,3 @@ dbt run --select int_telus_ngta_spend+ --project-dir app/backend/dbt --profiles-
 
 The seed refresh updates the report allowlist; the dbt run rebuilds application
 spend totals. The validation runner reloads its SQL functions by default.
-
-Regression checks for the intermediate model and seed run with:
-
-```bash
-PYTHONPATH=app/backend python -m pytest app/backend/tests/dbt/test_telus_spend.py
-```

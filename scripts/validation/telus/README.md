@@ -30,7 +30,8 @@ scripts/validation/telus/
 │   ├── 00_bge_alias_matches.sql
 │   ├── 01_unlisted_tax_like_detail_descriptions.sql
 │   ├── ...
-│   └── 13_spend_comparison.sql
+│   ├── 13_spend_comparison.sql
+│   └── 14_sheet_mapping_issues.sql
 │
 └── helpers/
     ├── get_duplicates.sql                  # Drill-down: rows behind duplicate check
@@ -88,6 +89,19 @@ duplicates that month.
 ### 9. Missing BGEs  *(requires `--month`)*
 Expected BGEs (from reference data) that have no matching sheet in the target month.
 
+### 9a. Sheet Mapping Issues
+Two conditions, flagged in the `issue` column. Must be empty.
+- **Unmapped sheet:** a tab name with no alias in `bge_alias_map`, so dbt can't give it a BGE.
+  Add the tab to `app/backend/dbt/seeds/bge_alias_map.csv`.
+- **Account BGE differs:** an `account_description` that resolves to a sub-BGE whose parent BGE
+  isn't the tab's BGE, so dbt books that spend under a different BGE than the tab. Correct the
+  `sub_bge_alias_map` entry, or confirm the account belongs to the other BGE.
+
+Uses the same `reference_data.match_key` rules as dbt, which gates both with the
+`assert_telus_sheet_names_mapped_to_bge` and `assert_telus_sheet_bge_matches_account_bge`
+tests (error). An ECC tab is compared as Gov BC. Runs on the whole table, or one month with
+`--month`.
+
 ### 10. New / Removed BGEs  *(requires `--month`)*
 Sheet names added or removed compared to the prior month.
 
@@ -121,6 +135,7 @@ exact-text, or cellular plan-name mapping). Reuses `fetch_unmatched()` from
 | Duplicate Summary   | Duplicate rows summary (with amount sum)               |
 | All Duplicate Rows  | Every individual raw row in a duplicate group          |
 | Missing BGEs        | Expected BGEs with no matching sheet this month        |
+| Sheet Mapping Issues| Unmapped tabs; accounts whose BGE differs from the tab |
 | New-Removed BGEs    | Sheets added/removed vs the prior month                |
 | Spend Comparison    | Month-over-month spend comparison by entity            |
 | Cost Validation     | Billed amount vs pricebook monthly_fee (>= 1 cent diff)|
@@ -145,7 +160,9 @@ export DATABASE_URL=postgresql://user:pass@localhost:5432/ngta
 ### Run the pipeline
 
 The device, spend-comparison, cost, and unmatched checks require the current
-`seeds.telus_hardware_details` table. Refresh the seed after editing its CSV;
+`seeds.telus_hardware_details` table. The spend comparison reads dbt's
+`intermediate.rpt_telus_ngta_monthly` view, so run `dbt run --select staging intermediate`
+first whenever the dbt models have changed. Refresh a seed after editing its CSV;
 see [classification rules and refresh commands](../../sql/telus_classification.md).
 
 ```

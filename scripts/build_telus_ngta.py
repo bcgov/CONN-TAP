@@ -2,7 +2,7 @@
 """Generate a standalone TELUS NGTA spend workbook.
 
 Produces telus_ngta_spend.xlsx in the same scripts/ folder.
-Reads spend data from scripts/source/telus_ngta_spend.csv (if present).
+Reads spend data from the dbt view rpt_telus_ngta_monthly (see report_source.py).
 
 Row layout of the standalone file:
   Rows 1-3 : Year spans / Calendar quarters / Fiscal quarters

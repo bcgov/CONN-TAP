@@ -284,9 +284,9 @@ TIME_LIMITED_SERVICES_V2 = BookSpec(
     book_code="time_limited_services_v2",
     file_match="time limited services",
     sheets=(
-        # No old raw_telus_* table exists for any of these 8 sheets — the
+        # No old raw_telus_* table exists for any of these sheets — the
         # old schema never had a "Time Limited Services" pricebook file, so
-        # there's nothing to mirror here. All 8 share one table
+        # there's nothing to mirror here. All share one table
         # (raw_telus_v2_tls_pricebook), with `product` naming which sheet a
         # row came from and unused columns left NULL per sheet (e.g.
         # `overage_charges` is SIPA-V1-only). "Service ID/ Billing ID" and
@@ -365,6 +365,25 @@ TIME_LIMITED_SERVICES_V2 = BookSpec(
             header_row=2,
             literal_columns={"product": "IP Trunking R2"},
         ),
+        # Managed Wireless LAN, added in TAP Special Edition v1.1. Same layout
+        # as the tabs above; "Eligible BGE Locations" goes to extras.
+        SimpleSheetSpec(
+            sheet_name="MWLAN",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_mwlan",
+            header_row=2,
+            literal_columns={"product": "MWLAN"},
+        ),
+        # Health Grade Managed Voice
+        SimpleSheetSpec(
+            sheet_name="HGMV",
+            table_name="raw_telus_v2_tls_pricebook",
+            columns=_TLS_COLUMNS,
+            feed_code="tls_hgmv",
+            header_row=1,
+            literal_columns={"product": "HGMV", "service_category": "Voice"},
+        ),
     ),
 )
 
@@ -426,9 +445,13 @@ def resolve_book(file_stem: str) -> BookSpec:
     raise ValueError(f"Unknown Telus v2 pricebook {file_stem!r}; expected filename containing one of: {known}")
 
 
+def sheet_matches(spec: SheetSpec, sheet_name: str) -> bool:
+    # "starts with" so a sheet renamed with a suffix still matches,
+    return sheet_name.strip().casefold().startswith(spec.sheet_name.strip().casefold())
+
+
 def resolve_sheet(book: BookSpec, sheet_name: str) -> SheetSpec | None:
-    target = sheet_name.strip().casefold()
     for spec in book.sheets:
-        if spec.sheet_name.strip().casefold() == target:
+        if sheet_matches(spec, sheet_name):
             return spec
     return None

@@ -5,8 +5,8 @@ Recreate the spend tracking spreadsheet using xlsxwriter.
 Organized into 6 fillable categories:
   1. tsma           – TSMA BGE detail (rows 11-90)
   2. mms            – MMS summary row and within-BGE MMS sub-rows
-  3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Other row added)
-  4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Other row added)
+  3. telus_ngta     – TELUS NGTA BGE detail (rows 118-201, Unknown row added)
+  4. rogers_ngta    – Rogers NGTA BGE detail (rows 240-323, Unknown row added)
   5. out_of_scope   – Out-of-Scope sub-categories (rows 355-384)
   6. tsma_lite      – TSMA Lite quarterly data (rows 386-395)
 
@@ -50,33 +50,33 @@ OUTPUT_PATH = os.path.join(os.path.dirname(__file__), f"spend_tracking_{TIMESTAM
 # ---------------------------------------------------------------------------
 TSMA_BGE_ROWS = {
     "Gov BC":          [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Voice - IVR','voice_ivr'),('Out of Scope','oos'),('Total','total')],
+                        ('Voice - IVR','voice_ivr'),('Time Limited Services','oos'),('Total','total')],
     "BCLC":            [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "BC Hydro":        [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "WSBC":            [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "ECC":             [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "FHA":             [('Cellular','cellular'),('MMS','mms'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "NHA":             [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "ICBC":            [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "PHSA":            [('Cellular','cellular'),('MMS','mms'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope MWLAN)','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "IHA":             [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "VIHA":            [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "FNHA":            [('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "VCHA":            [('Cellular','cellular'),('MMS','mms'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope MWLAN)','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
     "School Districts":[('Cellular','cellular'),('Data','data'),('Voice','voice'),
-                        ('Out of Scope','oos'),('Total','total')],
+                        ('Time Limited Services','oos'),('Total','total')],
 }
 
 # ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ def build():
     write_monthly_ref(ws, 7, ROW_TSMA_TOTAL_VOI, _fth)
     write_summary_cols(ws, 7, "Voice")
 
-    write(ws, 8, COL_B, "Out of Scope", _fth)
+    write(ws, 8, COL_B, "Time Limited Services", _fth)
     write_monthly_ref(ws, 8, ROW_TSMA_TOTAL_OOS, _fth)
 
     _fth_tot = F.n(bold=True, bg_color=BG_TSMA_HDR)
@@ -254,7 +254,7 @@ def build():
     write(ws, ROW_TSMA_TOTAL_VOI, COL_B, "TOTAL Voice", _fth)
     write_monthly_sum_rows(ws, ROW_TSMA_TOTAL_VOI, TSMA_VOI_ROWS, _fth)
 
-    write(ws, ROW_TSMA_TOTAL_OOS, COL_B, "TOTAL OoS", _fth)
+    write(ws, ROW_TSMA_TOTAL_OOS, COL_B, "TOTAL Time Limited Services", _fth)
     write_monthly_sum_rows(ws, ROW_TSMA_TOTAL_OOS, TSMA_OOS_ROWS, _fth)
 
     # =========================================================

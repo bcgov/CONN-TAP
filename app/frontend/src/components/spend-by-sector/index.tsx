@@ -41,7 +41,7 @@ const SectorGraph = ({ chart }: { chart: SectorChart }) => (
         label={(props: PieLabelRenderProps & { percentage?: number }) => `${props.percentage ?? 0}%`}
         labelLine={false}
         shape={(sectorProps, index) => (
-          <Sector {...sectorProps} fill={chart.data[index]?.fill ?? sectorProps.fill} />
+          <Sector {...sectorProps} fill={chart.data[Number(index)]?.fill ?? sectorProps.fill} />
         )}
       >
       </Pie>
