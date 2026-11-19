@@ -473,7 +473,7 @@ jobs:
             --namespace "${HELM_NAMESPACE}" \
             --create-namespace \
             --wait \
-            --timeout 15m \
+            --timeout 30m \
             --set-string backend.image.repository="${BACKEND_IMAGE_URI}" \
             --set-string backend.image.tag="${RELEASE_TAG}" \
             --set-string backend.image.pullPolicy="IfNotPresent" \
