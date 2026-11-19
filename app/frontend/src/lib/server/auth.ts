@@ -7,7 +7,7 @@ import { authEnv, sessionCookieName } from "./env";
 import { createOpaqueToken, hashSessionToken } from "./crypto";
 import { query } from "./db";
 
-export const ALLOWED_ROLES = ["global_admin", "global_analyst"] as const;
+export const ALLOWED_ROLES = ["to_admin", "to_viewer", "org_admin", "org_user"] as const;
 export type AllowedRole = (typeof ALLOWED_ROLES)[number];
 
 export interface PublicSession {

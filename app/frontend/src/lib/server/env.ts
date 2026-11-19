@@ -29,6 +29,7 @@ export interface AuthEnv {
   appBaseUrl: string;
   backendInternalUrl: string;
   issuerUrl: string;
+  tenantId: string;
   clientId: string;
   clientSecret: string;
   cookieName: string;
@@ -41,12 +42,14 @@ let cachedAuthEnv: AuthEnv | null = null;
 
 function loadAuthEnv(): AuthEnv {
   const appBaseUrl = required("APP_BASE_URL").replace(/\/$/, "");
-  const issuerUrl = `https://login.microsoftonline.com/${required("ENTRA_TENANT_ID")}/v2.0`;
+  const tenantId = required("ENTRA_TENANT_ID");
+  const issuerUrl = `https://login.microsoftonline.com/${tenantId}/v2.0`;
 
   return {
     appBaseUrl,
     backendInternalUrl: (process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000").replace(/\/$/, ""),
     issuerUrl,
+    tenantId,
     clientId: required("ENTRA_CLIENT_ID"),
     clientSecret: required("ENTRA_CLIENT_SECRET"),
     cookieName: sessionCookieName(),

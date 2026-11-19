@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.roles import TO_ADMIN, TO_VIEWER
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import to_float
 from app.datasets.spend_common import pg_text_array
@@ -16,6 +17,7 @@ class Service(DatasetService):
     id = "isp-spend-indicators"
     name = "ISP Spend Indicators"
     description = "Total spend indicator cards for TSMA & NGTA, TELUS, and Rogers."
+    required_roles = (TO_ADMIN, TO_VIEWER)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)

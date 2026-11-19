@@ -54,4 +54,6 @@ See [github_action_and_aws.md](./github_action_and_aws.md) for AWS OIDC, secrets
 
 Dev secrets: `AWS_DEPLOY_ROLE_ARN`, `ENTRA_CLIENT_SECRET`, `SESSION_SECRET`.
 
+AWS Secrets Manager (created by Terraform in `infra/envs/dev`), read by the deploy: `<license>-dev/rds-master` (migrate job only), `<license>-dev/rds-tap-api` (backend), `<license>-dev/rds-tap-web` (frontend). See [Database users and roles](../app/README.md#database-users-and-roles).
+
 Dev variables: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` (from the dev Entra app registration). See [app/frontend/ENTRA.md](../app/frontend/ENTRA.md).
