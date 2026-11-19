@@ -1,8 +1,8 @@
 {{ config(materialized='view') }}
 
 -- Applies Telus NGTA-specific exclusion rules so int_service_spend_line_items stays vendor-agnostic,
--- then gives each line a category: TLS first, then hardware, then the other TELUS pricebooks,
--- then, when nothing matched, the old source rule.
+-- then gives each line a category: TLS first, then the other TELUS pricebooks,
+-- then, when nothing matched, hardware and then the old source rule.
 
 with source as (
     select * from {{ ref('stg_telus_ngta_spend') }}
@@ -71,10 +71,21 @@ pricebook_names as (
     order by name, priority
 ),
 
--- Analysts' list of TLS charge descriptions/LTO list, this will be provided when there are more entries to include.
--- Matched exactly, both sides cleaned the same way (punctuation and the bill's trailing '*' ignored):
-lto_list as (
+-- Bill plan names and the pricebook service ID each one stands for (GoBC V&D ULNA 5GB -> XPULNA5GB).
+-- Entries are LIKE patterns ('%' = anything), cleaned the same way as the bill description.
+plan_names as (
     select
+        {{ text_key('description_pattern') }} as pattern,
+        upper(trim(service_id)) as service_id
+    from {{ ref('telus_service_id_mapping_list') }}
+),
+
+-- Analysts' list of TLS charge descriptions/LTO list, this will be provided when there are more entries to include.
+-- Matched exactly, both sides cleaned the same way (punctuation and the bill's trailing '*' ignored).
+-- distinct: some entries differ only by punctuation ('..., 1ST QTR MILE' and '... 1ST QTR MILE')
+-- and become the same once cleaned; without it those bill lines would be counted twice.
+lto_list as (
+    select distinct
         upper({{ clean_text('charge_description', strip_punctuation=true) }}) as charge_description,
         'time_limited_services'::text as service_category_code,
         sub_category_code
@@ -109,38 +120,24 @@ filtered as (
 ),
 
 -- ============================================================
--- 2. Hardware (used after TLS, before the other pricebooks)
+-- 2. Hardware (used only when no pricebook matched, before the old rule)
 --    a. source_id 164                         -> cellular hardware
 --    b. hardware description on a Wireless line -> cellular hardware
 --    c. hardware description on any other line  -> ancillary hardware
 -- ============================================================
 
-flagged as (
-    select
-        s.*,
-        -- telus_hardware_details entries are LIKE patterns ('%' = variable suffix)
-        exists (
-            select 1 from telus_hardware_details h
-            where {{ text_key('s.source_service_description') }} like h.detail_key
-        ) as is_hw
-    from filtered s
-),
-
-spend_with_hardware as (
-    select
-        *,
-        case
-            when source_service_id = '164' then 'cellular_hardware'
-            when is_hw and source_service_family = 'wireless' then 'cellular_hardware'
-            when is_hw then 'ancillary_hardware'
-        end as hardware_category_code
-    from flagged
+-- Descriptions on the hardware list, checked once per distinct description (not per line).
+-- telus_hardware_details entries are LIKE patterns ('%' = variable suffix).
+hardware_descriptions as (
+    select distinct descriptions.description
+    from (select distinct source_service_description as description from filtered) descriptions
+    join telus_hardware_details h on {{ text_key('descriptions.description') }} like h.detail_key
 ),
 
 -- ============================================================
 -- 3. The line's pricebook service ID: the first of these found in the pricebook
 --    a. a code written in the description; when there are several, the longest
---    b. the cellular plan name (GoBC V&D ULNA 5GB -> XPULNA5GB)
+--    b. the plan name, from the plan name list (GoBC V&D ULNA 5GB -> XPULNA5GB)
 --    c. the whole cleaned description (TLS IDs are names)
 -- ============================================================
 
@@ -148,30 +145,49 @@ code_matches as (
     select distinct on (codes.service_ids)
         codes.service_ids,
         pricebook.service_id
-    from (select distinct service_ids from spend_with_hardware) codes
+    from (select distinct service_ids from filtered) codes
     cross join unnest(codes.service_ids) as code
     join pricebook_ids pricebook on pricebook.service_id = code
     order by codes.service_ids, length(code) desc, code
 ),
 
+-- When more than one plan name pattern fits, the longest pattern wins.
+plan_name_matches as (
+    select distinct on (descriptions.description)
+        descriptions.description,
+        plan_name.service_id
+    from (select distinct source_service_description as description from filtered) descriptions
+    join plan_names plan_name on {{ text_key('descriptions.description') }} like plan_name.pattern
+    order by descriptions.description, length(plan_name.pattern) desc, plan_name.pattern
+),
+
 spend_with_service_id as (
     select
         spend.*,
+        case
+            when spend.source_service_id = '164' then 'cellular_hardware'
+            when hardware.description is not null and spend.source_service_family = 'wireless' then 'cellular_hardware'
+            when hardware.description is not null then 'ancillary_hardware'
+        end as hardware_category_code,
         coalesce(code_match.service_id, plan_match.service_id, description_match.service_id) as pricebook_service_id
-    from spend_with_hardware spend
+    from filtered spend
+    left join hardware_descriptions hardware
+        on hardware.description = spend.source_service_description
     left join code_matches code_match
         on code_match.service_ids = spend.service_ids
+    left join plan_name_matches plan_name_match
+        on plan_name_match.description = spend.source_service_description
     left join pricebook_ids plan_match
-        on plan_match.service_id = {{ telus_cellular_plan_id('spend.source_service_description') }}
+        on plan_match.service_id = plan_name_match.service_id
     left join pricebook_ids description_match
         on description_match.service_id = spend.cleaned_description
 ),
 
 -- ============================================================
 -- 4. The line's category. TLS first: the TLS pricebook, then the LTO list.
---    Then hardware (step 2).
 --    Then the other pricebooks: by service ID, then by rate plan / service / description.
---    No pricebook match: the old rule (Wireless -> Cellular, then the source_id's category).
+--    No pricebook match: hardware (step 2), then the old rule (Wireless -> Cellular,
+--    then the source_id's category).
 -- ============================================================
 
 categorised_spend as (
@@ -180,11 +196,11 @@ categorised_spend as (
         case
             when pricebook.service_category_code = 'time_limited_services' then pricebook.service_category_code
             when lto.service_category_code is not null then lto.service_category_code
-            when spend.hardware_category_code is not null then spend.hardware_category_code
             when pricebook.service_category_code is not null then pricebook.service_category_code
             when pricebook_name.service_category_code is not null then pricebook_name.service_category_code
 
-            -- No pricebook match: the old rule
+            -- No pricebook match: hardware, then the old rule
+            when spend.hardware_category_code is not null then spend.hardware_category_code
             when spend.source_service_family = 'wireless' then 'cellular'
             when old_rule.service_category_code is not null then old_rule.service_category_code
             -- === TEMPORARY (TODO remove): PHSA Other -> Data, until TELUS confirms the classification ===
