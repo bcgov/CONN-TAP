@@ -10,7 +10,6 @@ import {
   randomNonce,
   randomPKCECodeVerifier,
   randomState,
-  refreshTokenGrant,
   type Configuration,
 } from "openid-client";
 import { authEnv } from "./env";
@@ -54,6 +53,15 @@ export async function createAuthorizationRequest(returnTo: string) {
   return { url, state, nonce, pkceVerifier, returnTo };
 }
 
+// Entra's sign-out page. After signing the user out it sends them back to the
+// TAP home page, which must be registered as a redirect URI on the app.
+export async function createLogoutUrl(): Promise<URL> {
+  const config = await getOidcConfig();
+  return buildEndSessionUrl(config, {
+    post_logout_redirect_uri: `${authEnv().appBaseUrl}/`,
+  });
+}
+
 export async function exchangeAuthorizationCode(
   currentUrl: URL,
   expectedState: string,
@@ -65,25 +73,5 @@ export async function exchangeAuthorizationCode(
     expectedState,
     pkceCodeVerifier: pkceVerifier,
     expectedNonce,
-  });
-}
-
-export async function refreshAccessToken(refreshToken: string) {
-  try {
-    const config = await getOidcConfig();
-    return await refreshTokenGrant(config, refreshToken);
-  } catch (error) {
-    console.warn("Access token refresh failed:", error);
-    return null;
-  }
-}
-
-export async function createLogoutUrl(idToken: string | null): Promise<URL | null> {
-  if (!idToken) return null;
-
-  const config = await getOidcConfig();
-  return buildEndSessionUrl(config, {
-    id_token_hint: idToken,
-    post_logout_redirect_uri: `${authEnv().appBaseUrl}/`,
   });
 }
