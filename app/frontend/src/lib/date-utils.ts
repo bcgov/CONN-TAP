@@ -11,9 +11,16 @@ export const formatMonthLabel = (period: string): string =>
 const formatPeriodLabel = (period: string): string =>
   `${formatMonthLabel(period)} ${period.split("-")[0]}`;
 
-export const buildPeriodRangeLabel = (periods: string[]): string => {
+/** `["2025-10", ..., "2026-10"]` -> `Oct 2025 – Oct 2026`. */
+export const formatPeriodRange = (periods: string[]): string => {
   if (periods.length === 0) return "";
   const first = formatPeriodLabel(periods[0]);
   const last = formatPeriodLabel(periods[periods.length - 1]);
-  return first === last ? `(${first})` : `(${first} – ${last})`;
+  return first === last ? first : `${first} – ${last}`;
+};
+
+/** Same as formatPeriodRange, in brackets: `(Oct 2025 – Oct 2026)`. */
+export const buildPeriodRangeLabel = (periods: string[]): string => {
+  const range = formatPeriodRange(periods);
+  return range ? `(${range})` : "";
 };

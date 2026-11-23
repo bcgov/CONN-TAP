@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings } from "lucide-react";
+import { Home, Settings, LayoutDashboard } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/bge-dashboard", label: "BGE Dashboard", icon: LayoutDashboard },
 ];
 
 const ADMIN_ITEM = { href: "/admin", label: "Admin", icon: Settings };

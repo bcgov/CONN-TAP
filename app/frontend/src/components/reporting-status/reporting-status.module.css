@@ -1,0 +1,25 @@
+.status {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  flex: 0 1 440px;
+  min-height: 64px;
+  padding: 12px 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid var(--surface-color-border-default, #d8d8d8);
+  border-radius: 8px;
+}
+
+.title {
+  margin: 0;
+  font: var(--typography-bold-small-body);
+  color: var(--theme-primary-blue, #013366);
+}
+
+.summary {
+  margin: 0;
+  font: var(--typography-regular-label);
+  color: #1a1a1a;
+}

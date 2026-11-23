@@ -1,0 +1,43 @@
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.total {
+  margin: 0;
+  font: 700 2rem/2rem "BC Sans", system-ui, sans-serif;
+  letter-spacing: -0.96px;
+  color: var(--theme-primary-blue, #013366);
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 4px;
+}
+
+.label {
+  margin: 0;
+  font: var(--typography-bold-label);
+  color: #1a1a1a;
+}
+
+.value {
+  font-weight: 400;
+}
+
+.bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #eef1f4;
+}
+
+.segment {
+  height: 100%;
+}

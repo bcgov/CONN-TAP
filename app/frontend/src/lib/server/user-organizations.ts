@@ -86,6 +86,25 @@ export async function listTapUsers(entraObjectIds: string[]): Promise<Map<string
 }
 
 /**
+ * The name of the user's assigned organization (BGE or sub-BGE), or null if
+ * they have none. If a user still has several rows, the newest one is used.
+ */
+export async function getOrganizationName(entraObjectId: string): Promise<string | null> {
+  const result = await query<{ name: string }>(
+    `SELECT coalesce(b.name, sb.name) AS name
+       FROM users u
+       JOIN user_organizations uo ON uo.user_id = u.id
+       LEFT JOIN reference_data.bge b ON b.id = uo.bge_id
+       LEFT JOIN reference_data.sub_bge sb ON sb.id = uo.sub_bge_id
+      WHERE u.entra_object_id = $1
+      ORDER BY uo.created_at DESC
+      LIMIT 1`,
+    [entraObjectId],
+  );
+  return result.rows[0]?.name ?? null;
+}
+
+/**
  * Set a user's organization (a BGE or sub-BGE), replacing any other they had.
  * Creates the TAP user row first if they haven't signed in yet; sign-in
  * matches it by entra_object_id later.

@@ -45,7 +45,16 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+}
+
+.title {
+  font: 700 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
+  color: #ffffff;
+}
+
+.body {
+  font: 400 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
+  color: #e8eaec;
 }
 
 @media (prefers-reduced-motion: reduce) {

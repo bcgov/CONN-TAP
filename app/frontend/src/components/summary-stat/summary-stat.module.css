@@ -1,0 +1,27 @@
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 128px;
+  flex: none;
+}
+
+.label {
+  margin: 0 0 4px;
+  font: var(--typography-bold-label);
+  letter-spacing: 0.84px;
+  text-transform: uppercase;
+  color: var(--typography-color-secondary, #474543);
+}
+
+.value {
+  margin: 0;
+  font: var(--typography-bold-body);
+  color: var(--theme-primary-blue, #013366);
+}
+
+.detail {
+  margin: 0;
+  font: var(--typography-regular-label);
+  color: var(--typography-color-secondary, #474543);
+}

@@ -105,6 +105,7 @@ body.telecom-landing {
 /* ─── Dashboard layout ──────────────────────────────────────────────────── */
 
 .dashboard-page {
+  --dashboard-header-height: 78px;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -150,7 +151,7 @@ body.telecom-landing {
 .dashboard-sidebar__list {
   list-style: none;
   margin: 0;
-  padding: var(--dashboard-header-height, 65px) 0 0.5rem;
+  padding: var(--dashboard-header-height) 0 0.5rem;
 }
 
 .dashboard-sidebar__item {
@@ -196,32 +197,90 @@ body.telecom-landing {
   transition: opacity 150ms ease 80ms;
 }
 
-/* Override header container max-width so user info reaches the right edge */
+/* Header: BC Gov header, styled to the TAP design */
+.dashboard-right .bcds-header {
+  min-height: var(--dashboard-header-height);
+  padding: 20px 32px;
+}
+
+/* Let the user info reach the right edge */
 .dashboard-right .bcds-header > .bcds-header--container {
   max-width: none;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container svg#bcgov-logo-header {
+  width: 98px;
+  min-width: 98px;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container > .bcds-header--line {
+  height: 28px;
+  background-color: #d0d0d0;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container > .bcds-header--title {
+  font: 700 1.125rem/1.6875rem "BC Sans", system-ui, sans-serif;
+  letter-spacing: -0.18px;
+  color: #1a1a1a;
 }
 
 /* Header user section */
 .dashboard-header__user {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: var(--typography-color-primary, var(--color-text-primary));
-  font-size: 0.875rem;
-  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  gap: 12px;
   margin-left: auto;
-  padding: 0 1rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+.dashboard-header__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-header__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--theme-primary-blue, #013366);
+  color: #ffffff;
+  font: 700 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
+}
+
+.dashboard-header__name {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-header__display-name {
+  font: 700 0.8125rem/1.0625rem "BC Sans", system-ui, sans-serif;
+  color: #1a1a1a;
+}
+
+.dashboard-header__org {
+  font: 400 0.75rem/1rem "BC Sans", system-ui, sans-serif;
+  color: #595959;
+}
+
+.dashboard-header__divider {
+  width: 1px;
+  height: 28px;
+  background: var(--surface-color-border-default, #d8d8d8);
 }
 
 .dashboard-header__logout {
-  padding: 0.25rem 0.75rem;
-  background: transparent;
-  color: var(--typography-color-primary, var(--color-text-primary));
-  border: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
-  border-radius: 0.25rem;
+  padding: 7px 14px;
+  background: #ffffff;
+  color: #313132;
+  border: 1px solid var(--surface-color-border-default, #d8d8d8);
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+  font: 400 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
   transition: background 150ms ease, border-color 150ms ease;
 }
 
@@ -381,4 +440,107 @@ body.telecom-landing {
   gap: 1rem;
   margin-top: 2rem;
   flex-wrap: wrap;
+}
+
+/* BGE dashboard: filter bar on the left, content on the right */
+.bge-dashboard__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.bge-dashboard__body .dashboard-main {
+  padding: 1rem 1.25rem;
+}
+
+.bge-dashboard__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  min-height: 28px;
+  padding-bottom: 2px;
+  margin-bottom: 1rem;
+}
+
+.bge-dashboard__title {
+  font: 700 1.25rem/1.625rem "BC Sans", system-ui, sans-serif;
+  letter-spacing: -0.4px;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.bge-dashboard__period {
+  margin: 0;
+  font: var(--typography-bold-label);
+  color: var(--typography-color-secondary, #474543);
+  white-space: nowrap;
+}
+
+/* Summary bar: total spend, peak month, reporting status */
+.bge-dashboard__summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 112px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 51, 102, 0.08);
+}
+
+/* Filter bar */
+.filter-panel {
+  width: 240px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--surface-color-forms-default, #ffffff);
+  border-right: 1px solid var(--surface-color-border-default, #d8d8d8);
+}
+
+.filter-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--surface-color-border-default, #d8d8d8);
+}
+
+.filter-panel__title {
+  margin: 0;
+  font: var(--typography-bold-label);
+  letter-spacing: 0.84px;
+  text-transform: uppercase;
+  color: #595959;
+}
+
+.filter-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-panel__reset,
+.filter-panel__close {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--theme-primary-blue, #013366);
+  cursor: pointer;
+}
+
+.filter-panel__reset {
+  font: var(--typography-regular-label);
+  opacity: 0.75;
+}
+
+.filter-panel__close {
+  padding: 0 2px;
+  font: 400 1.125rem/1.125rem "BC Sans", system-ui, sans-serif;
+  opacity: 0.6;
+}
+
+.filter-panel__body {
+  padding: 1rem 1.25rem;
 }

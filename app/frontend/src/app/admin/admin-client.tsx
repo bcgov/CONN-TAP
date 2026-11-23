@@ -1,11 +1,10 @@
 "use client";
 
-import { Header, Heading } from "@bcgov/design-system-react-components";
-import Link from "next/link";
+import { Heading } from "@bcgov/design-system-react-components";
 import { useState, useTransition } from "react";
-import { UserCircle2 } from "lucide-react";
 import type { MRT_ColumnDef } from "material-react-table";
 import { ConfidentialityBanner } from "@/components/confidentiality-banner";
+import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { ChartDataTable } from "@/components/chart-data-table";
@@ -114,34 +113,7 @@ export function AdminClient({
         <DashboardSidebar showAdmin />
 
         <div className="dashboard-right">
-          <Header
-            title="Telecom Access Point"
-            skipLinks={[
-              <a key="main" href="#main-content">
-                Skip to main content
-              </a>,
-            ]}
-            logoLinkElement={
-              <Link
-                href="/"
-                title="Government of British Columbia"
-                prefetch={false}
-              />
-            }
-          >
-            <div className="dashboard-header__user">
-              <UserCircle2 size={20} aria-hidden="true" />
-              <span>{displayName}</span>
-              <button
-                onClick={() => {
-                  window.location.href = "/auth/logout";
-                }}
-                className="dashboard-header__logout"
-              >
-                Logout
-              </button>
-            </div>
-          </Header>
+          <DashboardHeader displayName={displayName} />
 
           <div className="dashboard-content">
             <main id="main-content" className={`dashboard-main ${styles.page}`}>
