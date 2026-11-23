@@ -37,8 +37,10 @@ export const SpendBreakdown = ({ totalMillions, items, isLoading = false }: Prop
       <div className={styles.labels}>
         {items.map((item) => (
           <p key={item.label} className={styles.label}>
-            {item.label} <span className={styles.value}>{fmtMillions(item.valueMillions)}</span>{" "}
-            {Math.round(item.percentage)}%
+            <span>
+              {item.label} <span className={styles.amount}>{fmtMillions(item.valueMillions)}</span>
+            </span>
+            <span>{Math.round(item.percentage)}%</span>
           </p>
         ))}
       </div>

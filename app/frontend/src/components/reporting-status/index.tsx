@@ -4,6 +4,6 @@ import styles from "./reporting-status.module.css";
 export const ReportingStatus = () => (
   <div className={styles.status}>
     <p className={styles.title}>Reporting Status</p>
-    <p className={styles.summary}>—</p>
+    <p className={styles.summary}>TBI</p>
   </div>
 );

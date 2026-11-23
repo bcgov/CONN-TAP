@@ -21,13 +21,16 @@
 }
 
 .label {
+  display: flex;
+  gap: 8px;
   margin: 0;
   font: var(--typography-bold-label);
   color: #1a1a1a;
 }
 
-.value {
+.amount {
   font-weight: 400;
+  color: var(--typography-color-secondary, #474543);
 }
 
 .bar {
