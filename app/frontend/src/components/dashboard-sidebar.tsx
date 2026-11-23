@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings, LayoutDashboard } from "lucide-react";
-
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/bge-dashboard", label: "BGE Dashboard", icon: LayoutDashboard },
-];
+import { Home, Settings } from "lucide-react";
 
 const ADMIN_ITEM = { href: "/admin", label: "Admin", icon: Settings };
 
+// homeHref: the user's own dashboard (the BGE dashboard for org users).
 // showAdmin: the Admin link, for TO admins only. The /admin page checks the
 // role itself too.
-export function DashboardSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
+export function DashboardSidebar({
+  homeHref = "/dashboard",
+  showAdmin = false,
+}: {
+  homeHref?: string;
+  showAdmin?: boolean;
+}) {
   const pathname = usePathname();
-  const items = showAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
+  const homeItem = { href: homeHref, label: "Home", icon: Home };
+  const items = showAdmin ? [homeItem, ADMIN_ITEM] : [homeItem];
 
   return (
     <nav className="dashboard-sidebar" aria-label="Main navigation">

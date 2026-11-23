@@ -32,11 +32,9 @@ const fetchMonthlySpend = async (): Promise<TimelinePoint[]> => {
 export function BgeDashboardClient({
   displayName,
   orgName,
-  isAdmin = false,
 }: {
   displayName: string;
   orgName?: string;
-  isAdmin?: boolean;
 }) {
   const monthlySpendQuery = useQuery({
     queryKey: ["monthly-spend"],
@@ -72,7 +70,7 @@ export function BgeDashboardClient({
     <div className="dashboard-page">
       <ConfidentialityBanner />
       <div className="dashboard-shell">
-        <DashboardSidebar showAdmin={isAdmin} />
+        <DashboardSidebar homeHref="/bge-dashboard" />
 
         <div className="dashboard-right">
           <DashboardHeader displayName={displayName} orgName={orgName} />

@@ -41,7 +41,7 @@ export function DashboardHeader({
           }}
           className="dashboard-header__logout"
         >
-          Logout
+          Sign out
         </button>
       </div>
     </Header>

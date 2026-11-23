@@ -274,7 +274,7 @@ describe("DashboardClient charts, labels and interactions", () => {
     vi.stubGlobal("location", { href: "" });
     renderDashboard([]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(globalThis.location.href).toBe("/auth/logout");
   });

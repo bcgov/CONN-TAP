@@ -61,6 +61,13 @@ export function hasAuthorizedRole(roles: string[]): boolean {
   return roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r));
 }
 
+const TELECOM_OFFICE_ROLES = ["to_admin", "to_viewer"];
+
+/** Telecom Office users get the main dashboard; org users get the BGE dashboard. */
+export function isTelecomOfficeUser(roles: string[]): boolean {
+  return roles.some((role) => TELECOM_OFFICE_ROLES.includes(role));
+}
+
 export function publicSession(session: ServerSession): PublicSession {
   return {
     authenticated: true,
