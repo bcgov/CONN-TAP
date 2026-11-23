@@ -1,7 +1,7 @@
 "use client";
 
 import type { IndicatorItem } from "@/lib/chart-utils";
-import { fmtMillionsFixed } from "@/lib/format-utils";
+import { fmtMillions } from "@/lib/format-utils";
 import styles from "./spend-indicator-cards.module.css";
 
 type Props = {
@@ -26,7 +26,7 @@ export const SpendIndicatorCards = ({ indicators, dateRangeLabel, isLoading }: P
         : indicators.map((item) => (
             <div key={item.label} className={styles.card}>
               <p className={styles.cardLabel}>{item.label}</p>
-              <p className={styles.cardValue}>{fmtMillionsFixed(item.value_millions)}</p>
+              <p className={styles.cardValue}>{fmtMillions(item.value_millions)}</p>
             </div>
           ))}
     </div>

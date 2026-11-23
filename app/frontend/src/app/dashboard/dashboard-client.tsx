@@ -1,10 +1,9 @@
 "use client";
 
-import { Header, Heading } from "@bcgov/design-system-react-components";
+import { Heading } from "@bcgov/design-system-react-components";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
-import { UserCircle2 } from "lucide-react";
 import { ConfidentialityBanner } from "@/components/confidentiality-banner";
+import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { MinimalFooter } from "@/components/minimal-footer";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
@@ -22,41 +21,19 @@ import {
   isTimelineChart,
 } from "@/lib/chart-utils";
 import { buildPeriodRangeLabel } from "@/lib/date-utils";
+import { fetchDataset } from "@/lib/fetch-dataset";
+import { fmtMillions } from "@/lib/format-utils";
 import { useEffect, useRef, useState } from "react";
-
-type DatasetEnvelope = {
-  metadata: {
-    chart?: unknown;
-    table?: unknown;
-  };
-};
-
-async function fetchDataset(
-  datasetId: string,
-  filters: { period?: string[] } = {},
-) {
-  const params = new URLSearchParams();
-  for (const p of filters.period ?? []) params.append("period", p);
-
-  const response = await fetch(
-    `/api/v1/datasets/${datasetId}/data?${params.toString()}`,
-    { cache: "no-store" },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Dataset request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as DatasetEnvelope;
-}
 
 export function DashboardClient({
   displayName,
   visibleDatasetIds,
+  orgName,
   isAdmin = false,
 }: {
   displayName: string;
   visibleDatasetIds: string[];
+  orgName?: string;
   isAdmin?: boolean;
 }) {
   const [period, setPeriods] = useState<string[]>([]);
@@ -161,34 +138,7 @@ export function DashboardClient({
         <DashboardSidebar showAdmin={isAdmin} />
 
         <div className="dashboard-right">
-          <Header
-            title="Telecom Access Point"
-            skipLinks={[
-              <a key="main" href="#main-content">
-                Skip to main content
-              </a>,
-            ]}
-            logoLinkElement={
-              <Link
-                href="/"
-                title="Government of British Columbia"
-                prefetch={false}
-              />
-            }
-          >
-            <div className="dashboard-header__user">
-              <UserCircle2 size={20} aria-hidden="true" />
-              <span>{displayName}</span>
-              <button
-                onClick={() => {
-                  window.location.href = "/auth/logout";
-                }}
-                className="dashboard-header__logout"
-              >
-                Logout
-              </button>
-            </div>
-          </Header>
+          <DashboardHeader displayName={displayName} orgName={orgName} />
 
           <div className="dashboard-content">
             <main id="main-content" className="dashboard-main">
@@ -208,7 +158,7 @@ export function DashboardClient({
                 isLoading={timelineQuery.isLoading}
                 onPeriodsChange={setPeriods}
                 yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
-                tooltipFormatter={(v) => `$${Number(v).toFixed(1)}M`}
+                tooltipFormatter={(v) => fmtMillions(Number(v))}
               />
 
               {canAccessIndicators && (

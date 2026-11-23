@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fmtMillions, fmtMillionsFixed } from "@/lib/format-utils";
+import { fmtMillions } from "@/lib/format-utils";
 
 describe("fmtMillions", () => {
   it("formats whole millions without decimals", () => {
@@ -39,9 +39,3 @@ describe("fmtMillions", () => {
   });
 });
 
-describe("fmtMillionsFixed", () => {
-  it("always shows one decimal place", () => {
-    expect(fmtMillionsFixed(2)).toBe("$2.0M");
-    expect(fmtMillionsFixed(2.56)).toBe("$2.6M");
-  });
-});

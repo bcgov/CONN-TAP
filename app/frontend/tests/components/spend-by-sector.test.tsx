@@ -48,14 +48,14 @@ describe("SpendBySector", () => {
   it("shows the total in the heading", () => {
     render(<SpendBySector chart={makeChart()} />);
     expect(
-      screen.getByRole("heading", { name: "Telecom Spend share by Sector ($30.0M)" }),
+      screen.getByRole("heading", { name: "Telecom Spend share by Sector ($30M)" }),
     ).toBeInTheDocument();
   });
 
   it("shows a dash in the heading when there is no data yet", () => {
     render(<SpendBySector isLoading />);
     expect(
-      screen.getByRole("heading", { name: "Telecom Spend share by Sector ($—M)" }),
+      screen.getByRole("heading", { name: "Telecom Spend share by Sector (—)" }),
     ).toBeInTheDocument();
   });
 

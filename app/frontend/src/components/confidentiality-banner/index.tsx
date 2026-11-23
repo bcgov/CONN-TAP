@@ -16,8 +16,8 @@ export function ConfidentialityBanner() {
       <div className={styles.clip}>
         <AlertBanner variant="info" onClose={() => setDismissed(true)}>
           <div className={styles.content}>
-            <strong>Confidentiality Alert</strong>
-            <span>
+            <strong className={styles.title}>Confidentiality Alert</strong>
+            <span className={styles.body}>
               This site is intended exclusively for authorized BGE and Administrator
               users. Users are bound by NGTA/Participation Agreement and must keep
               Provider&apos;s pricing and all information contained on the site

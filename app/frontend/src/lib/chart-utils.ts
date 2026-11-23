@@ -24,6 +24,7 @@ export const isPlotlyChart = (chart: unknown): chart is PlotlyChart =>
 export type IndicatorItem = {
   label: string;
   value_millions: number;
+  provider?: string;
 };
 
 export type IndicatorChart = {

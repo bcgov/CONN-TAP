@@ -150,8 +150,8 @@ export const SpendBySector = ({
       header={
         <div className="dashboard-card__header">
           <h2>
-            Telecom Spend share by Sector ($
-            {chart?.total_millions?.toFixed(1) ?? "—"}M)
+            Telecom Spend share by Sector (
+            {chart ? fmtMillions(chart.total_millions) : "—"})
           </h2>
           {dateRangeLabel && (
             <p className="dashboard-card__date-range">{dateRangeLabel}</p>
