@@ -1,0 +1,296 @@
+"""
+Builds the Rogers CSA spend template (docs/templates/CSA_Spend_TEMPLATE.xlsx).
+
+The workbook has two sheets:
+  - a blank month sheet (named YYYY-MM) with one row per BGE / Sub-BGE
+  - "BGE List", our BGE and Sub-BGE codes read from the reference data SQL files
+
+Usage:
+    python scripts/templates/build_csa_template.py
+"""
+import re
+from pathlib import Path
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.properties import Outline
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_DATA_DIR = REPO_ROOT / "app" / "backend" / "alembic" / "reference_data"
+OUTPUT_FILE = REPO_ROOT / "docs" / "templates" / "CSA_Spend_TEMPLATE.xlsx"
+
+MONTH_SHEET_NAME = "2026-10"
+FORMULA_ROWS = 200      # rows that get the Post-Tax formula
+VALIDATION_ROWS = 5000  # rows that get the dropdowns and number checks
+
+FONT_NAME = "Arial"
+MONEY_FORMAT = '$#,##0.00;($#,##0.00);"-"'
+LIGHT_BLUE = PatternFill("solid", fgColor="D9E1F2")
+DARK_BLUE = PatternFill("solid", fgColor="B4C6E7")
+NAVY = PatternFill("solid", fgColor="1F3864")
+GREY_LINE = Side(style="thin", color="BFBFBF")
+BORDER = Border(left=GREY_LINE, right=GREY_LINE, top=GREY_LINE, bottom=GREY_LINE)
+
+# Column names follow the CSA report.
+COLUMNS = [
+    "BGE",
+    "Sub-BGE",
+    "SAF AMOUNT",
+    "911 MSF",
+    "MSF Voice Plan",
+    "VOICE PLAN OVERAGE CHARGE",
+    "VOICE PLAN CDN LD CHARGES",
+    "LD US",
+    "LD Intl",
+    "VOICE PLAN US + INT ROAM MIN CHARGES",
+    "VOICE PLAN INT'L ROAM MIN CHARGES",
+    "VOICE PLAN DACC CHARGES",
+    "SMS MSG OVERAGE CHARGES",
+    "VOICE PLAN OTHER CHARGES",
+    "VOICE PLAN TOTAL CHARGES",
+    "DATA PLAN MSF",
+    "Data Overage",
+    "DATA PLAN OTHER CHARGES",
+    "DATA PLAN TOTAL CHARGES",
+    "Hardware",
+    "Billed Amount (Pre-Tax)",
+    "HST",
+    "PST",
+    "GST",
+    "QST",
+    "Billed Amount (Post-Tax)",
+]
+
+# These headers get the darker blue.
+KEY_COLUMNS = [
+    "VOICE PLAN TOTAL CHARGES",
+    "DATA PLAN TOTAL CHARGES",
+    "Hardware",
+    "Billed Amount (Pre-Tax)",
+    "Billed Amount (Post-Tax)",
+]
+
+
+# ---------------------------------------------------------------------------
+# Reference data
+# ---------------------------------------------------------------------------
+
+def get_quoted_values(line):
+    """Returns the 'quoted' values on a line of SQL, e.g. ('FHA', 'Fraser Health', ...)."""
+    values = re.findall(r"'((?:[^']|'')*)'", line)
+    return [value.replace("''", "'") for value in values]
+
+
+def is_insert_row(line):
+    return line.strip().startswith("('")
+
+
+def load_bges():
+    """Returns a list of (code, name) from bge.sql."""
+    bges = []
+    for line in (REFERENCE_DATA_DIR / "bge.sql").read_text().splitlines():
+        if is_insert_row(line):
+            values = get_quoted_values(line)
+            bges.append((values[0], values[1]))
+    return bges
+
+
+def load_sub_bges():
+    """
+    Returns a list of dicts from sub_bge.sql: code, name, bge and parent.
+    parent is the Sub-BGE a designee sits under (e.g. Citizens Services), otherwise None.
+    """
+    sub_bges = []
+    for line in (REFERENCE_DATA_DIR / "sub_bge.sql").read_text().splitlines():
+        if not is_insert_row(line):
+            continue
+        values = get_quoted_values(line)
+        parent = None
+        if "reference_data.sub_bge WHERE code" in line:
+            parent = values[4]
+        sub_bges.append({
+            "code": values[0],
+            "name": values[1],
+            "bge": values[2],
+            "parent": parent,
+        })
+    return sub_bges
+
+
+# ---------------------------------------------------------------------------
+# Month sheet
+# ---------------------------------------------------------------------------
+
+def column_letter(column_name):
+    return get_column_letter(COLUMNS.index(column_name) + 1)
+
+
+def add_month_sheet(workbook, bge_count, sub_bge_count):
+    sheet = workbook.create_sheet(MONTH_SHEET_NAME)
+
+    # Headers
+    for col, name in enumerate(COLUMNS, start=1):
+        cell = sheet.cell(row=1, column=col, value=name)
+        cell.font = Font(name=FONT_NAME, size=10, bold=True)
+        cell.border = BORDER
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        if name in KEY_COLUMNS:
+            cell.fill = DARK_BLUE
+        else:
+            cell.fill = LIGHT_BLUE
+
+        letter = get_column_letter(col)
+        sheet.column_dimensions[letter].width = 13
+        if name in ("BGE", "Sub-BGE"):
+            sheet.column_dimensions[letter].number_format = "@"
+        else:
+            sheet.column_dimensions[letter].number_format = MONEY_FORMAT
+
+    sheet.column_dimensions["A"].width = 14
+    sheet.column_dimensions["B"].width = 44
+    sheet.column_dimensions["C"].width = 15
+    sheet.row_dimensions[1].height = 45
+    sheet.freeze_panes = "C2"
+    last_column = get_column_letter(len(COLUMNS))
+    sheet.auto_filter.ref = f"A1:{last_column}1"
+
+    # Post-Tax adds the four tax columns to Pre-Tax.
+    pre_tax = column_letter("Billed Amount (Pre-Tax)")
+    qst = column_letter("QST")
+    post_tax_col = COLUMNS.index("Billed Amount (Post-Tax)") + 1
+    for row in range(2, FORMULA_ROWS + 1):
+        cell = sheet.cell(row=row, column=post_tax_col, value=f"=SUM({pre_tax}{row}:{qst}{row})")
+        cell.font = Font(name=FONT_NAME, size=10)
+        cell.number_format = MONEY_FORMAT
+
+    # Dropdowns read the hidden code lists in columns E and F of the BGE List sheet.
+    bge_dropdown = DataValidation(
+        type="list",
+        formula1=f"'BGE List'!$E$2:$E${bge_count + 1}",
+        showErrorMessage=True,
+        errorTitle="BGE",
+        error="Use a BGE code from the 'BGE List' sheet.",
+    )
+    bge_dropdown.add(f"A2:A{VALIDATION_ROWS}")
+    sheet.add_data_validation(bge_dropdown)
+
+    sub_bge_dropdown = DataValidation(
+        type="list",
+        formula1=f"'BGE List'!$F$2:$F${sub_bge_count + 1}",
+        allow_blank=True,
+        showErrorMessage=True,
+        errorTitle="Sub-BGE",
+        error="Use a Sub-BGE code from the 'BGE List' sheet, or leave blank.",
+    )
+    sub_bge_dropdown.add(f"B2:B{VALIDATION_ROWS}")
+    sheet.add_data_validation(sub_bge_dropdown)
+
+    amount_check = DataValidation(
+        type="decimal",
+        operator="between",
+        formula1="-100000000",
+        formula2="1000000000",
+        showErrorMessage=True,
+        errorTitle="Amount",
+        error="Enter a dollar amount (0 if none).",
+    )
+    amount_check.add(f"C2:{last_column}{VALIDATION_ROWS}")
+    sheet.add_data_validation(amount_check)
+
+
+# ---------------------------------------------------------------------------
+# BGE List sheet
+# ---------------------------------------------------------------------------
+
+def write_bge_row(sheet, row, code, name):
+    for col, value in enumerate([code, None, name], start=1):
+        cell = sheet.cell(row=row, column=col, value=value)
+        cell.font = Font(name=FONT_NAME, size=10, bold=True)
+        cell.fill = LIGHT_BLUE
+        cell.border = BORDER
+
+
+def write_sub_bge_row(sheet, row, sub_bge, level):
+    """level 1 = Sub-BGE under a BGE, level 2 = designee under a Sub-BGE."""
+    for col, value in enumerate([sub_bge["bge"], sub_bge["code"], sub_bge["name"]], start=1):
+        cell = sheet.cell(row=row, column=col, value=value)
+        cell.border = BORDER
+        if col == 1:
+            cell.font = Font(name=FONT_NAME, size=10, color="808080")
+        else:
+            cell.font = Font(name=FONT_NAME, size=10, color="000000")
+
+    sheet.cell(row=row, column=2).alignment = Alignment(indent=2 * (level - 1))
+    sheet.cell(row=row, column=3).alignment = Alignment(indent=2 * level)
+    sheet.row_dimensions[row].outlineLevel = level
+
+
+def write_sub_bges_under(sheet, row, bge_code, sub_bges):
+    """Writes a BGE's Sub-BGEs, each followed by its designees. Returns the next free row."""
+    for sub_bge in sub_bges:
+        if sub_bge["bge"] != bge_code or sub_bge["parent"]:
+            continue
+        write_sub_bge_row(sheet, row, sub_bge, level=1)
+        row += 1
+
+        for designee in sub_bges:
+            if designee["parent"] == sub_bge["code"]:
+                write_sub_bge_row(sheet, row, designee, level=2)
+                row += 1
+    return row
+
+
+def add_bge_list_sheet(workbook, bges, sub_bges):
+    """
+    Lists each BGE, then its Sub-BGEs, then any designees under a Sub-BGE.
+    Rows are grouped so each BGE can be collapsed in Excel.
+    """
+    sheet = workbook.create_sheet("BGE List")
+    sheet.sheet_properties.outlinePr = Outline(summaryBelow=False)  # +/- button on the BGE row
+
+    for col, header in enumerate(["BGE", "Sub-BGE", "Name"], start=1):
+        cell = sheet.cell(row=1, column=col, value=header)
+        cell.font = Font(name=FONT_NAME, size=10, bold=True, color="FFFFFF")
+        cell.fill = NAVY
+        cell.border = BORDER
+
+    row = 2
+    for bge_code, bge_name in bges:
+        write_bge_row(sheet, row, bge_code, bge_name)
+        row = write_sub_bges_under(sheet, row + 1, bge_code, sub_bges)
+
+    sheet.column_dimensions["A"].width = 16
+    sheet.column_dimensions["B"].width = 22
+    sheet.column_dimensions["C"].width = 60
+    sheet.freeze_panes = "A2"
+
+    # Hidden code lists for the month sheet dropdowns.
+    sheet.cell(row=1, column=5, value="BGE codes")
+    sheet.cell(row=1, column=6, value="Sub-BGE codes")
+    for i, (bge_code, _) in enumerate(bges, start=2):
+        sheet.cell(row=i, column=5, value=bge_code)
+    for i, sub_bge in enumerate(sub_bges, start=2):
+        sheet.cell(row=i, column=6, value=sub_bge["code"])
+    sheet.column_dimensions["E"].hidden = True
+    sheet.column_dimensions["F"].hidden = True
+
+
+def main():
+    bges = load_bges()
+    sub_bges = load_sub_bges()
+
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    add_month_sheet(workbook, len(bges), len(sub_bges))
+    add_bge_list_sheet(workbook, bges, sub_bges)
+    workbook.calculation.fullCalcOnLoad = True  # Excel calculates the Post-Tax formulas on open
+
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    workbook.save(OUTPUT_FILE)
+    print(f"Saved {OUTPUT_FILE.relative_to(REPO_ROOT)}")
+
+
+if __name__ == "__main__":
+    main()
