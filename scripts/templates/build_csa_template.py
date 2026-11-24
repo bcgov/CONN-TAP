@@ -1,16 +1,25 @@
 """
-Builds the Rogers CSA spend template (docs/templates/CSA_Spend_TEMPLATE.xlsx).
+Builds the Rogers CSA spend files from the BGE / Sub-BGE reference data in the database.
 
-The workbook has two sheets:
-  - a blank month sheet (named YYYY-MM) with one row per BGE / Sub-BGE
-  - "BGE List", our BGE and Sub-BGE codes read from the reference data SQL files
+1. docs/templates/CSA_Spend_TEMPLATE.xlsx - the template for a new master file:
+     - a blank month sheet (named YYYY-MM) with one row per BGE / Sub-BGE
+     - "BGE List", our BGE and Sub-BGE codes
+2. docs/templates/CSA_BGE_List.xlsx - only the "BGE List" sheet. When BGEs / Sub-BGEs change,
+   the master file's owner clears its "BGE List" sheet and pastes this one over it.
+   The month sheets are not touched.
+
+Connection: env DATABASE_URL, else the local docker database.
 
 Usage:
-    python scripts/templates/build_csa_template.py
+    python scripts/templates/build_csa_template.py              # both files
+    python scripts/templates/build_csa_template.py --bge-list   # only the BGE list
 """
-import re
+import os
+import sys
+from datetime import date
 from pathlib import Path
 
+import psycopg
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -18,11 +27,13 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.properties import Outline
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REFERENCE_DATA_DIR = REPO_ROOT / "app" / "backend" / "alembic" / "reference_data"
-OUTPUT_FILE = REPO_ROOT / "docs" / "templates" / "CSA_Spend_TEMPLATE.xlsx"
+DEFAULT_DSN = "postgresql://app:app@localhost:5432/app"
+OUTPUT_DIR = REPO_ROOT / "docs" / "templates"
+TEMPLATE_FILE = OUTPUT_DIR / "CSA_Spend_TEMPLATE.xlsx"
+BGE_LIST_FILE = OUTPUT_DIR / "CSA_BGE_List.xlsx"
 
 AUTHOR = "Telecom Access Point Portal Team"
-MONTH_SHEET_NAME = "2026-10"
+MONTH_SHEET_NAME = date.today().strftime("%Y-%m")  # the month the template is built in
 FORMULA_ROWS = 200      # rows that get the Post-Tax formula
 VALIDATION_ROWS = 5000  # rows that get the dropdowns and number checks
 
@@ -78,46 +89,32 @@ KEY_COLUMNS = [
 # Reference data
 # ---------------------------------------------------------------------------
 
-def get_quoted_values(line):
-    """Returns the 'quoted' values on a line of SQL, e.g. ('FHA', 'Fraser Health', ...)."""
-    values = re.findall(r"'((?:[^']|'')*)'", line)
-    return [value.replace("''", "'") for value in values]
+def load_bges(conn):
+    """Returns a list of (code, name) from reference_data.bge."""
+    rows = conn.execute("""
+        select code, name
+        from reference_data.bge
+        order by id
+    """).fetchall()
+    return [(code, name) for code, name in rows]
 
 
-def is_insert_row(line):
-    return line.strip().startswith("('")
-
-
-def load_bges():
-    """Returns a list of (code, name) from bge.sql."""
-    bges = []
-    for line in (REFERENCE_DATA_DIR / "bge.sql").read_text().splitlines():
-        if is_insert_row(line):
-            values = get_quoted_values(line)
-            bges.append((values[0], values[1]))
-    return bges
-
-
-def load_sub_bges():
+def load_sub_bges(conn):
     """
-    Returns a list of dicts from sub_bge.sql: code, name, bge and parent.
+    Returns a list of dicts from reference_data.sub_bge: code, name, bge and parent.
     parent is the Sub-BGE a designee sits under (e.g. Citizens Services), otherwise None.
     """
-    sub_bges = []
-    for line in (REFERENCE_DATA_DIR / "sub_bge.sql").read_text().splitlines():
-        if not is_insert_row(line):
-            continue
-        values = get_quoted_values(line)
-        parent = None
-        if "reference_data.sub_bge WHERE code" in line:
-            parent = values[4]
-        sub_bges.append({
-            "code": values[0],
-            "name": values[1],
-            "bge": values[2],
-            "parent": parent,
-        })
-    return sub_bges
+    rows = conn.execute("""
+        select s.code, s.name, b.code as bge, p.code as parent
+        from reference_data.sub_bge s
+        join reference_data.bge b on b.id = s.bge_id
+        left join reference_data.sub_bge p on p.id = s.parent_sub_bge_id
+        order by s.id
+    """).fetchall()
+    return [
+        {"code": code, "name": name, "bge": bge, "parent": parent}
+        for code, name, bge, parent in rows
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -278,24 +275,41 @@ def add_bge_list_sheet(workbook, bges, sub_bges):
     sheet.column_dimensions["F"].hidden = True
 
 
-def main():
-    bges = load_bges()
-    sub_bges = load_sub_bges()
+def save_workbook(workbook, path, title):
+    # Shown in Excel under File > Properties
+    workbook.properties.creator = AUTHOR
+    workbook.properties.lastModifiedBy = AUTHOR
+    workbook.properties.title = title
 
+    path.parent.mkdir(parents=True, exist_ok=True)
+    workbook.save(path)
+    print(f"Saved {path.relative_to(REPO_ROOT)}")
+
+
+def build_template(bges, sub_bges):
     workbook = Workbook()
     workbook.remove(workbook.active)
     add_month_sheet(workbook, len(bges), len(sub_bges))
     add_bge_list_sheet(workbook, bges, sub_bges)
     workbook.calculation.fullCalcOnLoad = True  # Excel calculates the Post-Tax formulas on open
+    save_workbook(workbook, TEMPLATE_FILE, "CSA Spend Template")
 
-    # Shown in Excel under File > Info (Properties)
-    workbook.properties.creator = AUTHOR
-    workbook.properties.lastModifiedBy = AUTHOR
-    workbook.properties.title = "CSA Spend Template"
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    workbook.save(OUTPUT_FILE)
-    print(f"Saved {OUTPUT_FILE.relative_to(REPO_ROOT)}")
+def build_bge_list(bges, sub_bges):
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    add_bge_list_sheet(workbook, bges, sub_bges)
+    save_workbook(workbook, BGE_LIST_FILE, "CSA BGE List")
+
+
+def main():
+    with psycopg.connect(os.environ.get("DATABASE_URL", DEFAULT_DSN)) as conn:
+        bges = load_bges(conn)
+        sub_bges = load_sub_bges(conn)
+
+    if "--bge-list" not in sys.argv:
+        build_template(bges, sub_bges)
+    build_bge_list(bges, sub_bges)
 
 
 if __name__ == "__main__":
