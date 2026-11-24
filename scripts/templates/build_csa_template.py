@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_DATA_DIR = REPO_ROOT / "app" / "backend" / "alembic" / "reference_data"
 OUTPUT_FILE = REPO_ROOT / "docs" / "templates" / "CSA_Spend_TEMPLATE.xlsx"
 
+AUTHOR = "Telecom Access Point Portal Team"
 MONTH_SHEET_NAME = "2026-10"
 FORMULA_ROWS = 200      # rows that get the Post-Tax formula
 VALIDATION_ROWS = 5000  # rows that get the dropdowns and number checks
@@ -286,6 +287,11 @@ def main():
     add_month_sheet(workbook, len(bges), len(sub_bges))
     add_bge_list_sheet(workbook, bges, sub_bges)
     workbook.calculation.fullCalcOnLoad = True  # Excel calculates the Post-Tax formulas on open
+
+    # Shown in Excel under File > Info (Properties)
+    workbook.properties.creator = AUTHOR
+    workbook.properties.lastModifiedBy = AUTHOR
+    workbook.properties.title = "CSA Spend Template"
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(OUTPUT_FILE)
