@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: stg_rogers_pricebook_services
+    columns:
+      - name: service_id_key
+        tests:
+          - unique
+          - not_null
+  - name: stg_telus_pricebook_services
+    columns:
+      - name: service_id
+        tests:
+          - not_null
