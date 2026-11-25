@@ -20,7 +20,8 @@ telus_excluded_details as (
     select {{ text_key('detail_description') }} as detail_key from {{ ref('telus_excluded_details') }}
 ),
 
-telus_hardware_details as (
+-- Materialized so the patterns are cleaned once, not once per Telus row.
+telus_hardware_details as materialized (
     select {{ text_key('detail_description') }} as detail_key from {{ ref('telus_hardware_details') }}
 ),
 
@@ -97,7 +98,10 @@ lto_list as (
 -- ============================================================
 
 filtered as (
-    select *
+    select
+        *,
+        -- Cleaned once per row for the hardware check below
+        {{ text_key('source_service_description') }} as description_key
     from source
     where
         month_start is not null
