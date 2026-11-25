@@ -17,7 +17,11 @@ import type {
   CsvData,
   ExportFormat,
 } from "@/components/chart-download-button";
-import type { SummaryRow, SummaryTable } from "@/lib/chart-utils";
+import {
+  compareServiceCategories,
+  type SummaryRow,
+  type SummaryTable,
+} from "@/lib/chart-utils";
 import { fmtMillions } from "@/lib/format-utils";
 import styles from "./spend-summary-table.module.css";
 
@@ -55,6 +59,10 @@ const NameCell = ({ row }: { row: MRT_Row<TreeRow> }) => (
     {row.original.name}
   </span>
 );
+
+// Category columns in the analysts' order
+const orderedCategories = (table: SummaryTable) =>
+  [...table.categories].sort((a, b) => compareServiceCategories(a.name, b.name));
 
 // Filters
 const nameFilter: MRT_FilterFn<TreeRow> = (row, _columnId, filterValue) => {
@@ -114,7 +122,7 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
       filterVariant: "range", // min/max inputs, in millions; default betweenInclusive
       muiTableHeadCellProps: {
         align: "right",
-        // Allow long category headers ("Professional Services") to wrap
+        // Allow long category headers ("Ancillary Products - Professional Services") to wrap
         // rather than forcing the column wide.
         sx: { whiteSpace: "normal" },
       },
@@ -207,7 +215,7 @@ const SummaryGrid = ({ table }: { table: SummaryTable }) => {
             ? `${row.original.type}/Total`
             : row.original.type,
       },
-      ...table.categories.map<MRT_ColumnDef<TreeRow>>((category) => ({
+      ...orderedCategories(table).map<MRT_ColumnDef<TreeRow>>((category) => ({
         ...moneyColumn,
         id: `cat_${category.code}`,
         header: category.name,
@@ -296,13 +304,13 @@ const buildCsvData = (table: SummaryTable): CsvData => {
     headers: [
       "Name",
       "Type",
-      ...table.categories.map((category) => category.name),
+      ...orderedCategories(table).map((category) => category.name),
       "Total Spend ($M)",
     ],
     rows: leafRows.map((row) => [
       row.name,
       row.type,
-      ...table.categories.map((category) => row.values[category.code] ?? 0),
+      ...orderedCategories(table).map((category) => row.values[category.code] ?? 0),
       row.total,
     ]),
   };
