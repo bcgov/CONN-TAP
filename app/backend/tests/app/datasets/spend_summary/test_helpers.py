@@ -110,6 +110,8 @@ def test_build_summary_table():
         "cellular": 3.0,
         "professional_services": 6.0,
         "time_limited_services": 4.0,
+        "cellular_hardware": 0.0,
+        "ancillary_hardware": 0.0,
         "unknown": 0.0,
     }
     assert alpha["total"] == 31.0
@@ -163,6 +165,22 @@ def test_build_summary_table():
     assert direct_tsma["level"] == 1
     assert direct_tsma["name"] == "Alpha (TSMA)"
     assert direct_tsma["values"]["voice"] == 0.4
+
+
+def test_hardware_has_its_own_columns():
+    # Cellular Hardware is not folded into Cellular, and Ancillary Hardware counts
+    # towards the total.
+    spend = FakeFrame([
+        spend_row(2, "Beta", "cellular", 5.0),
+        spend_row(2, "Beta", "cellular_hardware", 2.0),
+        spend_row(2, "Beta", "ancillary_hardware", 1.0),
+    ])
+    beta = rows_by_id(build(spend=spend))["bge:2"]
+
+    assert beta["values"]["cellular"] == 5.0
+    assert beta["values"]["cellular_hardware"] == 2.0
+    assert beta["values"]["ancillary_hardware"] == 1.0
+    assert beta["total"] == 8.0
 
 
 def test_zero_spend_entities_still_appear():

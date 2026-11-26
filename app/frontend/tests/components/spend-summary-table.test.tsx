@@ -94,6 +94,27 @@ describe("SpendSummaryTable", () => {
     expect(screen.getByText("Total Spend")).toBeInTheDocument();
   });
 
+  it("puts the category columns in the analysts' order, Unknown last", () => {
+    const table = {
+      ...makeTable(),
+      categories: [
+        { code: "unknown", name: "Unknown" },
+        { code: "data", name: "Data" },
+        { code: "cellular_hardware", name: "Ancillary Products - Cellular Hardware" },
+        { code: "cellular", name: "Cellular" },
+      ],
+    };
+    render(<SpendSummaryTable table={table} />);
+
+    // Header text also holds the column's filter inputs, so match on the start.
+    const names = ["Cellular", "Data", "Ancillary Products - Cellular Hardware", "Unknown"];
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => names.find((name) => header.textContent?.startsWith(name)))
+      .filter(Boolean);
+    expect(headers).toEqual(names);
+  });
+
   it("shows only the top-level (root) rows before expansion", () => {
     render(<SpendSummaryTable table={makeTable()} />);
 
