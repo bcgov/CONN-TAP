@@ -1,7 +1,7 @@
 """Drop the stored tokens from app.auth_sessions.
 
-Revision ID: 012_drop_session_tokens
-Revises: 011_users_entra_object_id
+Revision ID: 014_drop_session_tokens
+Revises: 013_users_entra_object_id
 Create Date: 2026-11-05
 
 With Entra, TAP only needs the ID token at sign-in: its claims (user details
@@ -16,8 +16,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "012_drop_session_tokens"
-down_revision: Union[str, None] = "011_users_entra_object_id"
+revision: str = "014_drop_session_tokens"
+down_revision: Union[str, None] = "013_users_entra_object_id"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
