@@ -5,6 +5,11 @@ imagePullSecrets: []
 
 migrate:
   enabled: false
+  # Migrations and dbt run as the owner user; the app connects as tap_api / tap_web.
+  postgresUser: "dbadmin"
+  # Secret with POSTGRES_PASSWORD (owner) and TAP_API_POSTGRES_PASSWORD /
+  # TAP_WEB_POSTGRES_PASSWORD (set by the deploy workflows).
+  existingSecret: ""
 
 backend:
   replicaCount: 1
@@ -20,7 +25,7 @@ backend:
   env:
     POSTGRES_HOST: ""
     POSTGRES_PORT: "5432"
-    POSTGRES_USER: "dbadmin"
+    POSTGRES_USER: "tap_api"
     POSTGRES_DB: "app"
     POSTGRES_SSL: "true"
     CORS_ORIGINS: '["http://localhost:3000"]'
@@ -47,7 +52,7 @@ frontend:
     SESSION_COOKIE_NAME: "telecom_session"
     POSTGRES_HOST: ""
     POSTGRES_PORT: "5432"
-    POSTGRES_USER: "dbadmin"
+    POSTGRES_USER: "tap_web"
     POSTGRES_DB: "app"
     POSTGRES_SSL: "true"
   existingSecret: ""
