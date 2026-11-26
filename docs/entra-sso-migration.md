@@ -86,7 +86,7 @@ From here on, local sign-in needs the Entra values in `frontend/.env.local`.
   issues it for Microsoft Graph, not for TAP).
 - Users are identified by `oid` (Entra object ID), stored in the session's `subject` and
   in `app.users.entra_object_id`.
-- Migration `011_users_entra_object_id` renames `app.users.keycloak_subject` to
+- Migration `013_users_entra_object_id` renames `app.users.keycloak_subject` to
   `entra_object_id`. Existing Keycloak rows stay; those people get a new row on their
   first Entra sign-in.
 - Error messages now say Entra instead of Keycloak.
@@ -114,7 +114,7 @@ kept either: signing the user out of Entra on logout, if wanted later, works wit
   `getCurrentSession` no longer reads or decrypts tokens; `ServerSession` lost
   `accessToken`, `refreshToken`, `idToken`, `accessTokenExpiresAt`.
 - `app/backend/app/models/auth.py`: token columns removed from `AuthSession`.
-- Migration `012_drop_session_tokens` drops `encrypted_access_token`,
+- Migration `014_drop_session_tokens` drops `encrypted_access_token`,
   `encrypted_refresh_token`, `encrypted_id_token`, `access_token_hash`,
   `access_token_expires_at` from `app.auth_sessions`, and **deletes all existing
   sessions** (Keycloak sessions can't be used with Entra). Everyone signs in again.

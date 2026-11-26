@@ -1,7 +1,7 @@
 """Rename app.users.keycloak_subject to entra_object_id.
 
-Revision ID: 011_users_entra_object_id
-Revises: 010_rogers_cellular_hardware
+Revision ID: 013_users_entra_object_id
+Revises: 012_service_sub_category
 Create Date: 2026-11-05
 
 Sign-in moves from Keycloak to Entra ID. Users are now identified by their
@@ -13,8 +13,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "011_users_entra_object_id"
-down_revision: Union[str, None] = "010_rogers_cellular_hardware"
+revision: str = "013_users_entra_object_id"
+down_revision: Union[str, None] = "012_service_sub_category"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
