@@ -50,10 +50,26 @@ describe("SummaryStat", () => {
 });
 
 describe("ReportingStatus", () => {
-  it("shows the title", () => {
+  it("shows the title and a dash when there are no counts yet", () => {
     render(<ReportingStatus />);
 
     expect(screen.getByText("Reporting Status")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText(/Pending/)).not.toBeInTheDocument();
+  });
+
+  it("shows how many reports are received and pending", () => {
+    render(<ReportingStatus receivedCount={12} expectedCount={17} />);
+
+    expect(screen.getByText("12 of 17 reports received")).toBeInTheDocument();
+    expect(screen.getByText("5 Pending")).toBeInTheDocument();
+  });
+
+  it("leaves out the pending label when every report is in", () => {
+    render(<ReportingStatus receivedCount={17} expectedCount={17} />);
+
+    expect(screen.getByText("17 of 17 reports received")).toBeInTheDocument();
+    expect(screen.queryByText(/Pending/)).not.toBeInTheDocument();
   });
 });
 
