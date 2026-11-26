@@ -1,7 +1,7 @@
 """Add functions that return the organizations the current user can see.
 
-Revision ID: 015_org_scope_functions
-Revises: 014_user_organizations
+Revision ID: 017_org_scope_functions
+Revises: 016_user_organizations
 Create Date: 2026-11-10
 
 The backend will set `tap.user_id` for each request. These functions read the
@@ -23,12 +23,12 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "015_org_scope_functions"
-down_revision: Union[str, None] = "014_user_organizations"
+revision: str = "017_org_scope_functions"
+down_revision: Union[str, None] = "016_user_organizations"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Group roles from 013_database_roles.
+# Group roles from 015_database_roles.
 GROUP_ROLES = "tap_to_admin, tap_to_viewer, tap_org_admin, tap_org_user"
 
 

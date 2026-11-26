@@ -1,7 +1,7 @@
 """Set the passwords of the app's database login users.
 
 tap_api (backend) and tap_web (frontend) are created without passwords by
-alembic 013_database_roles. The deploy's migrate job runs this after the
+alembic 015_database_roles. The deploy's migrate job runs this after the
 migrations, as the owner user, with the passwords from Secrets Manager, so
 Postgres always matches Secrets Manager. Locally the variables are not set and
 nothing changes.

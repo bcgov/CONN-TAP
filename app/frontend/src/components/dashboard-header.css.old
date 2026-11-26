@@ -1,0 +1,91 @@
+/* Header: BC Gov header, styled to the TAP design */
+.dashboard-right .bcds-header {
+  min-height: var(--dashboard-header-height);
+  padding: 20px 32px;
+}
+
+/* Let the user info reach the right edge */
+.dashboard-right .bcds-header > .bcds-header--container {
+  max-width: none;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container svg#bcgov-logo-header {
+  width: 98px;
+  min-width: 98px;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container > .bcds-header--line {
+  height: 28px;
+  background-color: #d0d0d0;
+}
+
+.dashboard-right .bcds-header > .bcds-header--container > .bcds-header--title {
+  font: 700 1.125rem/1.6875rem "BC Sans", system-ui, sans-serif;
+  letter-spacing: -0.18px;
+  color: #1a1a1a;
+}
+
+/* Header user section */
+.dashboard-header__user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+.dashboard-header__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-header__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--theme-primary-blue, #013366);
+  color: #ffffff;
+  font: 700 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
+}
+
+.dashboard-header__name {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-header__display-name {
+  font: 700 0.8125rem/1.0625rem "BC Sans", system-ui, sans-serif;
+  color: #1a1a1a;
+}
+
+.dashboard-header__org {
+  font: 400 0.75rem/1rem "BC Sans", system-ui, sans-serif;
+  color: #595959;
+}
+
+.dashboard-header__divider {
+  width: 1px;
+  height: 28px;
+  background: var(--surface-color-border-default, #d8d8d8);
+}
+
+.dashboard-header__logout {
+  padding: 7px 14px;
+  background: #ffffff;
+  color: #313132;
+  border: 1px solid var(--surface-color-border-default, #d8d8d8);
+  border-radius: 4px;
+  cursor: pointer;
+  font: 400 0.8125rem/1.25rem "BC Sans", system-ui, sans-serif;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-header__logout:hover {
+  background: var(--surface-color-secondary-hover, var(--color-secondary-hover));
+  border-color: var(--surface-color-border-dark, var(--color-border-dark));
+}

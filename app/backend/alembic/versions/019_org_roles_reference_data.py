@@ -1,7 +1,7 @@
 """Let the org roles read reference data, limited to their own organizations.
 
-Revision ID: 017_org_roles_reference_data
-Revises: 016_org_roles_analytics_schema
+Revision ID: 019_org_roles_reference_data
+Revises: 018_org_roles_analytics_schema
 Create Date: 2026-11-10
 
 Org datasets join analytics tables to reference_data.bge / sub_bge for names
@@ -22,8 +22,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "017_org_roles_reference_data"
-down_revision: Union[str, None] = "016_org_roles_analytics_schema"
+revision: str = "019_org_roles_reference_data"
+down_revision: Union[str, None] = "018_org_roles_analytics_schema"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,0 +1,101 @@
+/* Figma "Header" (TAP design file, node 14:924). The BC Gov Header already
+   matches the design's logo (129px), divider (1px × 32px) and 16px gaps, so
+   only the differences are styled here. */
+.header {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0.3px 0.45px rgb(0 0 0 / 10%),
+    0 1.6px 1.8px rgb(0 0 0 / 13%);
+}
+
+.header :global(.bcds-header) {
+  justify-content: flex-start;
+  min-height: var(--dashboard-header-height, 65px);
+  padding: var(--layout-padding-medium) var(--layout-padding-xlarge);
+}
+
+/* Full width, so the user section reaches the right edge. */
+.header :global(.bcds-header > .bcds-header--container) {
+  max-width: none;
+}
+
+/* The logo link is inline by default, which adds baseline space under the SVG
+   and makes the header taller than the design. */
+.header :global(.bcds-header > .bcds-header--container > a) {
+  display: flex;
+}
+
+.header :global(.bcds-header > .bcds-header--container > .bcds-header--title) {
+  font-family: var(--typography-font-families-bc-sans), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: var(--typography-font-weights-bold);
+  line-height: 1.6875rem;
+  color: #1a1a1a;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-padding-medium);
+  margin-left: auto;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-padding-small);
+}
+
+.avatar,
+.displayName,
+.orgName,
+.user :global(.bcds-react-aria-Button.secondary) {
+  font-family: var(--typography-font-families-bc-sans), system-ui, sans-serif;
+  font-size: var(--typography-font-size-small-body);
+  line-height: var(--typography-line-heights-xxdense);
+}
+
+.avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-color-primary-default);
+  color: var(--typography-color-primary-invert);
+  font-weight: var(--typography-font-weights-bold);
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+}
+
+.displayName {
+  font-weight: var(--typography-font-weights-bold);
+  color: #1a1a1a;
+}
+
+.orgName {
+  font-weight: var(--typography-font-weights-regular);
+  color: var(--typography-color-secondary);
+}
+
+.divider {
+  width: 1px;
+  height: 32px;
+  background: var(--surface-color-border-default);
+}
+
+/* BC Gov secondary button, adjusted to the lighter border and 44px height in
+   the design. */
+.user :global(.bcds-react-aria-Button.secondary) {
+  min-height: 44px;
+  padding: 0 var(--layout-padding-medium);
+  border-color: var(--surface-color-border-default);
+  color: var(--typography-color-secondary);
+  font-weight: var(--typography-font-weights-regular);
+}

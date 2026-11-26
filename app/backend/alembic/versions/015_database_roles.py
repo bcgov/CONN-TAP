@@ -1,7 +1,7 @@
 """Database roles for role-based access to data.
 
-Revision ID: 013_database_roles
-Revises: 012_drop_session_tokens
+Revision ID: 015_database_roles
+Revises: 014_drop_session_tokens
 Create Date: 2026-11-10
 
 One Postgres role per Entra app role, plus a login user for each part of the
@@ -24,8 +24,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "013_database_roles"
-down_revision: Union[str, None] = "012_drop_session_tokens"
+revision: str = "015_database_roles"
+down_revision: Union[str, None] = "014_drop_session_tokens"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
