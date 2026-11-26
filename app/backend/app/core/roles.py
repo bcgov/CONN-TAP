@@ -6,7 +6,7 @@ TO_VIEWER = "to_viewer"
 ORG_ADMIN = "org_admin"
 ORG_USER = "org_user"
 
-# Postgres role for each Entra app role (created in alembic 015_database_roles),
+# Postgres role for each Entra app role (created in alembic 014_database_roles),
 # highest first. A user with several roles gets the first one that matches.
 DATABASE_ROLES = {
     TO_ADMIN: "tap_to_admin",

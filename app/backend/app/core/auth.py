@@ -99,7 +99,7 @@ def get_current_user(
     # current transaction: after a commit or at the end of the request the
     # connection is back to the login user, which has no data access.
     # tap.user_id tells Postgres which user this is, so org users only see
-    # their assigned organizations (alembic 017_org_scope_functions).
+    # their assigned organizations (alembic 014_database_roles).
     db.execute(
         text("SELECT set_config('role', :role, true), set_config('tap.user_id', :user_id, true)"),
         {"role": db_role, "user_id": str(row["user_id"])},
