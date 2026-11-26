@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.roles import TO_ADMIN, TO_VIEWER
+from app.core.roles import ORG_ADMIN, ORG_USER, TO_ADMIN, TO_VIEWER
 from app.datasets.base import DatasetResult, DatasetService
 from app.datasets.chart_format import to_float
 from app.datasets.spend_common import pg_text_array
@@ -16,8 +16,8 @@ from .schema import Filters
 class Service(DatasetService):
     id = "isp-spend-indicators"
     name = "ISP Spend Indicators"
-    description = "Total spend indicator cards for TSMA & NGTA, TELUS, and Rogers."
-    required_roles = (TO_ADMIN, TO_VIEWER)
+    description = "Total spend for TSMA & NGTA, TELUS, and Rogers (org users: their organizations only)."
+    required_roles = (TO_ADMIN, TO_VIEWER, ORG_ADMIN, ORG_USER)
 
     def run(self, db: Session, filters: dict[str, Any]) -> DatasetResult:
         parsed = Filters(**filters)
@@ -32,14 +32,15 @@ class Service(DatasetService):
             total = telus = rogers = 0.0
         else:
             row = df.iloc[0]
-            total = round(to_float(row["total_spend"]) / 1_000_000, 1)
-            telus = round(to_float(row["telus_spend"]) / 1_000_000, 1)
-            rogers = round(to_float(row["rogers_spend"]) / 1_000_000, 1)
+            # Rounding for display is done by the frontend, so small amounts aren't lost.
+            total = round(to_float(row["total_spend"]) / 1_000_000, 6)
+            telus = round(to_float(row["telus_spend"]) / 1_000_000, 6)
+            rogers = round(to_float(row["rogers_spend"]) / 1_000_000, 6)
 
         indicators = [
             {"label": "Total TSMA & NGTA Spend", "value_millions": total},
-            {"label": "Total TELUS Spend", "value_millions": telus},
-            {"label": "Total Rogers Spend", "value_millions": rogers},
+            {"label": "Total TELUS Spend", "value_millions": telus, "provider": "TELUS"},
+            {"label": "Total Rogers Spend", "value_millions": rogers, "provider": "Rogers"},
         ]
 
         return DatasetResult(

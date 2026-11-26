@@ -1,0 +1,46 @@
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.total {
+  margin: 0;
+  font: var(--typography-bold-h2);
+  line-height: 2rem;
+  color: var(--theme-primary-blue, #013366);
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 4px;
+}
+
+.label {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font: var(--typography-bold-small-body);
+  color: #1a1a1a;
+}
+
+.amount {
+  font-weight: 400;
+  color: var(--typography-color-secondary, #474543);
+}
+
+.bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--layout-border-radius-medium);
+  background: var(--theme-gray-40);
+}
+
+.segment {
+  height: 100%;
+}

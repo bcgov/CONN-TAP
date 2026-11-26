@@ -1,8 +1,8 @@
 """Centralised chart color palette for all telecom datasets."""
 
 PROVIDER_COLOURS: dict[str, str] = {
-    "Rogers": "#e02b24",
-    "TELUS": "#b6f396",
+    "Rogers": "#b91c1c",
+    "TELUS": "#7b2cbf",
 }
 
 SECTOR_COLOURS: dict[str, str] = {

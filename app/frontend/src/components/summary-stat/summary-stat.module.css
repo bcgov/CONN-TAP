@@ -1,0 +1,27 @@
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 140px;
+  flex: none;
+}
+
+.label {
+  margin: 0 0 2px;
+  font: var(--typography-bold-small-body);
+  text-transform: uppercase;
+  color: var(--typography-color-secondary, #474543);
+}
+
+.value {
+  margin: 0;
+  font: var(--typography-bold-body);
+  line-height: 1.5rem;
+  color: var(--theme-primary-blue, #013366);
+}
+
+.detail {
+  margin: 0;
+  font: var(--typography-regular-small-body);
+  color: var(--typography-color-secondary, #474543);
+}

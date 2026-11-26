@@ -2,6 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["**.telecomaccesspoint.gov.bc.ca"],
+    },
+  },
 };
 
 module.exports = nextConfig;

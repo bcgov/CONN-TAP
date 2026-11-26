@@ -11,7 +11,7 @@ import {
   type BgeChart,
   type BgeRow,
 } from "@/lib/chart-utils";
-import { fmtMillions, fmtMillionsFixed } from "@/lib/format-utils";
+import { fmtMillions } from "@/lib/format-utils";
 import {
   Bar,
   BarChart,
@@ -55,7 +55,7 @@ const BgeGraph = ({ chart, rows }: { chart: BgeChart; rows: BgeRow[] }) => {
         />
         <Tooltip
           formatter={(value, name) => [
-            `$${Number(value ?? 0).toFixed(1)}M`,
+            fmtMillions(Number(value ?? 0)),
             String(name),
           ]}
         />
@@ -72,7 +72,7 @@ const BgeGraph = ({ chart, rows }: { chart: BgeChart; rows: BgeRow[] }) => {
               <LabelList
                 dataKey="_total"
                 position="top"
-                formatter={(v) => (Number(v) > 0 ? fmtMillionsFixed(Number(v)) : "")}
+                formatter={(v) => (Number(v) > 0 ? fmtMillions(Number(v)) : "")}
                 style={{ fontSize: 10, fill: "#555" }}
               />
             )}

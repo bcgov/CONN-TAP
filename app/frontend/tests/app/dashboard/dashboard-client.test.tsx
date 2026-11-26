@@ -31,6 +31,9 @@ vi.mock("@bcgov/design-system-react-components", () => ({
   Header: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   Heading: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   AlertBanner: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Button: ({ children, onPress }: { children?: React.ReactNode; onPress?: () => void }) => (
+    <button onClick={onPress}>{children}</button>
+  ),
 }));
 vi.mock("@/components/dashboard-sidebar", () => ({ DashboardSidebar: () => null }));
 vi.mock("@/components/minimal-footer", () => ({ MinimalFooter: () => null }));
@@ -279,7 +282,7 @@ describe("DashboardClient charts, labels and interactions", () => {
     vi.stubGlobal("location", { href: "" });
     renderDashboard([]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(globalThis.location.href).toBe("/auth/logout");
   });

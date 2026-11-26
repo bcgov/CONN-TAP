@@ -1,0 +1,38 @@
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-margin-small);
+  flex: 0 1 348px;
+  min-height: 66px;
+  padding: 10px var(--layout-padding-small);
+  box-sizing: border-box;
+  background: var(--support-surface-color-info);
+  border: 1px solid var(--surface-color-border-default);
+  border-radius: 8px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font: var(--typography-bold-small-body);
+  color: var(--theme-primary-blue);
+}
+
+.summary {
+  margin: 0;
+  font: var(--typography-regular-small-body);
+  color: #1a1a1a;
+}
+
+.pending {
+  flex: none;
+  padding: 3px var(--layout-padding-small) 4px;
+  border-radius: var(--layout-border-radius-medium);
+  background: var(--support-surface-color-warning);
+  font: var(--typography-bold-small-body);
+  color: var(--typography-color-secondary);
+}
