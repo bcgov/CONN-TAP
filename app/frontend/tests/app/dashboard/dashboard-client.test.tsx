@@ -98,17 +98,22 @@ function renderDashboard(visibleDatasetIds: string[]) {
   );
 }
 
+// The service category and sector cards, which most tests below look at.
+const CATEGORY_AND_SECTOR = ["service-category-spend-plotly", "spend-by-sector"];
+
 describe("DashboardClient dataset access gating", () => {
-  it("always shows the service category and sector cards", () => {
-    renderDashboard([]);
+  it("shows the service category and sector cards when those datasets are visible", () => {
+    renderDashboard(CATEGORY_AND_SECTOR);
 
     expect(screen.getByTestId("category-chart")).toBeInTheDocument();
     expect(screen.getByTestId("sector-chart")).toBeInTheDocument();
   });
 
-  it("hides the BGE and summary cards when those datasets are not visible", () => {
+  it("hides every card when no datasets are visible", () => {
     renderDashboard([]);
 
+    expect(screen.queryByTestId("category-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sector-chart")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bge-chart")).not.toBeInTheDocument();
     expect(screen.queryByTestId("summary-table")).not.toBeInTheDocument();
   });
@@ -242,7 +247,7 @@ describe("DashboardClient charts, labels and interactions", () => {
     queryStates["service-category-spend"] = {
       data: { plotly: { data: [{ name: "TELUS", x: [1], text: ["a"] }], layout: { legend: {} } } },
     };
-    renderDashboard([]);
+    renderDashboard(CATEGORY_AND_SECTOR);
 
     expect(screen.getByTestId("category-chart")).toHaveAttribute(
       "data-has-data",
@@ -252,7 +257,7 @@ describe("DashboardClient charts, labels and interactions", () => {
 
   it("tells the category card when its query errored", () => {
     queryStates["service-category-spend"] = { isError: true };
-    renderDashboard([]);
+    renderDashboard(CATEGORY_AND_SECTOR);
 
     expect(screen.getByTestId("category-chart")).toHaveAttribute(
       "data-error",
@@ -262,7 +267,7 @@ describe("DashboardClient charts, labels and interactions", () => {
 
   it("passes the sector chart to the sector card", () => {
     queryStates["spend-by-sector"] = { data: { total_millions: 12.34 } };
-    renderDashboard([]);
+    renderDashboard(CATEGORY_AND_SECTOR);
 
     expect(screen.getByTestId("sector-chart")).toHaveAttribute(
       "data-has-data",
@@ -280,7 +285,7 @@ describe("DashboardClient charts, labels and interactions", () => {
   });
 
   it("passes the selected period range to the cards", () => {
-    renderDashboard([]);
+    renderDashboard(CATEGORY_AND_SECTOR);
 
     fireEvent.click(screen.getByTestId("select-periods"));
 
