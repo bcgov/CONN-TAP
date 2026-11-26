@@ -2,7 +2,6 @@ import "server-only";
 
 const DEFAULT_COOKIE_NAME = "telecom_session";
 const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
-const DEFAULT_REFRESH_WINDOW_SECONDS = 60;
 
 export function sessionCookieName(): string {
   return process.env.SESSION_COOKIE_NAME ?? DEFAULT_COOKIE_NAME;
@@ -34,9 +33,7 @@ export interface AuthEnv {
   clientSecret: string;
   cookieName: string;
   sessionSecret: string;
-  tokenEncryptionKey: string;
   sessionTtlSeconds: number;
-  refreshWindowSeconds: number;
   secureCookies: boolean;
 }
 
@@ -44,19 +41,17 @@ let cachedAuthEnv: AuthEnv | null = null;
 
 function loadAuthEnv(): AuthEnv {
   const appBaseUrl = required("APP_BASE_URL").replace(/\/$/, "");
-  const issuerUrl = required("KEYCLOAK_ISSUER_URL").replace(/\/$/, "");
+  const issuerUrl = `https://login.microsoftonline.com/${required("ENTRA_TENANT_ID")}/v2.0`;
 
   return {
     appBaseUrl,
     backendInternalUrl: (process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000").replace(/\/$/, ""),
     issuerUrl,
-    clientId: required("KEYCLOAK_CLIENT_ID"),
-    clientSecret: required("KEYCLOAK_CLIENT_SECRET"),
+    clientId: required("ENTRA_CLIENT_ID"),
+    clientSecret: required("ENTRA_CLIENT_SECRET"),
     cookieName: sessionCookieName(),
     sessionSecret: required("SESSION_SECRET"),
-    tokenEncryptionKey: required("TOKEN_ENCRYPTION_KEY"),
     sessionTtlSeconds: optionalInt("SESSION_TTL_SECONDS", DEFAULT_SESSION_TTL_SECONDS),
-    refreshWindowSeconds: optionalInt("TOKEN_REFRESH_WINDOW_SECONDS", DEFAULT_REFRESH_WINDOW_SECONDS),
     secureCookies: appBaseUrl.startsWith("https://"),
   };
 }

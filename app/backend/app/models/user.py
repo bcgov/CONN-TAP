@@ -1,4 +1,4 @@
-"""Application user identity (Keycloak subject), not local credentials."""
+"""Application user identity (Entra object ID), not local credentials."""
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, Identity, Text, func
@@ -11,7 +11,7 @@ class User(AppBase):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
-    keycloak_subject: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    entra_object_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     username: Mapped[str | None] = mapped_column(Text)
     given_name: Mapped[str | None] = mapped_column(Text)
     family_name: Mapped[str | None] = mapped_column(Text)

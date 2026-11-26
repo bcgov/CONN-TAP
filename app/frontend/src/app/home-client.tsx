@@ -5,11 +5,12 @@ import Link from "next/link";
 import {
   Header,
   Heading,
+  InlineAlert,
   Link as BcLink,
 } from "@bcgov/design-system-react-components";
 import { AppFooter } from "@/components/footer";
 
-export function HomeClient() {
+export function HomeClient({ authErrorMessage }: { authErrorMessage?: string }) {
   return (
     <div className="telecom-landing__shell">
       <Header
@@ -39,6 +40,10 @@ export function HomeClient() {
             spend insights.
           </p>
 
+          {authErrorMessage && (
+            <InlineAlert variant="danger" role="alert" description={authErrorMessage} />
+          )}
+
           <div>
             <p className="telecom-main__login-label">Sign in to get started</p>
             <BcLink
@@ -47,7 +52,7 @@ export function HomeClient() {
               buttonVariant="primary"
               size="large"
             >
-              Log in with IDIR
+              Log in
             </BcLink>
           </div>
 

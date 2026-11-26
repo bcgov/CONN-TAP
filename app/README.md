@@ -3,7 +3,7 @@
 End-to-end application skeleton:
 
 - **`backend/`** — FastAPI + SQLAlchemy 2 + pandas + dbt (dbt-core / dbt-postgres).
-- **`frontend/`** — Next.js 16 + React 19 + React Query (`@tanstack/react-query`) + `react-plotly.js` + `@bcgov/design-system-react-components` + server-side Keycloak authentication.
+- **`frontend/`** — Next.js 16 + React 19 + React Query (`@tanstack/react-query`) + `react-plotly.js` + `@bcgov/design-system-react-components` + server-side Entra ID authentication.
 - **`db/`** — Postgres 16 image with `pg_partman` for partitioning plus `pg_trgm` / `btree_gin` / `btree_gist` for advanced indexing.
 - **`docker-compose.yml`** — Local development stack for Postgres and the FastAPI backend. The Next.js frontend is intended to run locally by default.
 
@@ -82,13 +82,13 @@ The backend container bind-mounts `./backend` into `/app` and starts `uvicorn ap
 
 ## Authentication
 
-This application uses **Keycloak** for user authentication via the BC Government's login proxy.
+This application signs users in with the **BC Gov Entra ID** tenant (IDIR users, guests from other organizations, and email one-time-code guests).
 
-For detailed Keycloak setup, environment variables, and authentication flow documentation, see [KEYCLOAK.md](./frontend/KEYCLOAK.md).
+For Entra setup, environment variables, roles and the authentication flow, see [ENTRA.md](./frontend/ENTRA.md).
 
 ### Quick Start - Authentication
 
-1. Copy `frontend/.env.local.example` to `frontend/.env.local` and set `KEYCLOAK_CLIENT_SECRET` (and any other overrides).
+1. Copy `frontend/.env.local.example` to `frontend/.env.local` and set `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` and `ENTRA_CLIENT_SECRET` from the dev app registration (and any other overrides).
    `pnpm dev` and Docker Compose both use the same auth-related variables from these files.
 
 2. `docker compose` loads `frontend/.env.local.example`, then merges `frontend/.env.local` when it exists.
