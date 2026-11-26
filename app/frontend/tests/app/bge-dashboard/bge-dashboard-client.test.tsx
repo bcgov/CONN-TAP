@@ -55,7 +55,7 @@ describe("BgeDashboardClient", () => {
     render(<BgeDashboardClient displayName="Alice" />);
 
     expect(screen.getByText("Reporting Period: –")).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(2); // total spend and peak month
+    expect(screen.getAllByText("—")).toHaveLength(3); // total spend, peak month and reporting status
   });
 
   it("shows the reporting period, total spend, provider split and peak month", () => {
