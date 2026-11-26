@@ -1,0 +1,248 @@
+charge_description,sub_category_code
+ADSL EXTENDED REACH SERVICE,tls_adsl_voice
+"ANALOG PL IX BASE CHARGE, 101-200MI",tls_analog_private_line
+"ANALOG PL IX BASE CHARGE, 1-25MI",tls_analog_private_line
+"ANALOG PL IX BASE CHARGE, 26-50MI",tls_analog_private_line
+"ANALOG PL IX BASE CHARGE, 51-100MI",tls_analog_private_line
+ANALOG PL IX LOCAL CHANNEL 2-WIRE,tls_analog_private_line
+ANALOG PL IX LOCAL CHANNEL 4-WIRE,tls_analog_private_line
+"ANALOG PL IX MI CHARGE, 101-200MI",tls_analog_private_line
+"ANALOG PL IX MILEAGE, 101-200MI",tls_analog_private_line
+"ANALOG PL IX MILEAGE, 1-25MI",tls_analog_private_line
+"ANALOG PL IX MILEAGE, 26-50MI",tls_analog_private_line
+"ANALOG PL IX MILEAGE, 51-100MI",tls_analog_private_line
+ANALOG PRIV LINE DUPLEX ADDL QTR MILE,tls_analog_private_line
+ANALOG PRIVATE LINE 1ST QTR MILE,tls_analog_private_line
+ANALOG PRIVATE LINE 4WIRE 1ST QTR MILE,tls_analog_private_line
+ANALOG PRIVATE LINE 4WIRE ADDL QTR MILE,tls_analog_private_line
+"ANALOG PRIVATE LINE 4WIRE, 1ST QTR MILE",tls_analog_private_line
+ANALOG PRIVATE LINE TERMINATION,tls_analog_private_line
+"ANALOG PRIVATE LINE, 1ST QTR MILE",tls_analog_private_line
+"ANALOG PRIVATE LINE, ADD'L QTR MILE",tls_analog_private_line
+AUTOMATIC BLOCKING,tls_centrex
+BATTERY COMMON SIGNALLING,tls_analog_private_line
+BUSINESS LONG DISTANCE,tls_centrex
+BUSINESS MULTILINE,tls_centrex
+CALL FORWARD TO VOICE MAIL,tls_centrex
+CALL FORWARDING FIXED CENTRAL OFFICE,tls_centrex
+CALL GUARDIAN - DENY TOLL,tls_centrex
+CARRIER ETHERNET OPTICAL 10GB,tls_optical_ethernet
+CARRIER ETHERNET OPTICAL 1GB,tls_optical_ethernet
+CARRIER ETHERNET OPTICAL 2GB,tls_optical_ethernet
+CARRIER ETHERNET OPTICAL 3GB,tls_optical_ethernet
+CENTREX ACD AGENT/SUPERVISOR,tls_centrex
+CENTREX ACD GROUP,tls_centrex
+CENTREX ACD PRIMARY DIRECTORY NUMBER,tls_centrex
+CENTREX ACD SERVICE BUREAU RTA,tls_centrex
+CENTREX ADDITIONAL DIRECTORY NUMBER,tls_centrex
+CENTREX ALTERNATE NUMBER DELIVERY,tls_centrex
+CENTREX ANALOG TRUNK TERMINATION,tls_centrex
+CENTREX AUTOMATIC ROUTE SELECTION,tls_centrex
+CENTREX CALL DISPLAY BLOCK FREE,tls_centrex
+CENTREX CALL DISPLAY BLOCK,tls_centrex
+CENTREX CALL DISPLAY FREE,tls_centrex
+CENTREX CALL DISPLAY,tls_centrex
+CENTREX CALL FORWARD,tls_centrex
+CENTREX CALL TRANSFER,tls_centrex
+CENTREX CONFERENCE BRIDGE,tls_centrex
+CENTREX DIGITAL TRUNK TERMINATION,tls_centrex
+CENTREX DRAM CARD,tls_centrex
+CENTREX DYNAMIC CHG 2-500,tls_centrex
+CENTREX DYNAMIC CHG 501-1500,tls_centrex
+CENTREX ECP ADDITIONAL ACCESSES,tls_centrex
+CENTREX ECP CALLER MENU,tls_centrex
+CENTREX ECP INFORMATION ONLY MENU,tls_centrex
+CENTREX ENHANCED ANSWERING POSITION,tls_centrex
+CENTREX FEATURE PACKAGE 1,tls_centrex
+CENTREX FEATURE PACKAGE 2,tls_centrex
+CENTREX FEATURE PACKAGE 3,tls_centrex
+CENTREX FEATURE PACKAGE 4,tls_centrex
+CENTREX FEATURE PACKAGE A,tls_centrex
+CENTREX FEATURE PACKAGE C,tls_centrex
+CENTREX FEATURE PACKAGE E,tls_centrex
+CENTREX FEATURE PACKAGE F,tls_centrex
+CENTREX LINE $32.20 AND MRS $0.05 BC,tls_centrex
+CENTREX LINE HUNTING,tls_centrex
+CENTREX LINE NON-CONTRACTED,tls_centrex
+CENTREX LINE VOLUME RANGE 1-22 1YR,tls_centrex
+CENTREX LINE VOLUME RANGE 1-22 5YR,tls_centrex
+CENTREX LINE VOLUME RANGE 150-500 5YR,tls_centrex
+CENTREX LINE VOLUME RANGE 23-49 3YR,tls_centrex
+CENTREX LINE VOLUME RANGE 23-49 5YR,tls_centrex
+CENTREX LINE VOLUME RANGE 501-1500 5YR,tls_centrex
+CENTREX LINE VOLUME RANGE 50-149 5YR,tls_centrex
+CENTREX MESSAGE WAITING INDICATION,tls_centrex
+CENTREX ML CNTRCT 29064,tls_centrex
+CENTREX MULTILINE SERVICE NON-CONTRACT,tls_centrex
+CENTREX MULTILINE,tls_centrex
+CENTREX MUSIC ON HOLD,tls_centrex
+CENTREX SINGLE LINE,tls_centrex
+CENTREX SMDI LINK,tls_centrex
+CENTREX SPEED CALL 30 NUMBERS,tls_centrex
+CENTREX SPEED CALL 50 NUMBERS,tls_centrex
+CENTREX SPEED CALL 70 NUMBERS,tls_centrex
+CENTREX STD MAILBOX NON-CONTRACTED,tls_centrex
+CENTREX STD MAILBOX RANGE 1-500 3YR,tls_centrex
+CENTREX STD MAILBOX RANGE 3501+ 5YR,tls_centrex
+CENTREX STD MAILBOX,tls_centrex
+CENTREX TRANSFER MAILBOX,tls_centrex
+CENTREX UNIFORM CALL DISTRIBUTION QUEUE,tls_centrex
+COMMON BATTERY SIGNALLING,tls_analog_private_line
+"CONTROL CIRCUIT, EACH QTR MILE",tls_copper
+"CONTROL CIRCUIT, MIN EACH QTR MILE",tls_copper
+CTX STN MONTHLY,tls_centrex
+CUT OFF KEY,tls_centrex
+DIG EXCH ACC DS1 BAND 2,tls_copper
+DIG EXCH ACC DS1 BAND 3,tls_copper
+DIG EXCH ACC PSTN CONNECTION,tls_copper
+DIG EXCH ACC PSTN TERMINATION,tls_copper
+DIG NET ACC DS1 BAND 0,tls_copper
+DIG NET ACC DS1 BAND 2,tls_copper
+DIG NET ACC DS1 BAND 3,tls_copper
+DIG NET ACC DS1 LINK,tls_copper
+DIG NET ACC INTRA,tls_copper
+DIG NET PRIVATE LINE DS1 25B,tls_copper
+DIG NET PRIVATE LINE DS-1 25M,tls_copper
+DIG NET PRIVATE LINE DS1,tls_copper
+DIGITAL PRIVATE LINE B8ZS OPTION,tls_copper
+DIRECTORY LISTING ADDITIONAL - BUSINESS,tls_centrex
+DNA DS1 BAND 0 1YR,tls_copper
+DNA DS1 BAND 0 3YR,tls_copper
+DNA DS1 BAND 2 1YR,tls_copper
+DNA DS1 BAND 2 5YR,tls_copper
+DNA DS1 BAND 3 5YR,tls_copper
+DNA DS1 CHANNELIZE,tls_copper
+DNA DS1 INTRA-EXCHANGE CHANNEL,tls_copper
+DNA DS1 LINK,tls_copper
+DNA DS3 INTRA-EXCHANGE CHANNEL,tls_copper
+DNA DS3,tls_copper
+DPL IX DS1 1-25 MILE BASE,tls_copper
+DPL IX DS1 1-25 MILE EACH,tls_copper
+FX CO MILE EACH 1/4 MILE DATA,tls_analog_private_line
+HIGH SPEED ACCESS,tls_adsl_voice
+HIGH SPEED INTERNET OFFICE 3YR,tls_adsl_voice
+INFORMATION SYSTEM ACCESS LINE (ISA),tls_copper
+INTRAPROVINCIAL IX LINK CHARGE,tls_analog_private_line
+IP TRUNKING 911 ACCESS,tls_ip_trunking_r2
+IP TRUNKING ACCESS SERVICE - PARENT,tls_ip_trunking_r2
+IP TRUNKING ACCESS SERVICE-PARENT,tls_ip_trunking_r2
+IP TRUNKING DID NUMBER 3 YEARS,tls_ip_trunking_r2
+IP TRUNKING DID NUMBER 5 YEARS,tls_ip_trunking_r2
+IP TRUNKING DID NUMBER,tls_ip_trunking_r2
+IP TRUNKING PSTN CONNECTION 3Y-BC,tls_ip_trunking_r2
+IP TRUNKING PSTN CONNECTION,tls_ip_trunking_r2
+IPTR2 DID ADMIN FOR FOOTPRINT,tls_ip_trunking_r2
+IP-TRUNKING ACCESS SERVICE - CHILD,tls_ip_trunking_r2
+IVMS NETWORK MESSAGE SOFWARE,tls_centrex
+IX SERVICE LINK,tls_analog_private_line
+NGLL09 CALL FORWARDING FIXED,tls_centrex
+NGLL22 DIRECTORY LISTING ADDITIONAL,tls_centrex
+OFF PREMISE EXTENSION MAXIMUM MILEAGE,tls_copper
+OFF PREMISE EXTENSION,tls_copper
+"OFF PREMISE EXTENSION, 1ST QTR MILE",tls_copper
+"OFF PREMISE EXTENSION, ADD'L QTR MILE",tls_copper
+OFF PREMISE EXTN 2-WIRE 1ST QTR MILE,tls_copper
+OFF PREMISE EXTN 2-WIRE ADDL QTR MILE,tls_copper
+OFF PREMISE EXTN 4-WIRE 1ST QTR MILE,tls_copper
+OFF PREMISE EXTN 4-WIRE ADDL QTR MILE,tls_copper
+OFF PREMISE STATION,tls_copper
+OFFICE INTERNET,tls_adsl_voice
+OFFICE INTERNET 5 STATIC IP,tls_adsl_voice
+OFFICE INTERNET BASIC,tls_adsl_voice
+OFFICE INTERNET BASIC 3-YEAR,tls_adsl_voice
+OFFICE INTERNET COMPLETE,tls_adsl_voice
+OFFICE INTERNET COMPLETE 3-YEAR,tls_adsl_voice
+OFFICE INTERNET ELITE,tls_adsl_voice
+OFFICE INTERNET ENHANCED,tls_adsl_voice
+OFFICE INTERNET PLUS,tls_adsl_voice
+OFFICE INTERNET PLUS 3YR,tls_adsl_voice
+OFFICE INTERNET PROFESSIONAL,tls_adsl_voice
+OVERLINE FORCED DISCONNECT,tls_copper
+OVERLINE STOP SERVICE 1ST TYPE E,tls_copper
+OVERLINE STOP,tls_copper
+P911 INTRA EXCHANGE CHANNEL CENTREX EX,tls_centrex
+P911 NETWORK ACCESS CENTREX LINE,tls_centrex
+PBX TRUNK FORCED DISCONNECT,tls_copper
+PRIVATE LINE 1ST QTR MILE,tls_analog_private_line
+PRIVATE LINE ADDL QTR MILE,tls_analog_private_line
+PRIVATE LINE DATA SAME PROPERTY,tls_analog_private_line
+RENTAL EQUIPMENT CHARGE,tls_centrex
+SERVICESAVER 1-5 NUMBERS,tls_centrex
+SIGNAL TRANS CLASS B IX CHANNEL TERM,tls_analog_private_line
+SIGNAL TRANS CLASS B IX MILEAGE MIN,tls_analog_private_line
+SIGNAL TRANS CLASS C 4WIRE 1ST QTR MILE,tls_analog_private_line
+SIGNAL TRANS CLASS C 4WIRE ADD'L QTR MI,tls_analog_private_line
+"SIGNAL TRANS CLASS C, 1ST QTR MILE",tls_analog_private_line
+"SIGNAL TRANS CLASS C, ADD'L QTR MILE",tls_analog_private_line
+SIGNAL TRANS EACH QTR MILE,tls_analog_private_line
+SIGNAL TRANS LOCAL CHAN MIN,tls_analog_private_line
+STS Business Internet ADSL,tls_adsl_data
+STS WAN L3 VPN 1.5 Mbps,tls_adsl_data
+STS WAN L3 VPN 3 Mbps,tls_adsl_data
+STS WAN L3 VPN ADSL PHARMANET LITE,tls_adsl_data
+STS WAN L3 VPN ADSL,tls_adsl_data
+STS WAN L3 VPN Redundant 1.5 Mbps,tls_adsl_data
+VITILCARE INM MANAGED SVCS,tls_managed_wlan
+STS WAN L3 VPN 5 Mbps,tls_adsl_data
+TCC ADDITIONAL CALL CLUSTERS,tls_health_grade_managed_voice
+TCC ANALOG GATEWAY,tls_health_grade_managed_voice
+TCC BASIC,tls_health_grade_managed_voice
+TCC BASIC NOVM,tls_health_grade_managed_voice
+TCC BASIC NOVM TELUS 7811,tls_health_grade_managed_voice
+TCC EM RESPONDER,tls_health_grade_managed_voice
+TCC ENHANCED,tls_health_grade_managed_voice
+TCC ENHANCED NOVM,tls_health_grade_managed_voice
+TCC ENHANCED NOVM TELUS 7841,tls_health_grade_managed_voice
+TCC ENHANCED NOVM TELUS 8832,tls_health_grade_managed_voice
+TCC ESSENTIAL GPS ANALOG,tls_health_grade_managed_voice
+TCC GW C8200 2FSX-4FXO,tls_health_grade_managed_voice
+TCC GW C8300 1T1,tls_health_grade_managed_voice
+TCC GW CISCO VG310 24P,tls_health_grade_managed_voice
+TCC SESSION MANAGER,tls_health_grade_managed_voice
+TCC SRTP,tls_health_grade_managed_voice
+TCC VM ONLY,tls_health_grade_managed_voice
+TCC DEVICE ONLY 8851 KEM,tls_health_grade_managed_voice
+TCC ENHANCED TELUS 7841,tls_health_grade_managed_voice
+TCC ENHANCED TELUS 8851,tls_health_grade_managed_voice
+TCC ENHANCED NOVM GPS 8831,tls_health_grade_managed_voice
+TCC ENHANCED GPS 7841,tls_health_grade_managed_voice
+TCC ENHANCED NOVM GPS 7841,tls_health_grade_managed_voice
+TCC ADVANCED TELUS 7841,tls_health_grade_managed_voice
+TCC ADVANCED TELUS 840,tls_health_grade_managed_voice
+TCC DEVICE ONLY GPS MISC SET,tls_health_grade_managed_voice
+TCC ENHANCED NOVM GPS MISC SET,tls_health_grade_managed_voice
+TCC ENHANCED NOVM TELUS 8851,tls_health_grade_managed_voice
+TCC GW CISCO VG450 96P,tls_health_grade_managed_voice
+TCC BASIC TELUS 7811,tls_health_grade_managed_voice
+TCC ENHANCED NOVM GPS 8851,tls_health_grade_managed_voice
+TCC GW CISCO VG450 144P,tls_health_grade_managed_voice
+TCC ONSITE CUCM,tls_health_grade_managed_voice
+TCC DEVICE ONLY TELUS 7841,tls_health_grade_managed_voice
+TCC ADVANCED GPS 8851,tls_health_grade_managed_voice
+TCC DEVICE ONLY GPS 8851,tls_health_grade_managed_voice
+TCC DEVICE ONLY GPS 7841,tls_health_grade_managed_voice
+TCC ADVANCED TELUS 8851,tls_health_grade_managed_voice
+TCC BASIC NOVM GPS 7811,tls_health_grade_managed_voice
+TCC DEVICE ONLY TELUS 8851,tls_health_grade_managed_voice
+TCC ENHANCED GPS 8851,tls_health_grade_managed_voice
+TCC BASIC GPS 7811,tls_health_grade_managed_voice
+TCC PSTN GATEWAY,tls_health_grade_managed_voice
+TCC GW C8300 16FXS2FXO2FXS4FXO,tls_health_grade_managed_voice
+TCC GW C8300 24FXS/4FXO,tls_health_grade_managed_voice
+TCC ADVANCED GPS 7942,tls_health_grade_managed_voice
+TCC ENHANCED GPS 7942,tls_health_grade_managed_voice
+TCC ENHANCED NOVM GPS 7942,tls_health_grade_managed_voice
+TCC PHYBRIDGE POLRE 48 PORT,tls_health_grade_managed_voice
+TCC GW C8300 24FXS & 2FXS/4FXO,tls_health_grade_managed_voice
+TCC GW C8300 4T1 2MM,tls_health_grade_managed_voice
+TCC GW CISCO VG450 96P 2MM,tls_health_grade_managed_voice
+TCC GW C8300 16FXS & 4FXS,tls_health_grade_managed_voice
+TCC ADVANCED TELUS 8865,tls_health_grade_managed_voice
+TCC DEVICE ONLY GPS 7942,tls_health_grade_managed_voice
+TCC ENHANCED GPS MISC SET,tls_health_grade_managed_voice
+CENTRALIZED FACILITY WAP,tls_managed_wlan
+DE-CENTRAL FACILITY WAP,tls_managed_wlan
+DE-CENTRAL WLAN FACILITY,tls_managed_wlan
+Managed Router Service Appliance Monthly Fee,tls_managed_router
+Managed Router Service Core Switches Monthly Fee,tls_managed_router
+Managed Router Service Access/Edge Switches Monthly Fee,tls_managed_router

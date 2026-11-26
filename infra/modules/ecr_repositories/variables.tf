@@ -36,6 +36,12 @@ variable "tagged_image_expire_after_days" {
   description = "When set, delete tagged images older than this many days. Use for immutable prod registries to expire stale release tags."
 }
 
+variable "tagged_image_keep_count" {
+  type        = number
+  default     = null
+  description = "When set, keep only this many most recent tagged images (by push time). Unlike age-based expiry, the newest images are always kept. Mutually exclusive with tagged_image_expire_after_days."
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

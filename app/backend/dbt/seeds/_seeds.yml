@@ -1,6 +1,35 @@
 version: 2
 
 seeds:
+  - name: telus_tls_charge_descriptions
+    description: >
+      TELUS bill charge descriptions that belong to Time Limited Services (the analysts'
+      LTO list), with the sub-category each one falls under.
+    columns:
+      - name: charge_description
+        tests:
+          # a repeated description would double the bill lines it matches
+          - unique
+      - name: sub_category_code
+        tests:
+          - not_null
+          - relationships:
+              to: source('reference_data', 'service_sub_category')
+              field: code
+
+  - name: telus_service_id_mapping_list
+    description: >
+      TELUS bill plan names and the pricebook service ID each one stands for
+      (GoBC V&D ULNA 5GB -> XPULNA5GB). The bill shows these plans by name only.
+      description_pattern is a LIKE pattern ('%' = anything); case and punctuation are ignored.
+    columns:
+      - name: description_pattern
+        tests:
+          - unique
+      - name: service_id
+        tests:
+          - not_null
+
   - name: bge_alias_map
     description: Maps raw organization name spellings/variants to a canonical BGE code.
     columns:
