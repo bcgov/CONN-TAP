@@ -6,7 +6,7 @@
     - TO roles see every row.
     - Org roles see rows for their assigned BGEs, and for their assigned
       sub-BGEs / service designees and everything under them
-      (functions in alembic 015_org_scope_functions).
+      (functions in alembic 017_org_scope_functions).
 
     dbt runs as the table owner, which RLS doesn't apply to, so builds and
     tests still see all rows.
