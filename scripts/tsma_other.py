@@ -15,7 +15,7 @@ standalone file (first_row=5, after four rows of month/quarter headers).
 
 Row layout relative to first_row
 ---------------------------------
-  first_row + 0  : "Time Limited Services" header
+  first_row + 0  : "TSMA – Time Limited Services" header
   first_row + 1  : "Managed Router" sub-header
   first_row + 2  : first Managed Router org row
   first_row + 8  : last  Managed Router org row  (7 orgs)
@@ -154,16 +154,19 @@ def load_tsma_other() -> dict:
 # Section builder
 # ---------------------------------------------------------------------------
 
-def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
+def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> int:
     """Write the complete Out-of-Scope section to *ws* starting at *first_row*.
 
     Args:
         ws:        xlsxwriter Worksheet.
         F:         _FmtCache instance bound to the workbook.
         oos_data:  dict returned by load_tsma_other().
-        first_row: Row number of the "Time Limited Services" header (1-based).
+        first_row: Row number of the "TSMA – Time Limited Services" header (1-based).
                    Use 355 in the full spend_tracking sheet,
                    use 5 in the standalone tsma_other_spend sheet.
+
+    Returns:
+        The row the next section starts on.
     """
     f_bold    = F(bold=True)
     f_section = F(bold=True)
@@ -189,7 +192,7 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
 
     # ---- Section header row ----
     set_row_props(ws, first_row, height=16)
-    write(ws, first_row, COL_B, "Time Limited Services", f_section)
+    write(ws, first_row, COL_B, "TSMA – Time Limited Services", f_section)
     write(ws, first_row, COL_AO, 2024,      f_bold)
     write(ws, first_row, COL_AP, 2025,      f_bold)
     write(ws, first_row, COL_AQ, "Q1 2024", f_bold)
@@ -238,3 +241,4 @@ def build_oos_section(ws, F, oos_data: dict, *, first_row: int = 355) -> None:
 
     # ---- Blank trailing row ----
     set_row_props(ws, sec_total + 1, height=16)
+    return sec_total + 2

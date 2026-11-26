@@ -90,6 +90,27 @@ describe("plotlyCategoryRows", () => {
     ]);
   });
 
+  it("lists the categories in the analysts' order, Unknown last", () => {
+    const chart: PlotlyChart = {
+      layout: {},
+      data: [
+        {
+          type: "bar",
+          name: "TELUS",
+          x: ["Unknown", "Data", "Ancillary Products - Hardware", "Cellular"],
+          y: [1, 2, 3, 4],
+        },
+      ] as PlotlyChart["data"],
+    };
+
+    expect(plotlyCategoryRows(chart).rows.map((row) => row.category)).toEqual([
+      "Cellular",
+      "Data",
+      "Ancillary Products - Hardware",
+      "Unknown",
+    ]);
+  });
+
   it("returns nothing for a chart with no traces", () => {
     expect(plotlyCategoryRows({ layout: {}, data: [] })).toEqual({
       providers: [],

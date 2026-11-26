@@ -34,7 +34,7 @@ spec:
           # severity, so any failure (unmapped TELUS tab, null category or BGE in
           # the fact, unmapped NGTA sub-BGE name, ...) fails the deploy.
           # NOTE: assert_ngta_sub_bge_names_mapped_to_alias took ~17 min when it
-          # was last run, longer than the 10m Helm --timeout on its own.
+          # was last run; the Helm --timeout is 30m in every environment.
           # The spend report models (tag 'report') are skipped here; the spend report
           # runbook rebuilds them when a report is made.
           # set_login_passwords gives tap_api / tap_web their passwords from the migrate secret.
