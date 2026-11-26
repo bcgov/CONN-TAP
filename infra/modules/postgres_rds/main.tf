@@ -58,7 +58,7 @@ resource "aws_secretsmanager_secret_version" "db" {
 }
 
 # Passwords for the app's own database users (tap_api = backend, tap_web =
-# frontend; created by alembic 015_database_roles). The deploy's migrate job
+# frontend; created by alembic 014_database_roles). The deploy's migrate job
 # sets them in Postgres on every deploy.
 locals {
   app_db_users = toset(["tap-api", "tap-web"])
