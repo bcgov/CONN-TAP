@@ -77,7 +77,7 @@ vi.mock("@/components/spend-summary-table", () => ({
   SpendSummaryTable: chartStub("summary-table"),
 }));
 
-import { DashboardClient } from "@/app/dashboard/dashboard-client";
+import { DashboardClient } from "@/app/(dashboard)/dashboard/dashboard-client";
 
 class ResizeObserverStub {
   observe() {}
@@ -97,7 +97,7 @@ afterEach(() => {
 
 function renderDashboard(visibleDatasetIds: string[]) {
   return render(
-    <DashboardClient displayName="Alice" visibleDatasetIds={visibleDatasetIds} />,
+    <DashboardClient visibleDatasetIds={visibleDatasetIds} />,
   );
 }
 
@@ -276,15 +276,6 @@ describe("DashboardClient charts, labels and interactions", () => {
       "data-has-data",
       "yes",
     );
-  });
-
-  it("logs the user out when the logout button is clicked", () => {
-    vi.stubGlobal("location", { href: "" });
-    renderDashboard([]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-
-    expect(globalThis.location.href).toBe("/auth/logout");
   });
 
   it("passes the selected period range to the cards", () => {

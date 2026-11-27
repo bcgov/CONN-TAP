@@ -1,0 +1,32 @@
+.minimal-footer {
+  border-top: 1px solid var(--surface-color-border-medium, var(--color-border-medium));
+  padding: 1rem 2rem;
+  background: var(--color-surface-white);
+}
+
+.minimal-footer__nav {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.minimal-footer__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.minimal-footer__links a {
+  color: var(--typography-color-link, var(--color-link));
+  text-decoration: underline;
+  font-size: 0.875rem;
+  font-family: "BC Sans", system-ui, -apple-system, sans-serif;
+}
+
+.minimal-footer__links a:hover {
+  color: var(--typography-color-link-hover, var(--color-link-hover));
+}
+

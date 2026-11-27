@@ -12,7 +12,6 @@ export default async function AdminPage() {
   if (!session.roles.includes("to_admin")) {
     redirect("/unauthorized");
   }
-  const displayName = session.name ?? session.username ?? session.email ?? "an authorized user";
 
   let users: AdminUserRow[] = [];
   let loadError = false;
@@ -32,7 +31,6 @@ export default async function AdminPage() {
 
   return (
     <AdminClient
-      displayName={displayName}
       users={users}
       organizationOptions={organizationOptions}
       loadError={loadError}

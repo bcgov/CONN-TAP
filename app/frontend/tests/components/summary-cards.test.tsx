@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { FilterPanel } from "@/components/filter-panel";
+import { PendingReportsTable } from "@/components/pending-reports-table";
 import { ReportingStatus } from "@/components/reporting-status";
 import { SpendBreakdown } from "@/components/spend-breakdown";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
@@ -56,6 +58,7 @@ describe("ReportingStatus", () => {
     expect(screen.getByText("Reporting Status")).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.queryByText(/Pending/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Complete")).not.toBeInTheDocument();
   });
 
   it("shows how many reports are received and pending", () => {
@@ -65,11 +68,45 @@ describe("ReportingStatus", () => {
     expect(screen.getByText("5 Pending")).toBeInTheDocument();
   });
 
-  it("leaves out the pending label when every report is in", () => {
+  it("shows Complete instead of the pending label when every report is in", () => {
     render(<ReportingStatus receivedCount={17} expectedCount={17} />);
 
     expect(screen.getByText("17 of 17 reports received")).toBeInTheDocument();
+    expect(screen.getByText("Complete")).toBeInTheDocument();
     expect(screen.queryByText(/Pending/)).not.toBeInTheDocument();
+  });
+
+  it("is not a button when there are no details to show", () => {
+    render(<ReportingStatus receivedCount={12} expectedCount={17} />);
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("opens the pending report details when clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <ReportingStatus receivedCount={15} expectedCount={17}>
+        <PendingReportsTable
+          title="Pending TSMA reports"
+          columns={[{ key: "reportingPeriod", label: "Reporting period" }]}
+          rows={[{ reportingPeriod: "Apr–Jun 2025" }, { reportingPeriod: "Oct–Dec 2025" }]}
+        />
+      </ReportingStatus>,
+    );
+
+    const button = screen.getByRole("button", { name: /Reporting Status/ });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(button);
+
+    const details = screen.getByRole("dialog", { name: "Pending reports" });
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(within(details).getByRole("heading", { name: "Pending TSMA reports" })).toBeInTheDocument();
+    expect(within(details).getByText("Oct–Dec 2025")).toBeInTheDocument();
+    expect(within(details).getAllByText("Pending")).toHaveLength(2);
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

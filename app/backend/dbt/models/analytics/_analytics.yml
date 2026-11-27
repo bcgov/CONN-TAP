@@ -123,3 +123,18 @@ models:
         tests: [not_null]
       - name: spend_amount
         tests: [not_null]
+
+  - name: report_period_received
+    description: >
+      The months each tracked vendor report has data for (one row per report and
+      month). Source for reporting_status. TSMA and TSMA Lite are quarterly reports,
+      but their rows are still monthly here; the API groups them into quarters.
+    columns:
+      - name: report_name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Rogers Cellular', 'Rogers Data', 'TELUS', 'TSMA', 'TSMA Lite']
+      - name: period_key
+        description: Month grain (first day of month).
+        tests: [not_null]

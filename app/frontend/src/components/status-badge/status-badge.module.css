@@ -1,0 +1,21 @@
+.badge {
+  display: inline-block;
+  flex: none;
+  padding: 3px var(--layout-padding-small) 4px;
+  border-radius: var(--layout-border-radius-medium);
+  font: var(--typography-bold-small-body);
+  letter-spacing: 0.15px;
+  white-space: nowrap;
+}
+
+.warning {
+  background: var(--support-surface-color-warning);
+  color: var(--typography-color-secondary);
+}
+
+/* No BC Gov token for a light green badge (--support-surface-color-success is
+   nearly white), so these are set here. The text passes WCAG AA contrast. */
+.success {
+  background: #e3f0e5;
+  color: #2e6b36;
+}

@@ -1,15 +1,27 @@
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // redirect() stops the page in Next.js; throwing does the same here.
-const { redirect, session } = vi.hoisted(() => ({
-  redirect: vi.fn((path: string) => {
-    throw new Error(`redirect:${path}`);
-  }),
-  session: { roles: [] as string[], subject: "oid-1", name: "Alice", username: null, email: null },
-}));
+const { redirect, session, currentSession } = vi.hoisted(() => {
+  const session = {
+    roles: [] as string[],
+    subject: "oid-1",
+    name: "Alice" as string | null,
+    username: null as string | null,
+    email: null as string | null,
+  };
+  return {
+    redirect: vi.fn((path: string) => {
+      throw new Error(`redirect:${path}`);
+    }),
+    session,
+    currentSession: { value: session as typeof session | null },
+  };
+});
 
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/server/auth", () => ({
+  getCurrentSession: vi.fn(async () => currentSession.value),
   requireAuthorizedSession: vi.fn(async () => session),
   isTelecomOfficeUser: (roles: string[]) =>
     roles.includes("to_admin") || roles.includes("to_viewer"),
@@ -20,24 +32,76 @@ vi.mock("@/lib/server/user-organizations", () => ({
 vi.mock("@/lib/server/datasets", () => ({
   getVisibleDatasetIds: vi.fn(async () => new Set(["isp-spend-indicators"])),
 }));
-vi.mock("@/app/bge-dashboard/bge-dashboard-client", () => ({ BgeDashboardClient: () => null }));
-vi.mock("@/app/dashboard/dashboard-client", () => ({ DashboardClient: () => null }));
+vi.mock("@/app/(dashboard)/bge-dashboard/bge-dashboard-client", () => ({ BgeDashboardClient: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/dashboard-client", () => ({ DashboardClient: () => null }));
 
-import BgeDashboardPage from "@/app/bge-dashboard/page";
-import DashboardPage from "@/app/dashboard/page";
+import { getOrganizationName } from "@/lib/server/user-organizations";
+import BgeDashboardPage from "@/app/(dashboard)/bge-dashboard/page";
+import DashboardPage from "@/app/(dashboard)/dashboard/page";
+import SignedInLayout from "@/app/(dashboard)/layout";
 
 beforeEach(() => {
   redirect.mockClear();
+  currentSession.value = session;
+});
+
+describe("Signed-in layout", () => {
+  it("gives the header and nav bar the user's name, organization and links", async () => {
+    session.roles = ["to_admin"];
+
+    const layout = (await SignedInLayout({ children: "page" })) as ReactElement;
+
+    expect(layout.props).toMatchObject({
+      displayName: "Alice",
+      orgName: "Ministry of Health",
+      homeHref: "/dashboard",
+      showAdmin: true,
+      children: "page",
+    });
+  });
+
+  it("links org users home to the BGE dashboard, without Admin", async () => {
+    session.roles = ["org_user"];
+
+    const layout = (await SignedInLayout({ children: "page" })) as ReactElement;
+
+    expect(layout.props).toMatchObject({ homeHref: "/bge-dashboard", showAdmin: false });
+  });
+
+  it.each([
+    { username: "alice", email: "alice@example.com", displayName: "alice" },
+    { username: null, email: "alice@example.com", displayName: "alice@example.com" },
+    { username: null, email: null, displayName: "an authorized user" },
+  ])("shows $displayName when the user has no name", async ({ username, email, displayName }) => {
+    currentSession.value = { ...session, name: null, username, email };
+
+    const layout = (await SignedInLayout({ children: "page" })) as ReactElement;
+
+    expect(layout.props).toMatchObject({ displayName });
+  });
+
+  it("leaves out the organization when the user has none", async () => {
+    vi.mocked(getOrganizationName).mockResolvedValueOnce(null);
+
+    const layout = (await SignedInLayout({ children: "page" })) as ReactElement<{ orgName?: string }>;
+
+    expect(layout.props.orgName).toBeUndefined();
+  });
+
+  it("shows just the page when nobody is signed in", async () => {
+    currentSession.value = null;
+
+    expect(await SignedInLayout({ children: "page" })).toBe("page");
+  });
 });
 
 describe("BGE dashboard page", () => {
-  it("renders for org users with their organization", async () => {
+  it("renders for org users", async () => {
     session.roles = ["org_user"];
 
-    const page = await BgeDashboardPage();
+    await BgeDashboardPage();
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(page.props).toEqual({ displayName: "Alice", orgName: "Ministry of Health" });
   });
 
   it("sends Telecom Office users to the main dashboard", async () => {
@@ -54,12 +118,7 @@ describe("Main dashboard page", () => {
     const page = await DashboardPage();
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(page.props).toMatchObject({
-      displayName: "Alice",
-      orgName: "Ministry of Health",
-      visibleDatasetIds: ["isp-spend-indicators"],
-      isAdmin: true,
-    });
+    expect(page.props).toEqual({ visibleDatasetIds: ["isp-spend-indicators"] });
   });
 
   it("sends org users to the BGE dashboard", async () => {

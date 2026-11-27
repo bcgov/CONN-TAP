@@ -3,10 +3,6 @@
 import { Heading } from "@bcgov/design-system-react-components";
 import { useState, useTransition } from "react";
 import type { MRT_ColumnDef } from "material-react-table";
-import { ConfidentialityBanner } from "@/components/confidentiality-banner";
-import { DashboardHeader } from "@/components/dashboard-header";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
-import { MinimalFooter } from "@/components/minimal-footer";
 import { ChartDataTable } from "@/components/chart-data-table";
 import type { AppAssignment } from "@/lib/server/graph";
 import type { OrganizationOption } from "@/lib/server/user-organizations";
@@ -75,12 +71,10 @@ function OrganizationSelect({
 }
 
 export function AdminClient({
-  displayName,
   users,
   organizationOptions,
   loadError,
 }: {
-  displayName: string;
   users: AdminUserRow[];
   organizationOptions: OrganizationOption[];
   loadError: boolean;
@@ -107,31 +101,19 @@ export function AdminClient({
   ];
 
   return (
-    <div className="dashboard-page">
-      <ConfidentialityBanner />
-      <div className="dashboard-shell">
-        <DashboardSidebar showAdmin />
-
-        <div className="dashboard-right">
-          <DashboardHeader displayName={displayName} />
-
-          <div className="dashboard-content">
-            <main id="main-content" className={`dashboard-main ${styles.page}`}>
-              <Heading level={2}>Manage users</Heading>
-              {loadError ? (
-                <p>Couldn&apos;t load users from Entra. Check the server logs.</p>
-              ) : (
-                <ChartDataTable
-                  columns={columns}
-                  data={users}
-                  emptyLabel="No users are assigned to TAP in Entra."
-                />
-              )}
-            </main>
-            <MinimalFooter />
-          </div>
-        </div>
-      </div>
+    <div className="dashboard-content">
+      <main id="main-content" className={`dashboard-main ${styles.page}`}>
+        <Heading level={2}>Manage users</Heading>
+        {loadError ? (
+          <p>Couldn&apos;t load users from Entra. Check the server logs.</p>
+        ) : (
+          <ChartDataTable
+            columns={columns}
+            data={users}
+            emptyLabel="No users are assigned to TAP in Entra."
+          />
+        )}
+      </main>
     </div>
   );
 }
