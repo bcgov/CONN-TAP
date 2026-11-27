@@ -1,3 +1,5 @@
+/* Figma "Reporting Status" (TAP design file, node 39:101) and its expanded
+   view "Section - Reporting Status details" (node 42:199). */
 .status {
   display: flex;
   align-items: center;
@@ -7,8 +9,23 @@
   padding: 10px var(--layout-padding-small);
   box-sizing: border-box;
   background: var(--support-surface-color-info);
-  border: 1px solid var(--surface-color-border-default);
+  border: var(--layout-border-width-small) solid var(--surface-color-border-default);
   border-radius: 8px;
+  font: inherit;
+  text-align: left;
+}
+
+button.status {
+  cursor: pointer;
+}
+
+button.status[data-hovered] {
+  border-color: var(--surface-color-border-medium);
+}
+
+button.status[data-focus-visible] {
+  outline: var(--layout-border-width-medium) solid var(--surface-color-border-active);
+  outline-offset: var(--layout-margin-hair);
 }
 
 .text {
@@ -16,23 +33,59 @@
   min-width: 0;
 }
 
+.title,
+.summary {
+  display: block;
+}
+
 .title {
-  margin: 0;
   font: var(--typography-bold-small-body);
-  color: var(--theme-primary-blue);
+  color: var(--surface-color-primary-default);
 }
 
 .summary {
-  margin: 0;
   font: var(--typography-regular-small-body);
   color: #1a1a1a;
 }
 
-.pending {
+.chevron {
   flex: none;
-  padding: 3px var(--layout-padding-small) 4px;
-  border-radius: var(--layout-border-radius-medium);
-  background: var(--support-surface-color-warning);
-  font: var(--typography-bold-small-body);
-  color: var(--typography-color-secondary);
+  color: #1a1a1a;
+  transition: transform 150ms ease;
+}
+
+.chevronDisabled {
+  color: var(--typography-color-disabled);
+}
+
+.status[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.popover {
+  box-sizing: border-box;
+  width: 768px;
+  max-width: calc(100vw - 2rem);
+  max-height: var(--visual-viewport-height);
+  overflow: auto;
+  background: var(--surface-color-background-white);
+  border: var(--layout-border-width-small) solid var(--surface-color-border-default);
+  border-radius: 8px;
+  box-shadow:
+    0 1.2px 1.8px rgb(0 0 0 / 10%),
+    0 6.4px 7.2px rgb(0 0 0 / 13%);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-padding-large);
+  padding: var(--layout-padding-medium);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
 }

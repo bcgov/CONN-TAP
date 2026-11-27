@@ -1,0 +1,54 @@
+/* One table section of the Figma "Section - Reporting Status details"
+   (TAP design file, node 42:199). */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--typography-font-families-bc-sans), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: var(--typography-font-weights-bold);
+  line-height: 1.6875rem;
+  color: var(--surface-color-primary-default);
+}
+
+.description {
+  margin: 0;
+  font: var(--typography-bold-small-body);
+  color: #1a1a1a;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0 var(--layout-padding-medium);
+  border-bottom: var(--layout-border-width-small) solid var(--surface-color-border-default);
+  text-align: left;
+}
+
+.table th {
+  height: 37px;
+  background: var(--support-surface-color-info);
+  font-family: var(--typography-font-families-bc-sans), system-ui, sans-serif;
+  font-size: var(--typography-font-size-label);
+  font-weight: var(--typography-font-weights-bold);
+  line-height: var(--typography-line-heights-xxdense);
+  letter-spacing: 0.13px;
+  text-transform: uppercase;
+  color: var(--typography-color-secondary);
+}
+
+.table td {
+  height: 44px;
+  font: var(--typography-regular-small-body);
+  letter-spacing: 0.15px;
+  color: #1a1a1a;
+}

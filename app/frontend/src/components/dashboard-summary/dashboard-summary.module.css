@@ -1,0 +1,13 @@
+/* Figma "Section - Dashboard summary" (TAP design file, node 14:807). */
+.summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--layout-padding-medium);
+  padding: 12px var(--layout-padding-medium);
+  background: var(--surface-color-background-white);
+  border: var(--layout-border-width-small) solid var(--surface-color-border-default);
+  border-radius: 8px;
+  box-shadow:
+    0 0.3px 0.45px rgb(0 0 0 / 10%),
+    0 1.6px 1.8px rgb(0 0 0 / 13%);
+}

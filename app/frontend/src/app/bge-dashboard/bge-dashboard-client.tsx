@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { ConfidentialityBanner } from "@/components/confidentiality-banner";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { DashboardSummary } from "@/components/dashboard-summary";
 import { FilterPanel } from "@/components/filter-panel";
 import { MinimalFooter } from "@/components/minimal-footer";
+import { PendingReportsTable } from "@/components/pending-reports-table";
 import { ReportingStatus } from "@/components/reporting-status";
 import { SpendBreakdown } from "@/components/spend-breakdown";
 import { SummaryStat } from "@/components/summary-stat";
@@ -29,6 +31,35 @@ const fetchMonthlySpend = async (): Promise<TimelinePoint[]> => {
   return isTimelineChart(chart) ? chart.data : [];
 };
 
+type MissingReport = {
+  report: string;
+  provider: string;
+  service_type: string;
+  frequency: "monthly" | "quarterly";
+  period: string;
+};
+
+type ReportingStatusData = {
+  expected_count: number;
+  received_count: number;
+  missing: MissingReport[];
+};
+
+// How many vendor reports are expected for the months, and which ones haven't come in.
+const fetchReportingStatus = async (periods: string[]): Promise<ReportingStatusData> => {
+  const result = await fetchDataset("reporting-status", { period: periods });
+  return result.metadata as ReportingStatusData;
+};
+
+// Monthly reports (TELUS and Rogers NGTA) share one table; each quarterly report
+// (TSMA, TSMA Lite) gets its own.
+const MONTHLY_REPORT_COLUMNS = [
+  { key: "provider", label: "Provider" },
+  { key: "service_type", label: "Service type" },
+  { key: "period", label: "Reporting month" },
+];
+const QUARTERLY_REPORT_COLUMNS = [{ key: "period", label: "Reporting period" }];
+
 export function BgeDashboardClient({
   displayName,
   orgName,
@@ -40,7 +71,11 @@ export function BgeDashboardClient({
     queryKey: ["monthly-spend"],
     queryFn: fetchMonthlySpend,
   });
-  const months = (monthlySpendQuery.data ?? []).slice(-DEFAULT_MONTHS);
+  // TEMPORARY, for testing: Jan–Dec 2025 instead of the latest 12 months.
+  // Put back: const months = (monthlySpendQuery.data ?? []).slice(-DEFAULT_MONTHS);
+  const months = (monthlySpendQuery.data ?? []).filter(
+    (month) => month.period >= "2025-01" && month.period <= "2025-12",
+  );
   const periods = months.map((month) => month.period);
   const peakMonth = months.length
     ? months.reduce((peak, month) => (month.value > peak.value ? month : peak))
@@ -66,6 +101,18 @@ export function BgeDashboardClient({
       colour: VENDOR_COLOURS[indicator.provider ?? ""],
     }));
 
+  const reportingStatusQuery = useQuery({
+    queryKey: ["reporting-status", periods],
+    queryFn: () => fetchReportingStatus(periods),
+    enabled: periods.length > 0,
+  });
+  const reportingStatus = reportingStatusQuery.data;
+  const missingReports = reportingStatus?.missing ?? [];
+  const missingMonthlyReports = missingReports.filter((missing) => missing.frequency === "monthly");
+  const missingQuarterlyReports = missingReports.filter((missing) => missing.frequency === "quarterly");
+  const quarterlyReportNames = [...new Set(missingQuarterlyReports.map((missing) => missing.report))];
+  const reportingPeriod = formatPeriodRange(periods);
+
   return (
     <div className="dashboard-page">
       <ConfidentialityBanner />
@@ -83,11 +130,11 @@ export function BgeDashboardClient({
                 <div className="bge-dashboard__heading">
                   <h1 className="bge-dashboard__title">Telecom Spend Dashboard</h1>
                   <p className="bge-dashboard__period">
-                    Reporting Period: {formatPeriodRange(periods) || "–"}
+                    Reporting Period: {reportingPeriod || "–"}
                   </p>
                 </div>
 
-                <section className="bge-dashboard__summary" aria-label="Dashboard summary">
+                <DashboardSummary>
                   <SpendBreakdown
                     isLoading={!spendQuery.data}
                     totalMillions={totalMillions}
@@ -98,8 +145,33 @@ export function BgeDashboardClient({
                     value={peakMonth?.label ?? "—"}
                     detail={peakMonth ? fmtMillions(peakMonth.value) : undefined}
                   />
-                  <ReportingStatus />
-                </section>
+                  <ReportingStatus
+                    receivedCount={reportingStatus?.received_count}
+                    expectedCount={reportingStatus?.expected_count}
+                  >
+                    {missingReports.length > 0 ? (
+                      <>
+                        {missingMonthlyReports.length > 0 && (
+                          <PendingReportsTable
+                            title="Pending NGTA reports"
+                            description={`Monthly reports not included in dashboard totals for ${reportingPeriod}`}
+                            columns={MONTHLY_REPORT_COLUMNS}
+                            rows={missingMonthlyReports}
+                          />
+                        )}
+                        {quarterlyReportNames.map((reportName) => (
+                          <PendingReportsTable
+                            key={reportName}
+                            title={`Pending ${reportName} reports`}
+                            description={`Quarterly reports not included in dashboard totals for ${reportingPeriod}`}
+                            columns={QUARTERLY_REPORT_COLUMNS}
+                            rows={missingQuarterlyReports.filter((missing) => missing.report === reportName)}
+                          />
+                        ))}
+                      </>
+                    ) : undefined}
+                  </ReportingStatus>
+                </DashboardSummary>
               </main>
               <MinimalFooter />
             </div>

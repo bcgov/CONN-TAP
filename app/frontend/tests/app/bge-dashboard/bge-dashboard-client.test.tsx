@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Each query's data is set per test, keyed by the first queryKey entry. The
@@ -29,6 +30,16 @@ const INDICATORS = {
     { label: "Total TSMA & NGTA Spend", value_millions: 2 },
     { label: "Total TELUS Spend", value_millions: 1.5, provider: "TELUS" },
     { label: "Total Rogers Spend", value_millions: 0.5, provider: "Rogers" },
+  ],
+};
+
+const REPORTING_STATUS = {
+  expected_count: 11,
+  received_count: 8,
+  missing: [
+    { report: "Rogers Data", provider: "Rogers", service_type: "Wireline", frequency: "monthly", period: "May 2026" },
+    { report: "TELUS", provider: "TELUS", service_type: "Wireless and Wireline", frequency: "monthly", period: "Jun 2026" },
+    { report: "TSMA", provider: "TELUS", service_type: "", frequency: "quarterly", period: "Apr–Jun 2026" },
   ],
 };
 
@@ -80,6 +91,50 @@ describe("BgeDashboardClient", () => {
 
     expect(screen.getByText("0%")).toBeInTheDocument();
   });
+
+  it("shows the reporting status and opens the pending NGTA and TSMA reports", async () => {
+    const user = userEvent.setup();
+    queryData["monthly-spend"] = MONTHLY_SPEND;
+    queryData["reporting-status"] = REPORTING_STATUS;
+    render(<BgeDashboardClient displayName="Alice" />);
+
+    expect(screen.getByText("8 of 11 reports received")).toBeInTheDocument();
+    expect(screen.getByText("3 Pending")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Reporting Status/ }));
+    const details = screen.getByRole("dialog", { name: "Pending reports" });
+
+    const ngta = within(details).getByRole("heading", { name: "Pending NGTA reports" }).closest("section")!;
+    expect(
+      within(ngta).getByText("Monthly reports not included in dashboard totals for Apr 2026 – Jun 2026"),
+    ).toBeInTheDocument();
+    expect(within(ngta).getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "Provider",
+      "Service type",
+      "Reporting month",
+      "Status",
+    ]);
+    expect(within(ngta).getByRole("row", { name: /Rogers Wireline May 2026 Pending/ })).toBeInTheDocument();
+    expect(within(ngta).getByRole("row", { name: /TELUS Wireless and Wireline Jun 2026 Pending/ })).toBeInTheDocument();
+
+    const tsma = within(details).getByRole("heading", { name: "Pending TSMA reports" }).closest("section")!;
+    expect(
+      within(tsma).getByText("Quarterly reports not included in dashboard totals for Apr 2026 – Jun 2026"),
+    ).toBeInTheDocument();
+    expect(within(tsma).getByRole("row", { name: /Apr–Jun 2026 Pending/ })).toBeInTheDocument();
+
+    expect(within(details).queryByRole("heading", { name: "Pending TSMA Lite reports" })).not.toBeInTheDocument();
+  });
+
+  it("has nothing to open when every report is in", () => {
+    queryData["monthly-spend"] = MONTHLY_SPEND;
+    queryData["reporting-status"] = { expected_count: 11, received_count: 11, missing: [] };
+    render(<BgeDashboardClient displayName="Alice" />);
+
+    expect(screen.getByText("11 of 11 reports received")).toBeInTheDocument();
+    expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Reporting Status/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("BgeDashboardClient data layer", () => {
@@ -107,5 +162,15 @@ describe("BgeDashboardClient data layer", () => {
 
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ metadata: { chart: {} } })));
     await expect(queryFns["isp-spend-indicators"]()).resolves.toBeNull();
+  });
+
+  it("reporting status query asks for the reporting period and returns the counts", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ metadata: REPORTING_STATUS }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(queryFns["reporting-status"]()).resolves.toEqual(REPORTING_STATUS);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/datasets/reporting-status/data?period=2026-04&period=2026-05&period=2026-06",
+      { cache: "no-store" },
+    );
   });
 });
