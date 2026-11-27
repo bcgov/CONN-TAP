@@ -17,7 +17,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/bge-dashboard" }));
 
-import { BgeDashboardClient } from "@/app/bge-dashboard/bge-dashboard-client";
+import { BgeDashboardClient } from "@/app/(dashboard)/bge-dashboard/bge-dashboard-client";
 
 const MONTHLY_SPEND = [
   { period: "2026-04", label: "Apr 2026", value: 0.5 },
@@ -55,15 +55,14 @@ afterEach(() => {
 });
 
 describe("BgeDashboardClient", () => {
-  it("shows the user's organization in the header", () => {
-    render(<BgeDashboardClient displayName="Alice" orgName="Ministry of Health" />);
+  it("shows the dashboard heading", () => {
+    render(<BgeDashboardClient />);
 
-    expect(screen.getByText("Ministry of Health")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Telecom Spend Dashboard" })).toBeInTheDocument();
   });
 
   it("shows dashes before the data has loaded", () => {
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
 
     expect(screen.getByText("Reporting Period: –")).toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(3); // total spend, peak month and reporting status
@@ -72,7 +71,7 @@ describe("BgeDashboardClient", () => {
   it("shows the reporting period, total spend, provider split and peak month", () => {
     queryData["monthly-spend"] = MONTHLY_SPEND;
     queryData["isp-spend-indicators"] = INDICATORS;
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
 
     expect(screen.getByText("Reporting Period: Apr 2026 – Jun 2026")).toBeInTheDocument();
     expect(screen.getByText("$2M")).toBeInTheDocument();
@@ -87,7 +86,7 @@ describe("BgeDashboardClient", () => {
     queryData["isp-spend-indicators"] = {
       indicators: [{ label: "Total TELUS Spend", value_millions: 0, provider: "TELUS" }],
     };
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
 
     expect(screen.getByText("0%")).toBeInTheDocument();
   });
@@ -96,7 +95,7 @@ describe("BgeDashboardClient", () => {
     const user = userEvent.setup();
     queryData["monthly-spend"] = MONTHLY_SPEND;
     queryData["reporting-status"] = REPORTING_STATUS;
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
 
     expect(screen.getByText("8 of 11 reports received")).toBeInTheDocument();
     expect(screen.getByText("3 Pending")).toBeInTheDocument();
@@ -129,7 +128,7 @@ describe("BgeDashboardClient", () => {
   it("has nothing to open when every report is in", () => {
     queryData["monthly-spend"] = MONTHLY_SPEND;
     queryData["reporting-status"] = { expected_count: 11, received_count: 11, missing: [] };
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
 
     expect(screen.getByText("11 of 11 reports received")).toBeInTheDocument();
     expect(screen.getByText("Complete")).toBeInTheDocument();
@@ -140,7 +139,7 @@ describe("BgeDashboardClient", () => {
 describe("BgeDashboardClient data layer", () => {
   beforeEach(() => {
     queryData["monthly-spend"] = MONTHLY_SPEND;
-    render(<BgeDashboardClient displayName="Alice" />);
+    render(<BgeDashboardClient />);
   });
 
   it("monthly spend query returns the months, or none for another chart type", async () => {

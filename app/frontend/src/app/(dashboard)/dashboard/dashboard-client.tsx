@@ -2,10 +2,6 @@
 
 import { Heading } from "@bcgov/design-system-react-components";
 import { useQuery } from "@tanstack/react-query";
-import { ConfidentialityBanner } from "@/components/confidentiality-banner";
-import { DashboardHeader } from "@/components/dashboard-header";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
-import { MinimalFooter } from "@/components/minimal-footer";
 import { SpendIndicatorCards } from "@/components/spend-indicator-cards";
 import { SpendTimelineBrush } from "@/components/spend-timeline-brush";
 import { SpendByCategory } from "@/components/spend-by-category";
@@ -25,17 +21,7 @@ import { fetchDataset } from "@/lib/fetch-dataset";
 import { fmtMillions } from "@/lib/format-utils";
 import { useEffect, useRef, useState } from "react";
 
-export function DashboardClient({
-  displayName,
-  visibleDatasetIds,
-  orgName,
-  isAdmin = false,
-}: {
-  displayName: string;
-  visibleDatasetIds: string[];
-  orgName?: string;
-  isAdmin?: boolean;
-}) {
+export function DashboardClient({ visibleDatasetIds }: { visibleDatasetIds: string[] }) {
   const [period, setPeriods] = useState<string[]>([]);
   const canAccessIndicators = visibleDatasetIds.includes("isp-spend-indicators");
   const canAccessCategory = visibleDatasetIds.includes("service-category-spend-plotly");
@@ -132,97 +118,85 @@ export function DashboardClient({
   }, []);
 
   return (
-    <div className="dashboard-page">
-      <ConfidentialityBanner />
-      <div className="dashboard-shell">
-        <DashboardSidebar showAdmin={isAdmin} />
-
-        <div className="dashboard-right">
-          <DashboardHeader displayName={displayName} orgName={orgName} />
-
-          <div className="dashboard-content">
-            <main id="main-content" className="dashboard-main">
-              <div className="dashboard-main__header">
-                <div>
-                  <Heading level={1}>Telecom Spend Dashboard</Heading>
-                  <Heading level={5}>TSMA & NGTA</Heading>
-                  <p className="dashboard-main__intro">
-                    Consolidated view of telecom spend across Buyers Group Entities
-                  </p>
-                </div>
-              </div>
-              <hr className="dashboard-main__divider" />
-
-              <SpendTimelineBrush
-                chart={timelineQuery.data ?? null}
-                isLoading={timelineQuery.isLoading}
-                onPeriodsChange={setPeriods}
-                yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
-                tooltipFormatter={(v) => fmtMillions(Number(v))}
-              />
-
-              {canAccessIndicators && (
-                <SpendIndicatorCards
-                  indicators={indicatorQuery.data?.indicators ?? []}
-                  dateRangeLabel={dateRangeLabel}
-                  isLoading={indicatorQuery.isLoading}
-                />
-              )}
-
-              {(canAccessCategory || canAccessSector) && (
-                <section className="dashboard-chart-grid" aria-live="polite">
-                  {canAccessCategory && (
-                    <SpendByCategory
-                      chart={chartQuery.data?.plotly}
-                      dateRangeLabel={dateRangeLabel}
-                      isLoading={chartQuery.isLoading}
-                      isError={chartQuery.isError}
-                    />
-                  )}
-
-                  {canAccessSector && (
-                    <SpendBySector
-                      chart={sectorQuery.data}
-                      dateRangeLabel={dateRangeLabel}
-                      isLoading={sectorQuery.isLoading}
-                      isError={sectorQuery.isError}
-                    />
-                  )}
-                </section>
-              )}
-
-              {canAccessBgeData && (
-                <section
-                  className="dashboard-chart-grid dashboard-chart-grid--full"
-                  aria-live="polite"
-                >
-                  <SpendByBge
-                    chart={bgeQuery.data}
-                    dateRangeLabel={dateRangeLabel}
-                    isLoading={bgeQuery.isLoading}
-                    isError={bgeQuery.isError}
-                  />
-                </section>
-              )}
-
-              {canAccessSummary && (
-                <section
-                  className="dashboard-chart-grid dashboard-chart-grid--full"
-                  aria-live="polite"
-                >
-                  <SpendSummaryTable
-                    table={summaryQuery.data}
-                    dateRangeLabel={dateRangeLabel}
-                    isLoading={summaryQuery.isLoading}
-                    isError={summaryQuery.isError}
-                  />
-                </section>
-              )}
-            </main>
-            <MinimalFooter />
+    <div className="dashboard-content">
+      <main id="main-content" className="dashboard-main">
+        <div className="dashboard-main__header">
+          <div>
+            <Heading level={1}>Telecom Spend Dashboard</Heading>
+            <Heading level={5}>TSMA & NGTA</Heading>
+            <p className="dashboard-main__intro">
+              Consolidated view of telecom spend across Buyers Group Entities
+            </p>
           </div>
         </div>
-      </div>
+        <hr className="dashboard-main__divider" />
+
+        <SpendTimelineBrush
+          chart={timelineQuery.data ?? null}
+          isLoading={timelineQuery.isLoading}
+          onPeriodsChange={setPeriods}
+          yAxisFormatter={(v) => `$${Number(v).toFixed(0)}M`}
+          tooltipFormatter={(v) => fmtMillions(Number(v))}
+        />
+
+        {canAccessIndicators && (
+          <SpendIndicatorCards
+            indicators={indicatorQuery.data?.indicators ?? []}
+            dateRangeLabel={dateRangeLabel}
+            isLoading={indicatorQuery.isLoading}
+          />
+        )}
+
+        {(canAccessCategory || canAccessSector) && (
+          <section className="dashboard-chart-grid" aria-live="polite">
+            {canAccessCategory && (
+              <SpendByCategory
+                chart={chartQuery.data?.plotly}
+                dateRangeLabel={dateRangeLabel}
+                isLoading={chartQuery.isLoading}
+                isError={chartQuery.isError}
+              />
+            )}
+
+            {canAccessSector && (
+              <SpendBySector
+                chart={sectorQuery.data}
+                dateRangeLabel={dateRangeLabel}
+                isLoading={sectorQuery.isLoading}
+                isError={sectorQuery.isError}
+              />
+            )}
+          </section>
+        )}
+
+        {canAccessBgeData && (
+          <section
+            className="dashboard-chart-grid dashboard-chart-grid--full"
+            aria-live="polite"
+          >
+            <SpendByBge
+              chart={bgeQuery.data}
+              dateRangeLabel={dateRangeLabel}
+              isLoading={bgeQuery.isLoading}
+              isError={bgeQuery.isError}
+            />
+          </section>
+        )}
+
+        {canAccessSummary && (
+          <section
+            className="dashboard-chart-grid dashboard-chart-grid--full"
+            aria-live="polite"
+          >
+            <SpendSummaryTable
+              table={summaryQuery.data}
+              dateRangeLabel={dateRangeLabel}
+              isLoading={summaryQuery.isLoading}
+              isError={summaryQuery.isError}
+            />
+          </section>
+        )}
+      </main>
     </div>
   );
 }

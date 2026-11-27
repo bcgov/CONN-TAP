@@ -303,7 +303,6 @@ body.telecom-landing {
   color: var(--typography-color-secondary, var(--color-text-secondary));
 }
 
-/* Minimal Footer */
 /* Unauthorized page */
 .unauthorized-icon {
   display: flex;

@@ -1,0 +1,49 @@
+/* Figma "Footer" (TAP design file, node 43:247). */
+.footer {
+  flex: none;
+  background: var(--surface-color-secondary-hover);
+  border-top: var(--layout-border-width-small) solid var(--surface-color-border-dark);
+  border-left: var(--layout-border-width-large) solid var(--surface-color-border-dark);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0 var(--layout-padding-medium);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+}
+
+.separator {
+  padding: 0 2px;
+  font-family: var(--typography-font-families-bc-sans), system-ui, sans-serif;
+  font-size: var(--typography-font-size-label);
+  line-height: 1.125rem;
+  color: var(--typography-color-secondary);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--layout-padding-small);
+  border-radius: var(--layout-border-radius-medium);
+  font: var(--typography-regular-small-body);
+  color: var(--typography-color-secondary);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--typography-color-primary);
+}
+
+.link:focus-visible {
+  outline: var(--layout-border-width-medium) solid var(--surface-color-border-active);
+  outline-offset: calc(-1 * var(--layout-border-width-medium));
+}

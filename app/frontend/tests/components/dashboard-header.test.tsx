@@ -1,10 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/bge-dashboard" }));
 
 import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("DashboardHeader", () => {
   it("shows the user's initial, name and organization", () => {
@@ -20,6 +25,15 @@ describe("DashboardHeader", () => {
     render(<DashboardHeader displayName="Alice" />);
 
     expect(screen.getByText("Telecom Office")).toBeInTheDocument();
+  });
+
+  it("signs the user out when Sign out is clicked", async () => {
+    vi.stubGlobal("location", { href: "" });
+    render(<DashboardHeader displayName="Alice" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(globalThis.location.href).toBe("/auth/logout");
   });
 });
 
